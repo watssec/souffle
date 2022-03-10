@@ -92,7 +92,7 @@ std::string InfoRelation::getTypeName() {
 
 /** Generate type struct of a info relation, which is empty,
  * the actual implementation is in CompiledSouffle.h */
-void InfoRelation::generateTypeStruct(std::ostream&) {
+void InfoRelation::generateTypeStruct(std::ostream&, std::ostream&) {
     return;
 }
 
@@ -110,7 +110,7 @@ std::string NullaryRelation::getTypeName() {
 
 /** Generate type struct of a nullary relation, which is empty,
  * the actual implementation is in CompiledSouffle.h */
-void NullaryRelation::generateTypeStruct(std::ostream&) {
+void NullaryRelation::generateTypeStruct(std::ostream&, std::ostream&) {
     return;
 }
 
@@ -169,7 +169,7 @@ void DirectRelation::computeIndices() {
 }
 
 /** Generate type name of a direct indexed relation */
-std::string DirectRelation::getTypeName() {
+std::string DirectRelation::getTypeNamespace() {
     // collect all attributes used in the lex-order
     std::unordered_set<std::size_t> attributesUsed;
     for (auto& ind : getIndices()) {
@@ -194,11 +194,17 @@ std::string DirectRelation::getTypeName() {
         res << "__" << search;
     }
 
+    res << "::Type";
+
     return res.str();
 }
 
+std::string DirectRelation::getTypeName() {
+    return getTypeNamespace() + "::Type";
+}
+
 /** Generate type struct of a direct indexed relation */
-void DirectRelation::generateTypeStruct(std::ostream& out) {
+void DirectRelation::generateTypeStruct(std::ostream&decl, std::ostream& def) {
     std::size_t arity = getArity();
     std::size_t auxiliaryArity = relation.getAuxiliaryArity();
     auto types = relation.getAttributeTypes();
@@ -206,24 +212,28 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
     std::size_t numIndexes = inds.size();
     std::map<LexOrder, std::size_t> indexToNumMap;
 
+    decl << "namespace " << getTypeNamespace() << " {\n";
+    def << "namespace " << getTypeNamespace() << " {\n";
+
+
     // struct definition
-    out << "struct " << getTypeName() << " {\n";
-    out << "static constexpr Relation::arity_type Arity = " << arity << ";\n";
+    decl << "struct Type {\n";
+    decl << "static constexpr Relation::arity_type Arity = " << arity << ";\n";
 
     // stored tuple type
-    out << "using t_tuple = Tuple<RamDomain, " << arity << ">;\n";
+    decl << "using t_tuple = Tuple<RamDomain, " << arity << ">;\n";
 
     // generate an updater class for provenance
     if (isProvenance) {
-        out << "struct updater_" << getTypeName() << " {\n";
-        out << "void update(t_tuple& old_t, const t_tuple& new_t) {\n";
+        decl << "struct updater {\n";
+        decl << "void update(t_tuple& old_t, const t_tuple& new_t) {\n";
 
         for (std::size_t i = arity - auxiliaryArity; i < arity; i++) {
-            out << "old_t[" << i << "] = new_t[" << i << "];\n";
+            decl << "old_t[" << i << "] = new_t[" << i << "];\n";
         }
 
-        out << "}\n";
-        out << "};\n";
+        decl << "}\n";
+        decl << "};\n";
     }
 
     // generate the btree type for each relation
@@ -246,56 +256,56 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
         }
 
         auto genstruct = [&](std::string name, std::size_t bound) {
-            out << "struct " << name << "{\n";
-            out << " int operator()(const t_tuple& a, const t_tuple& b) const {\n";
-            out << "  return ";
+            decl << "struct " << name << "{\n";
+            decl << " int operator()(const t_tuple& a, const t_tuple& b) const {\n";
+            decl << "  return ";
             std::function<void(std::size_t)> gencmp = [&](std::size_t i) {
                 std::size_t attrib = ind[i];
                 const auto& typecast = typecasts[attrib];
 
-                out << "(" << typecast << "(a[" << attrib << "]) < " << typecast << "(b[" << attrib
+                decl << "(" << typecast << "(a[" << attrib << "]) < " << typecast << "(b[" << attrib
                     << "])) ? -1 : (" << typecast << "(a[" << attrib << "]) > " << typecast << "(b[" << attrib
                     << "])) ? 1 :(";
                 if (i + 1 < bound) {
                     gencmp(i + 1);
                 } else {
-                    out << "0";
+                    decl << "0";
                 }
-                out << ")";
+                decl << ")";
             };
             gencmp(0);
-            out << ";\n }\n";
-            out << "bool less(const t_tuple& a, const t_tuple& b) const {\n";
-            out << "  return ";
+            decl << ";\n }\n";
+            decl << "bool less(const t_tuple& a, const t_tuple& b) const {\n";
+            decl << "  return ";
             std::function<void(std::size_t)> genless = [&](std::size_t i) {
                 std::size_t attrib = ind[i];
                 const auto& typecast = typecasts[attrib];
 
-                out << "(" << typecast << "(a[" << attrib << "]) < " << typecast << "(b[" << attrib << "]))";
+                decl << "(" << typecast << "(a[" << attrib << "]) < " << typecast << "(b[" << attrib << "]))";
                 if (i + 1 < bound) {
-                    out << "|| ((" << typecast << "(a[" << attrib << "]) == " << typecast << "(b[" << attrib
+                    decl << "|| ((" << typecast << "(a[" << attrib << "]) == " << typecast << "(b[" << attrib
                         << "])) && (";
                     genless(i + 1);
-                    out << "))";
+                    decl << "))";
                 }
             };
             genless(0);
-            out << ";\n }\n";
-            out << "bool equal(const t_tuple& a, const t_tuple& b) const {\n";
-            out << "return ";
+            decl << ";\n }\n";
+            decl << "bool equal(const t_tuple& a, const t_tuple& b) const {\n";
+            decl << "return ";
             std::function<void(std::size_t)> geneq = [&](std::size_t i) {
                 std::size_t attrib = ind[i];
                 const auto& typecast = typecasts[attrib];
 
-                out << "(" << typecast << "(a[" << attrib << "]) == " << typecast << "(b[" << attrib << "]))";
+                decl << "(" << typecast << "(a[" << attrib << "]) == " << typecast << "(b[" << attrib << "]))";
                 if (i + 1 < bound) {
-                    out << "&&";
+                    decl << "&&";
                     geneq(i + 1);
                 }
             };
             geneq(0);
-            out << ";\n }\n";
-            out << "};\n";
+            decl << ";\n }\n";
+            decl << "};\n";
         };
 
         std::string comparator = "t_comparator_" + std::to_string(i);
@@ -314,81 +324,90 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
                 // index for top down phase
                 comparator_aux = comparator;
             }
-            out << "using t_ind_" << i << " = btree_set<t_tuple," << comparator
+            decl << "using t_ind_" << i << " = btree_set<t_tuple," << comparator
                 << ",std::allocator<t_tuple>,256,typename "
                    "souffle::detail::default_strategy<t_tuple>::type,"
-                << comparator_aux << ",updater_" << getTypeName() << ">;\n";
+                << comparator_aux << ",updater>;\n";
         } else {
             std::string btree_name = "btree";
             if (hasErase) {
                 btree_name = "btree_delete";
             }
             if (ind.size() == arity) {
-                out << "using t_ind_" << i << " = " << btree_name << "_set<t_tuple," << comparator << ">;\n";
+                decl << "using t_ind_" << i << " = " << btree_name << "_set<t_tuple," << comparator << ">;\n";
             } else {
                 // without provenance, some indices may be not full, so we use btree_multiset for those
-                out << "using t_ind_" << i << " = " << btree_name << "_multiset<t_tuple," << comparator
+                decl << "using t_ind_" << i << " = " << btree_name << "_multiset<t_tuple," << comparator
                     << ">;\n";
             }
         }
-        out << "t_ind_" << i << " ind_" << i << ";\n";
+        decl << "t_ind_" << i << " ind_" << i << ";\n";
+        def << "using t_ind_" << i << " = Type::t_ind_" << i << ";\n";
     }
 
     // typedef master index iterator to be struct iterator
-    out << "using iterator = t_ind_" << masterIndex << "::iterator;\n";
+    decl << "using iterator = t_ind_" << masterIndex << "::iterator;\n";
+    def << "using iterator = Type::iterator;\n";
 
     // create a struct storing hints for each btree
-    out << "struct context {\n";
+    decl << "struct context {\n";
     for (std::size_t i = 0; i < numIndexes; i++) {
-        out << "t_ind_" << i << "::operation_hints hints_" << i << "_lower"
+        decl << "t_ind_" << i << "::operation_hints hints_" << i << "_lower"
             << ";\n";
-        out << "t_ind_" << i << "::operation_hints hints_" << i << "_upper"
+        decl << "t_ind_" << i << "::operation_hints hints_" << i << "_upper"
             << ";\n";
     }
-    out << "};\n";
-    out << "context createContext() { return context(); }\n";
+    decl << "};\n";
+    def << "using context = Type::context;\n";
+    decl << "context createContext() { return context(); }\n";
 
     // erase method
     if (hasErase) {
-        out << "bool erase(const t_tuple& t) {\n";
+        decl << "bool erase(const t_tuple& t);\n";
 
-        out << "if (ind_" << masterIndex << ".erase(t) > 0) {\n";
+        def << "bool Type::erase(const t_tuple& t) {\n";
+
+        def << "if (ind_" << masterIndex << ".erase(t) > 0) {\n";
         for (std::size_t i = 0; i < numIndexes; i++) {
             if (i != masterIndex && provenanceIndexNumbers.find(i) == provenanceIndexNumbers.end()) {
-                out << "ind_" << i << ".erase(t);\n";
+                def << "ind_" << i << ".erase(t);\n";
             }
         }
-        out << "return true;\n";
-        out << "} else return false;\n";
-        out << "}\n";  // end of erase(t_tuple&)
+        def << "return true;\n";
+        def << "} else return false;\n";
+        def << "}\n";  // end of erase(t_tuple&)
     }
 
     // insert methods
-    out << "bool insert(const t_tuple& t) {\n";
-    out << "context h;\n";
-    out << "return insert(t, h);\n";
-    out << "}\n";  // end of insert(t_tuple&)
+    decl << "bool insert(const t_tuple& t);\n";
 
-    out << "bool insert(const t_tuple& t, context& h) {\n";
-    out << "if (ind_" << masterIndex << ".insert(t, h.hints_" << masterIndex << "_lower"
+    def << "bool Type::insert(const t_tuple& t) {\n";
+    def << "context h;\n";
+    def << "return insert(t, h);\n";
+    def << "}\n";  // end of insert(t_tuple&)
+
+    decl << "bool insert(const t_tuple& t, context& h);\n";
+    def << "bool Type::insert(const t_tuple& t, context& h) {\n";
+    def << "if (ind_" << masterIndex << ".insert(t, h.hints_" << masterIndex << "_lower"
         << ")) {\n";
     for (std::size_t i = 0; i < numIndexes; i++) {
         if (i != masterIndex && provenanceIndexNumbers.find(i) == provenanceIndexNumbers.end()) {
-            out << "ind_" << i << ".insert(t, h.hints_" << i << "_lower"
+            def << "ind_" << i << ".insert(t, h.hints_" << i << "_lower"
                 << ");\n";
         }
     }
-    out << "return true;\n";
-    out << "} else return false;\n";
-    out << "}\n";  // end of insert(t_tuple&, context&)
+    def << "return true;\n";
+    def << "} else return false;\n";
+    def << "}\n";  // end of insert(t_tuple&, context&)
 
-    out << "bool insert(const RamDomain* ramDomain) {\n";
-    out << "RamDomain data[" << arity << "];\n";
-    out << "std::copy(ramDomain, ramDomain + " << arity << ", data);\n";
-    out << "const t_tuple& tuple = reinterpret_cast<const t_tuple&>(data);\n";
-    out << "context h;\n";
-    out << "return insert(tuple, h);\n";
-    out << "}\n";  // end of insert(RamDomain*)
+    decl << "bool insert(const RamDomain* ramDomain);\n";
+    def << "bool Type::insert(const RamDomain* ramDomain) {\n";
+    def << "RamDomain data[" << arity << "];\n";
+    def << "std::copy(ramDomain, ramDomain + " << arity << ", data);\n";
+    def << "const t_tuple& tuple = reinterpret_cast<const t_tuple&>(data);\n";
+    def << "context h;\n";
+    def << "return insert(tuple, h);\n";
+    def << "}\n";  // end of insert(RamDomain*)
 
     std::vector<std::string> decls;
     std::vector<std::string> params;
@@ -396,59 +415,72 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
         decls.push_back("RamDomain a" + std::to_string(i));
         params.push_back("a" + std::to_string(i));
     }
-    out << "bool insert(" << join(decls, ",") << ") {\n";
-    out << "RamDomain data[" << arity << "] = {" << join(params, ",") << "};\n";
-    out << "return insert(data);\n";
-    out << "}\n";  // end of insert(RamDomain x1, RamDomain x2, ...)
+    decl << "bool insert(" << join(decls, ",") << ");\n";
+
+    def << "bool Type::insert(" << join(decls, ",") << ") {\n";
+    def << "RamDomain data[" << arity << "] = {" << join(params, ",") << "};\n";
+    def << "return insert(data);\n";
+    def << "}\n";  // end of insert(RamDomain x1, RamDomain x2, ...)
 
     // contains methods
-    out << "bool contains(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".contains(t, h.hints_" << masterIndex << "_lower"
+    decl << "bool contains(const t_tuple& t, context& h) const;\n";
+    def << "bool Type::contains(const t_tuple& t, context& h) const {\n";
+    def << "return ind_" << masterIndex << ".contains(t, h.hints_" << masterIndex << "_lower"
         << ");\n";
-    out << "}\n";
+    def << "}\n";
 
-    out << "bool contains(const t_tuple& t) const {\n";
-    out << "context h;\n";
-    out << "return contains(t, h);\n";
-    out << "}\n";
+    decl << "bool contains(const t_tuple& t) const;\n";
+    def << "bool Type::contains(const t_tuple& t) const {\n";
+    def << "context h;\n";
+    def << "return contains(t, h);\n";
+    def << "}\n";
 
     // size method
-    out << "std::size_t size() const {\n";
-    out << "return ind_" << masterIndex << ".size();\n";
-    out << "}\n";
+    decl << "std::size_t size() const;\n";
+    def << "std::size_t Type::size() const {\n";
+    def << "return ind_" << masterIndex << ".size();\n";
+    def << "}\n";
 
     // find methods
-    out << "iterator find(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".find(t, h.hints_" << masterIndex << "_lower"
+    decl << "iterator find(const t_tuple& t, context& h) const;\n";
+    def << "iterator Type::find(const t_tuple& t, context& h) const {\n";
+    def << "return ind_" << masterIndex << ".find(t, h.hints_" << masterIndex << "_lower"
         << ");\n";
-    out << "}\n";
+    def << "}\n";
 
-    out << "iterator find(const t_tuple& t) const {\n";
-    out << "context h;\n";
-    out << "return find(t, h);\n";
-    out << "}\n";
+    decl << "iterator find(const t_tuple& t) const;\n";
+    def << "iterator Type::find(const t_tuple& t) const {\n";
+    def << "context h;\n";
+    def << "return find(t, h);\n";
+    def << "}\n";
 
     // empty lowerUpperRange method
-    out << "range<iterator> lowerUpperRange_" << SearchSignature(arity)
+    decl << "range<iterator> lowerUpperRange_" << SearchSignature(arity)
+        << "(const t_tuple& /* lower */, const t_tuple& /* upper */, context& /* h */) const;\n";
+    def << "range<iterator> Type::lowerUpperRange_" << SearchSignature(arity)
         << "(const t_tuple& /* lower */, const t_tuple& /* upper */, context& /* h */) const "
            "{\n";
 
-    out << "return range<iterator>(ind_" << masterIndex << ".begin(),ind_" << masterIndex << ".end());\n";
-    out << "}\n";
+    def << "return range<iterator>(ind_" << masterIndex << ".begin(),ind_" << masterIndex << ".end());\n";
+    def << "}\n";
 
-    out << "range<iterator> lowerUpperRange_" << SearchSignature(arity)
+    decl << "range<iterator> lowerUpperRange_" << SearchSignature(arity)
+        << "(const t_tuple& /* lower */, const t_tuple& /* upper */) const;\n";
+    def << "range<iterator> Type::lowerUpperRange_" << SearchSignature(arity)
         << "(const t_tuple& /* lower */, const t_tuple& /* upper */) const {\n";
 
-    out << "return range<iterator>(ind_" << masterIndex << ".begin(),ind_" << masterIndex << ".end());\n";
-    out << "}\n";
+    def << "return range<iterator>(ind_" << masterIndex << ".begin(),ind_" << masterIndex << ".end());\n";
+    def << "}\n";
 
     // lowerUpperRange methods for each pattern which is used to search this relation
     for (auto search : indexSelection.getSearches()) {
         auto& lexOrder = indexSelection.getLexOrder(search);
         std::size_t indNum = indexToNumMap[lexOrder];
 
-        out << "range<t_ind_" << indNum << "::iterator> lowerUpperRange_" << search;
-        out << "(const t_tuple& lower, const t_tuple& upper, context& h) const {\n";
+        decl << "range<t_ind_" << indNum << "::iterator> lowerUpperRange_" << search;
+        decl << "(const t_tuple& lower, const t_tuple& upper, context& h) const;\n";
+        def << "range<t_ind_" << indNum << "::iterator> Type::lowerUpperRange_" << search;
+        def << "(const t_tuple& lower, const t_tuple& upper, context& h) const {\n";
 
         // count size of search pattern
         std::size_t eqSize = 0;
@@ -458,86 +490,98 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
             }
         }
 
-        out << "t_comparator_" << indNum << " comparator;\n";
-        out << "int cmp = comparator(lower, upper);\n";
+        def << "t_comparator_" << indNum << " comparator;\n";
+        def << "int cmp = comparator(lower, upper);\n";
 
         // if search signature is full we can apply this specialization
         if (eqSize == arity) {
             // use the more efficient find() method if lower == upper
-            out << "if (cmp == 0) {\n";
-            out << "    auto pos = ind_" << indNum << ".find(lower, h.hints_" << indNum << "_lower);\n";
-            out << "    auto fin = ind_" << indNum << ".end();\n";
-            out << "    if (pos != fin) {fin = pos; ++fin;}\n";
-            out << "    return make_range(pos, fin);\n";
-            out << "}\n";
+            def << "if (cmp == 0) {\n";
+            def << "    auto pos = ind_" << indNum << ".find(lower, h.hints_" << indNum << "_lower);\n";
+            def << "    auto fin = ind_" << indNum << ".end();\n";
+            def << "    if (pos != fin) {fin = pos; ++fin;}\n";
+            def << "    return make_range(pos, fin);\n";
+            def << "}\n";
         }
         // if lower_bound > upper_bound then we return an empty range
-        out << "if (cmp > 0) {\n";
-        out << "    return make_range(ind_" << indNum << ".end(), ind_" << indNum << ".end());\n";
-        out << "}\n";
+        def << "if (cmp > 0) {\n";
+        def << "    return make_range(ind_" << indNum << ".end(), ind_" << indNum << ".end());\n";
+        def << "}\n";
         // otherwise use the general method
-        out << "return make_range(ind_" << indNum << ".lower_bound(lower, h.hints_" << indNum << "_lower"
+        def << "return make_range(ind_" << indNum << ".lower_bound(lower, h.hints_" << indNum << "_lower"
             << "), ind_" << indNum << ".upper_bound(upper, h.hints_" << indNum << "_upper"
             << "));\n";
 
-        out << "}\n";
+        def << "}\n";
 
-        out << "range<t_ind_" << indNum << "::iterator> lowerUpperRange_" << search;
-        out << "(const t_tuple& lower, const t_tuple& upper) const {\n";
+        decl << "range<t_ind_" << indNum << "::iterator> lowerUpperRange_" << search;
+        decl << "(const t_tuple& lower, const t_tuple& upper) const;\n";
+        def << "range<t_ind_" << indNum << "::iterator> Type::lowerUpperRange_" << search;
+        def << "(const t_tuple& lower, const t_tuple& upper) const {\n";
 
-        out << "context h;\n";
-        out << "return lowerUpperRange_" << search << "(lower,upper,h);\n";
-        out << "}\n";
+        def << "context h;\n";
+        def << "return lowerUpperRange_" << search << "(lower,upper,h);\n";
+        def << "}\n";
     }
 
     // empty method
-    out << "bool empty() const {\n";
-    out << "return ind_" << masterIndex << ".empty();\n";
-    out << "}\n";
+    decl << "bool empty() const;\n";
+    def << "bool Type::empty() const {\n";
+    def << "return ind_" << masterIndex << ".empty();\n";
+    def << "}\n";
 
     // partition method for parallelism
-    out << "std::vector<range<iterator>> partition() const {\n";
-    out << "return ind_" << masterIndex << ".getChunks(400);\n";
-    out << "}\n";
+    decl << "std::vector<range<iterator>> partition() const;\n";
+    def << "std::vector<range<iterator>> Type::partition() const {\n";
+    def << "return ind_" << masterIndex << ".getChunks(400);\n";
+    def << "}\n";
 
     // purge method
-    out << "void purge() {\n";
+    decl << "void purge();\n";
+    def << "void Type::purge() {\n";
     for (std::size_t i = 0; i < numIndexes; i++) {
-        out << "ind_" << i << ".clear();\n";
+        def << "ind_" << i << ".clear();\n";
     }
-    out << "}\n";
+    def << "}\n";
 
     // begin and end iterators
-    out << "iterator begin() const {\n";
-    out << "return ind_" << masterIndex << ".begin();\n";
-    out << "}\n";
+    decl << "iterator begin() const;\n";
+    def << "iterator Type::begin() const {\n";
+    def << "return ind_" << masterIndex << ".begin();\n";
+    def << "}\n";
 
-    out << "iterator end() const {\n";
-    out << "return ind_" << masterIndex << ".end();\n";
-    out << "}\n";
+    decl << "iterator end() const;\n";
+    def << "iterator Type::end() const {\n";
+    def << "return ind_" << masterIndex << ".end();\n";
+    def << "}\n";
 
     // copyIndex method
     if (!provenanceIndexNumbers.empty()) {
-        out << "void copyIndex() {\n";
-        out << "for (auto const &cur : ind_" << masterIndex << ") {\n";
+        decl << "void copyIndex();\n";
+        def << "void Type::copyIndex() {\n";
+        def << "for (auto const &cur : ind_" << masterIndex << ") {\n";
         for (auto const i : provenanceIndexNumbers) {
-            out << "ind_" << i << ".insert(cur);\n";
+            def << "ind_" << i << ".insert(cur);\n";
         }
-        out << "}\n";
-        out << "}\n";
+        def << "}\n";
+        def << "}\n";
     }
 
     // printStatistics method
-    out << "void printStatistics(std::ostream& o) const {\n";
+    decl << "void printStatistics(std::ostream& o) const;\n";
+    def << "void Type::printStatistics(std::ostream& o) const {\n";
     for (std::size_t i = 0; i < numIndexes; i++) {
-        out << "o << \" arity " << arity << " direct b-tree index " << i << " lex-order " << inds[i]
+        def << "o << \" arity " << arity << " direct b-tree index " << i << " lex-order " << inds[i]
             << "\\n\";\n";
-        out << "ind_" << i << ".printStats(o);\n";
+        def << "ind_" << i << ".printStats(o);\n";
     }
-    out << "}\n";
+    def << "}\n";
 
     // end struct
-    out << "};\n";
+    decl << "};\n";
+
+    decl << "} // namespace " << getTypeNamespace() << "\n";
+    def << "} // namespace " << getTypeNamespace() << "\n";
 }  // namespace souffle
 
 // -------- Indirect Indexed B-Tree Relation --------
@@ -587,7 +631,7 @@ std::string IndirectRelation::getTypeName() {
 }
 
 /** Generate type struct of a indirect indexed relation */
-void IndirectRelation::generateTypeStruct(std::ostream& out) {
+void IndirectRelation::generateTypeStruct(std::ostream&, std::ostream& out) {
     std::size_t arity = getArity();
     const auto& inds = getIndices();
     auto types = relation.getAttributeTypes();
@@ -930,7 +974,7 @@ std::string BrieRelation::getTypeName() {
 }
 
 /** Generate type struct of a brie relation */
-void BrieRelation::generateTypeStruct(std::ostream& out) {
+void BrieRelation::generateTypeStruct(std::ostream&, std::ostream& out) {
     std::size_t arity = getArity();
     const auto& inds = getIndices();
     std::size_t numIndexes = inds.size();
@@ -1180,7 +1224,7 @@ std::string EqrelRelation::getTypeName() {
 
 /** Generate type struct of a eqrel relation, which is empty,
  * the actual implementation is in CompiledSouffle.h */
-void EqrelRelation::generateTypeStruct(std::ostream&) {
+void EqrelRelation::generateTypeStruct(std::ostream&, std::ostream&) {
     return;
 }
 

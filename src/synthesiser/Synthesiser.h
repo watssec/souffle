@@ -67,6 +67,10 @@ private:
     /** Is set to true if there is a need to include std::regex */
     bool UsingStdRegex = false;
 
+    /** Is set to true if the current subroutine uses std::regex */
+    bool SubroutineUsingStdRegex = false;
+
+
     /** Set of packed and unpacked records arities */
     std::set<std::size_t> arities;
 

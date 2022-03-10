@@ -65,7 +65,7 @@ public:
             const std::unordered_set<std::size_t>& attributesUsed) const;
 
     /** Generate relation type struct */
-    virtual void generateTypeStruct(std::ostream& out) = 0;
+    virtual void generateTypeStruct(std::ostream& header, std::ostream& out) = 0;
 
     /** Factory method to generate a SynthesiserRelation */
     static Own<Relation> getSynthesiserRelation(
@@ -98,7 +98,7 @@ public:
 
     void computeIndices() override;
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& out) override;
+    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
 };
 
 class InfoRelation : public Relation {
@@ -108,7 +108,7 @@ public:
 
     void computeIndices() override;
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& out) override;
+    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
 };
 
 class DirectRelation : public Relation {
@@ -118,8 +118,9 @@ public:
             : Relation(ramRel, indexSelection), isProvenance(isProvenance), hasErase(hasErase) {}
 
     void computeIndices() override;
+    std::string getTypeNamespace();
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& out) override;
+    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
 
 private:
     const bool isProvenance;
@@ -133,7 +134,7 @@ public:
 
     void computeIndices() override;
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& out) override;
+    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
 };
 
 class BrieRelation : public Relation {
@@ -143,7 +144,7 @@ public:
 
     void computeIndices() override;
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& out) override;
+    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
 };
 
 class EqrelRelation : public Relation {
@@ -153,6 +154,6 @@ public:
 
     void computeIndices() override;
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& out) override;
+    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
 };
 }  // namespace souffle::synthesiser

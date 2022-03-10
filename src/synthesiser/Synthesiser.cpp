@@ -192,14 +192,19 @@ const std::string Synthesiser::getOpContextName(const ram::Relation& rel) {
 
 /** Get relation type struct */
 void Synthesiser::generateRelationTypeStruct(std::ostream& out, Own<Relation> relationType) {
+    std::string name = relationType->getTypeName();
     // If this type has been generated already, use the cached version
-    if (typeCache.find(relationType->getTypeName()) != typeCache.end()) {
+    if (typeCache.find(name) != typeCache.end()) {
         return;
     }
-    typeCache.insert(relationType->getTypeName());
+    typeCache.insert(name);
 
     // Generate the type struct for the relation
-    relationType->generateTypeStruct(out);
+    std::stringstream decl;
+    std::stringstream def;
+    relationType->generateTypeStruct(decl, def);
+    out << decl.str();
+    out << def.str();
 }
 
 /** Get referenced relations */
@@ -584,7 +589,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             const auto& subs = prog.getSubroutines();
             out << "{\n";
             out << " std::vector<RamDomain> args, ret;\n";
-            out << "subroutine_" << distance(subs.begin(), subs.find(call.getName())) << "(args, ret);\n";
+            out << "subroutine_" << distance(subs.begin(), subs.find(call.getName())) << ".run(args, ret);\n";
             out << "}\n";
             PRINT_END_COMMENT(out);
         }
@@ -1853,7 +1858,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
                 // strings
                 case BinaryConstraintOp::MATCH: {
-                    synthesiser.UsingStdRegex = true;
+                    synthesiser.SubroutineUsingStdRegex = true;
                     out << "regex_wrapper(symTable.decode(";
                     dispatch(rel.getLHS(), out);
                     out << "),symTable.decode(";
@@ -1862,7 +1867,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                     break;
                 }
                 case BinaryConstraintOp::NOT_MATCH: {
-                    synthesiser.UsingStdRegex = true;
+                    synthesiser.SubroutineUsingStdRegex = true;
                     out << "!regex_wrapper(symTable.decode(";
                     dispatch(rel.getLHS(), out);
                     out << "),symTable.decode(";
@@ -2563,44 +2568,182 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
     os << "namespace souffle {\n";
     os << "static const RamDomain RAM_BIT_SHIFT_MASK = RAM_DOMAIN_SIZE - 1;\n";
 
+    std::map<std::string, std::string> relationTypes;
+
     // synthesise data-structures for relations
     for (auto rel : prog.getRelations()) {
         auto relationType =
                 Relation::getSynthesiserRelation(*rel, idxAnalysis.getIndexSelection(rel->getName()));
 
+        std::string typeName = relationType->getTypeName();
         generateRelationTypeStruct(os, std::move(relationType));
+
+        relationTypes[getRelationName(*rel)] = typeName;
     }
     os << '\n';
 
-    os << "class " << classname << " : public SouffleProgram {\n";
+    // print relation definitions
+    std::stringstream initCons;     // initialization of constructor
+    std::stringstream registerRel;  // registration of relations
+    auto initConsSep = [&, empty = true]() mutable -> std::stringstream& {
+        initCons << (empty ? "\n: " : "\n, ");
+        empty = false;
+        return initCons;
+    };
 
-    {
-        // regex wrapper
-        auto osp = os.delayed_if(UsingStdRegex);
-        auto& _os = *osp;
-        _os << "private:\n";
-        _os << "static inline bool regex_wrapper(const std::string& pattern, const std::string& text) {\n";
-        _os << "   bool result = false; \n";
-        _os << "   try { result = std::regex_match(text, std::regex(pattern)); } catch(...) { \n";
-        _os << "     std::cerr << \"warning: wrong pattern provided for match(\\\"\" << pattern << "
-               "\"\\\",\\\"\" "
-               "<< text << \"\\\").\\n\";\n}\n";
-        _os << "   return result;\n";
-        _os << "}\n";
+    // identify relations used by each subroutines
+    std::multimap<std::string /* stratum_* */, std::string> subroutineUses;
+
+    auto accessedRelations = [&](Statement& stmt) -> std::set<std::string> {
+        std::set<std::string> accessed;
+        visit(stmt, [&](const Insert& node) {
+            accessed.insert(node.getRelation());
+        });
+        visit(stmt, [&](const RelationOperation& node) {
+            accessed.insert(node.getRelation());
+        });
+        visit(stmt, [&](const RelationStatement& node) {
+            accessed.insert(node.getRelation());
+        });
+        visit(stmt, [&](const AbstractExistenceCheck& node) {
+            accessed.insert(node.getRelation());
+        });
+        visit(stmt, [&](const EmptinessCheck& node) {
+            accessed.insert(node.getRelation());
+        });
+        visit(stmt, [&](const RelationSize& node) {
+            accessed.insert(node.getRelation());
+        });
+        visit(stmt, [&](const BinRelationStatement& node) {
+            accessed.insert(node.getFirstRelation());
+            accessed.insert(node.getSecondRelation());
+        });
+        return accessed;
+    };
+
+    // generate class for each subroutine
+    std::size_t subroutineNum = 0;
+    for (auto& sub : prog.getSubroutines()) {
+        auto accessed = accessedRelations(*sub.second);
+        std::map<std::string /*name*/, std::string /*type*/> rels;
+        for (std::string rel : accessed) {
+            std::string name = getRelationName(lookup(rel));
+            std::string tyname = relationTypes[name];
+            rels[name] = tyname;
+        }
+
+        // silence unused argument warnings on MSVC
+        os << "#ifdef _MSC_VER\n";
+        os << "#pragma warning(disable: 4100)\n";
+        os << "#endif // _MSC_VER\n";
+        os << "struct Subroutine_" << subroutineNum << "{\n";
+
+        std::vector<std::pair<std::string,std::string>> args;
+        args.push_back(std::make_pair("symTable", "SymbolTable"));
+        args.push_back(std::make_pair("recordTable", "RecordTable"));
+        args.push_back(std::make_pair("pruneImdtRels", "bool"));
+        args.push_back(std::make_pair("performIO", "bool"));
+        args.push_back(std::make_pair("signalHandler", "SignalHandler*"));
+        args.push_back(std::make_pair("iter", "std::atomic<std::size_t>"));
+        args.push_back(std::make_pair("ctr", "std::atomic<RamDomain>"));
+        args.push_back(std::make_pair("inputDirectory", "std::string"));
+        args.push_back(std::make_pair("outputDirectory", "std::string"));
+
+        // constructor
+        os << "Subroutine_" << subroutineNum << "(\n";
+        os << join(args, ",\n", [&](auto& out, const auto arg) {
+                out << arg.second << "& " << arg.first;
+            });
+        os << (rels.empty() ? "" : ",\n");
+        os << join(rels, ",\n", [&](auto& out, const auto pair) {
+                out << pair.second << "& " << pair.first;
+            });
+        os << "):\n";
+        os << join(args, ",\n", [&](auto& out, const auto arg) {
+                out << arg.first << "(" << arg.first << ")";
+            });
+        os << (rels.empty() ? "" : ",\n");
+        os << join(rels, ",\n", [&](auto& out, const auto pair) {
+                out << pair.first << "(&" << pair.first << ")";
+            });
+        os << "{}\n\n";
+
+        // fields
+        for (auto arg: args) {
+            os << arg.second << "& " << arg.first << ";\n";
+        }
+        for (auto [name, ty]: rels) {
+            os << ty << "* " << name << ";\n";
+        }
+
+        initConsSep() << "subroutine_" << subroutineNum
+            << "("
+            << join(args, ",", [&](auto& out, const auto pair) {
+                out << pair.first;
+            })
+            << (rels.empty() ? "" : ", ")
+            << join(rels, ",", [&](auto& out, const auto pair) {
+                out << "*" << pair.first;
+            })
+            << ")";
+
+
+        // issue method header
+        os << "void run(const std::vector<RamDomain>& args, "
+              "std::vector<RamDomain>& ret) {\n";
+        // issue lock variable for return statements
+        bool needLock = false;
+        visit(*sub.second, [&](const SubroutineReturn&) { needLock = true; });
+        if (needLock) {
+            os << "std::mutex lock;\n";
+        }
+        SubroutineUsingStdRegex = false;
+        // emit code for subroutine
+        emitCode(os, *sub.second);
+        // issue end of subroutine
+        os << "}\n";
+        UsingStdRegex |= SubroutineUsingStdRegex;
+
+        if (SubroutineUsingStdRegex) {
+            // regex wrapper
+            os << "private:\n";
+            os << "static inline bool regex_wrapper(const std::string& pattern, const std::string& text) {\n";
+            os << "   bool result = false; \n";
+            os << "   try { result = std::regex_match(text, std::regex(pattern)); } catch(...) { \n";
+            os << "     std::cerr << \"warning: wrong pattern provided for match(\\\"\" << pattern << "
+                  "\"\\\",\\\"\" "
+                  "<< text << \"\\\").\\n\";\n}\n";
+            os << "   return result;\n";
+            os << "}\n";
+        }
+
+        // substring wrapper
+        os << "private:\n";
+        os << "static inline std::string substr_wrapper(const std::string& str, std::size_t idx, "
+              "std::size_t "
+              "len) {\n";
+        os << "   std::string result; \n";
+        os << "   try { result = str.substr(idx,len); } catch(...) { \n";
+        os << "     std::cerr << \"warning: wrong index position provided by substr(\\\"\";\n";
+        os << "     std::cerr << str << \"\\\",\" << (int32_t)idx << \",\" << (int32_t)len << \") "
+              "functor.\\n\";\n";
+        os << "   } return result;\n";
+        os << "}\n";
+
+
+
+        os << "}; // Subroutine_" << subroutineNum << "\n";
+        // restore unused argument warning
+        os << "#ifdef _MSC_VER\n";
+        os << "#pragma warning(default: 4100)\n";
+        os << "#endif // _MSC_VER\n";
+        subroutineNum++;
     }
 
-    // substring wrapper
-    os << "private:\n";
-    os << "static inline std::string substr_wrapper(const std::string& str, std::size_t idx, "
-          "std::size_t "
-          "len) {\n";
-    os << "   std::string result; \n";
-    os << "   try { result = str.substr(idx,len); } catch(...) { \n";
-    os << "     std::cerr << \"warning: wrong index position provided by substr(\\\"\";\n";
-    os << "     std::cerr << str << \"\\\",\" << (int32_t)idx << \",\" << (int32_t)len << \") "
-          "functor.\\n\";\n";
-    os << "   } return result;\n";
-    os << "}\n";
+    // main class
+    os << "class " << classname << " : public SouffleProgram {\n";
+
+
 
     if (Global::config().has("profile")) {
         os << "std::string profiling_fname;\n";
@@ -2642,14 +2785,7 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         os << "  std::size_t reads[" << numRead << "]{};\n";
     }
 
-    // print relation definitions
-    std::stringstream initCons;     // initialization of constructor
-    std::stringstream registerRel;  // registration of relations
-    auto initConsSep = [&, empty = true]() mutable -> std::stringstream& {
-        initCons << (empty ? "\n: " : "\n, ");
-        empty = false;
-        return initCons;
-    };
+
 
     // `pf` must be a ctor param (see below)
     if (Global::config().has("profile")) {
@@ -2710,6 +2846,11 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
     }
     os << "public:\n";
 
+    // Declare subroutine objects;
+    for (size_t i = 0; i < prog.getSubroutines().size(); i++) {
+        os << "Subroutine_" << i << " subroutine_" << i << ";\n";
+    }
+
     // -- constructor --
 
     os << classname;
@@ -2746,7 +2887,7 @@ void runFunction(std::string  inputDirectoryArg,
     this->inputDirectory  = std::move(inputDirectoryArg);
     this->outputDirectory = std::move(outputDirectoryArg);
     this->performIO       = performIOArg;
-    this->pruneImdtRels   = pruneImdtRelsArg; 
+    this->pruneImdtRels   = pruneImdtRelsArg;
 
     // set default threads (in embedded mode)
     // if this is not set, and omp is used, the default omp setting of number of cores is used.
@@ -2939,7 +3080,7 @@ void runFunction(std::string  inputDirectoryArg,
         for (auto& sub : prog.getSubroutines()) {
             os << "if (name == \"" << sub.first << "\") {\n"
                << "subroutine_" << subroutineNum
-               << "(args, ret);\n"  // subroutine_<i> to deal with special characters in relation names
+               << ".run(args, ret);\n"  // subroutine_<i> to deal with special characters in relation names
                << "return;"
                << "}\n";
             subroutineNum++;
@@ -2947,39 +3088,6 @@ void runFunction(std::string  inputDirectoryArg,
         os << "fatal(\"unknown subroutine\");\n";
         os << "}\n";  // end of executeSubroutine
 
-        // generate method for each subroutine
-        subroutineNum = 0;
-        for (auto& sub : prog.getSubroutines()) {
-            // silence unused argument warnings on MSVC
-            os << "#ifdef _MSC_VER\n";
-            os << "#pragma warning(disable: 4100)\n";
-            os << "#endif // _MSC_VER\n";
-
-            // issue method header
-            os << "void "
-               << "subroutine_" << subroutineNum
-               << "(const std::vector<RamDomain>& args, "
-                  "std::vector<RamDomain>& ret) {\n";
-
-            // issue lock variable for return statements
-            bool needLock = false;
-            visit(*sub.second, [&](const SubroutineReturn&) { needLock = true; });
-            if (needLock) {
-                os << "std::mutex lock;\n";
-            }
-
-            // emit code for subroutine
-            emitCode(os, *sub.second);
-
-            // issue end of subroutine
-            os << "}\n";
-
-            // restore unused argument warning
-            os << "#ifdef _MSC_VER\n";
-            os << "#pragma warning(default: 4100)\n";
-            os << "#endif // _MSC_VER\n";
-            subroutineNum++;
-        }
     }
     // dumpFreqs method
     //  Frequency counts must be emitted after subroutines otherwise lookup tables
