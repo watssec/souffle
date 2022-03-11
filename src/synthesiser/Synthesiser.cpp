@@ -2516,8 +2516,6 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
     }
 
     os << "#include <any>\n";
-    os << "#include <exception>\n";
-
 
     if (Global::config().has("profile") || Global::config().has("live-profile")) {
         os << "#include \"souffle/profile/Logger.h\"\n";
@@ -2534,8 +2532,6 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         withSharedLibrary = true;
     });
     auto extern_c = os.delayed();
-
-    std::map<std::string, std::pair<std::vector<std::string>, std::string>> functor_signatures;
 
     *extern_c << "extern \"C\" {\n";
     for (const auto& f : functors) {

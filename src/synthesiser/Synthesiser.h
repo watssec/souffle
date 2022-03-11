@@ -74,6 +74,9 @@ private:
     /** Set of packed and unpacked records arities */
     std::set<std::size_t> arities;
 
+    /** signatures of the user-defined functors */
+    std::map<std::string, std::pair<std::vector<std::string>, std::string>> functor_signatures;
+
 protected:
     /** Convert RAM identifier */
     const std::string convertRamIdent(const std::string& name);
