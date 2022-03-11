@@ -123,6 +123,13 @@ protected:
         }
     }
 
+    /** return the set of relation names accessed/used in the statement */
+    std::set<std::string> accessedRelations(ram::Statement& stmt);
+
+    /** return the set of User-defined functor names used in the statement */
+    std::set<std::string> accessedUserDefinedFunctors(ram::Statement& stmt);
+
+
 public:
     explicit Synthesiser(/*const std::size_t laneCount, */ ram::TranslationUnit& tUnit)
             : /*recordTable(laneCount),*/ translationUnit(tUnit) {

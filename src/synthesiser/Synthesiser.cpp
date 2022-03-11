@@ -2477,6 +2477,42 @@ private:
     std::shared_ptr<std::ostream> current_stream;
 };
 
+std::set<std::string> Synthesiser::accessedRelations(Statement& stmt) {
+    std::set<std::string> accessed;
+    visit(stmt, [&](const Insert& node) {
+        accessed.insert(node.getRelation());
+    });
+    visit(stmt, [&](const RelationOperation& node) {
+        accessed.insert(node.getRelation());
+    });
+    visit(stmt, [&](const RelationStatement& node) {
+        accessed.insert(node.getRelation());
+    });
+    visit(stmt, [&](const AbstractExistenceCheck& node) {
+        accessed.insert(node.getRelation());
+    });
+    visit(stmt, [&](const EmptinessCheck& node) {
+        accessed.insert(node.getRelation());
+    });
+    visit(stmt, [&](const RelationSize& node) {
+        accessed.insert(node.getRelation());
+    });
+    visit(stmt, [&](const BinRelationStatement& node) {
+        accessed.insert(node.getFirstRelation());
+        accessed.insert(node.getSecondRelation());
+    });
+    return accessed;
+}
+
+std::set<std::string> Synthesiser::accessedUserDefinedFunctors(Statement& stmt) {
+    std::set<std::string> accessed;
+    visit(stmt, [&](const UserDefinedOperator& node) {
+        const std::string& name = node.getName();
+        accessed.insert(name);
+    });
+    return accessed;
+};
+
 void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& withSharedLibrary) {
     // ---------------------------------------------------------------
     //                      Auto-Index Generation
@@ -2630,42 +2666,6 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
 
     // identify relations used by each subroutines
     std::multimap<std::string /* stratum_* */, std::string> subroutineUses;
-
-    auto accessedRelations = [&](Statement& stmt) -> std::set<std::string> {
-        std::set<std::string> accessed;
-        visit(stmt, [&](const Insert& node) {
-            accessed.insert(node.getRelation());
-        });
-        visit(stmt, [&](const RelationOperation& node) {
-            accessed.insert(node.getRelation());
-        });
-        visit(stmt, [&](const RelationStatement& node) {
-            accessed.insert(node.getRelation());
-        });
-        visit(stmt, [&](const AbstractExistenceCheck& node) {
-            accessed.insert(node.getRelation());
-        });
-        visit(stmt, [&](const EmptinessCheck& node) {
-            accessed.insert(node.getRelation());
-        });
-        visit(stmt, [&](const RelationSize& node) {
-            accessed.insert(node.getRelation());
-        });
-        visit(stmt, [&](const BinRelationStatement& node) {
-            accessed.insert(node.getFirstRelation());
-            accessed.insert(node.getSecondRelation());
-        });
-        return accessed;
-    };
-
-    auto accessedUserDefinedFunctors = [&](Statement& stmt) -> std::set<std::string> {
-        std::set<std::string> accessed;
-        visit(stmt, [&](const UserDefinedOperator& node) {
-            const std::string& name = node.getName();
-            accessed.insert(name);
-        });
-        return accessed;
-    };
 
     // generate class for each subroutine
     std::size_t subroutineNum = 0;
