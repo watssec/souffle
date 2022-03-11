@@ -2669,6 +2669,7 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
 
     // generate class for each subroutine
     std::size_t subroutineNum = 0;
+    std::vector<std::string> subroutineInits;
     for (auto& sub : prog.getSubroutines()) {
         auto accessedRels = accessedRelations(*sub.second);
         auto accessedFunctors = accessedUserDefinedFunctors(*sub.second);
@@ -2731,8 +2732,8 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
             std::tie(kind, name, ty) = arg;
             os << ty << (kind == Relation ? "* " : "& ") << name << ";\n";
         }
-
-        initConsSep() << "subroutine_" << subroutineNum
+        std::stringstream initStr;
+        initStr << "subroutine_" << subroutineNum
             << "("
             << join(args, ",", [&](auto& out, const auto arg) {
                 Mode kind;
@@ -2741,7 +2742,7 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
                 out << (kind == Relation ? "*" : "") << name;
             })
             << ")";
-
+        subroutineInits.push_back(initStr.str());
 
         // issue method header
         os << "void run(const std::vector<RamDomain>& args, "
@@ -2796,55 +2797,66 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
     }
 
     // main class
-    os << "class " << classname << " : public SouffleProgram {\n";
+    auto decl = os.delayed();
+
+    *decl << "class " << classname << " : public SouffleProgram {\n";
 
 
 
     if (Global::config().has("profile")) {
-        os << "std::string profiling_fname;\n";
+        *decl << "std::string profiling_fname;\n";
     }
 
-    os << "public:\n";
+    *decl << "public:\n";
 
     // declare symbol table
     os << "// -- initialize symbol table --\n";
 
     // issue symbol table with string constants
     visit(prog, [&](const StringConstant& sc) { convertSymbol2Idx(sc.getConstant()); });
-    os << "SymbolTableImpl symTable";
+    *decl << "SymbolTableImpl symTable;\n";
+    std::stringstream st;
+    st << "symTable(";
     if (!symbolMap.empty()) {
-        os << "{\n";
+        st << "{\n";
         for (const auto& x : symbolIndex) {
-            os << "\tR\"_(" << x << ")_\",\n";
+            st << "\tR\"_(" << x << ")_\",\n";
         }
-        os << "}";
+        st << "}";
     }
-    os << ";";
+    st << ")";
+    initConsSep() << st.str();
+
 
     // declare record table
     os << "// -- initialize record table --\n";
-
-    auto recordTable_os = os.delayed();
+    *decl << "SpecializedRecordTable<0";
+    for (std::size_t arity : arities) {
+        if (arity > 0) {
+            *decl << "," << arity;
+        }
+    }
+    //*decl << "> recordTable{};\n";
+    *decl << "> recordTable;\n";
+    initConsSep() << "recordTable()";
 
     if (Global::config().has("profile")) {
-        os << "private:\n";
+        *decl << "private:\n";
         std::size_t numFreq = 0;
         visit(prog, [&](const Statement&) { numFreq++; });
-        os << "  std::size_t freqs[" << numFreq << "]{};\n";
+        *decl << "  std::size_t freqs[" << numFreq << "]{};\n";
         std::size_t numRead = 0;
         for (auto rel : prog.getRelations()) {
             if (!rel->isTemp()) {
                 numRead++;
             }
         }
-        os << "  std::size_t reads[" << numRead << "]{};\n";
+        *decl << "  std::size_t reads[" << numRead << "]{};\n";
     }
-
-    auto functors_os = os.delayed();
 
     for (const auto& f : functors) {
         const std::string& name = f.first;
-        lambda_decl(*functors_os, name);
+        lambda_decl(*decl, name);
     }
 
     auto lambda_assign = [&](std::ostream& os, std::string name) {
@@ -2857,7 +2869,8 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         os << "}\n";
     };
 
-    os << "bool setFunctor(std::string name, std::any fn) override {\n";
+    *decl << "bool setFunctor(std::string name, std::any fn) override;\n";
+    os << "bool " << classname << "::setFunctor(std::string name, std::any fn) {\n";
     for (const auto& f : functors) {
         const std::string& name = f.first;
         lambda_assign(os, name);
@@ -2900,11 +2913,12 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         const std::string& type = relationType->getTypeName();
 
         // defining table
-        os << "// -- Table: " << datalogName << "\n";
+        *decl << "// -- Table: " << datalogName << "\n";
 
-        os << "Own<" << type << "> " << cppName << " = mk<" << type << ">();\n";
+        *decl << "Own<" << type << "> " << cppName << ";\n";
+        initConsSep() << cppName << "(mk<" << type << ">())";
         if (!rel->isTemp()) {
-            tfm::format(os, "souffle::RelationWrapper<%s> wrapper_%s;\n", type, cppName);
+            tfm::format(*decl, "souffle::RelationWrapper<%s> wrapper_%s;\n", type, cppName);
 
             auto strLitAry = [](auto&& xs) {
                 std::stringstream ss;
@@ -2922,16 +2936,20 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
                     foundIn(loadRelations), foundIn(storeRelations));
         }
     }
-    os << "public:\n";
+    for (auto init: subroutineInits) {
+        initConsSep() << init;
+    }
+    *decl << "public:\n";
 
     // Declare subroutine objects;
     for (size_t i = 0; i < prog.getSubroutines().size(); i++) {
-        os << "Subroutine_" << i << " subroutine_" << i << ";\n";
+        *decl << "Subroutine_" << i << " subroutine_" << i << ";\n";
     }
 
     // -- constructor --
-
-    os << classname;
+    *decl << classname;
+    *decl << (Global::config().has("profile") ? "(std::string pf=\"profile.log\");\n" : "();\n");
+    os << classname << "::" << classname;
     os << (Global::config().has("profile") ? "(std::string pf=\"profile.log\")" : "()");
     os << initCons.str() << '\n';
     os << "{\n";
@@ -2948,7 +2966,8 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
     os << "}\n";
     // -- destructor --
 
-    os << "~" << classname << "() {\n";
+    *decl << "~" << classname << "();\n";
+    os << classname << "::~" << classname << "() {\n";
     os << "}\n";
 
     // issue state variables for the evaluation
@@ -2956,15 +2975,20 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
     // Improve compile time by storing the signal handler in one loc instead of
     // emitting thousands of `SignalHandler::instance()`. The volume of calls
     // makes GVN and register alloc very expensive, even if the call is inlined.
-    os << R"_(
+    *decl << R"_(
 private:
 std::string             inputDirectory;
 std::string             outputDirectory;
 SignalHandler*          signalHandler {SignalHandler::instance()};
 std::atomic<RamDomain>  ctr {};
 std::atomic<std::size_t>     iter {};
-
 void runFunction(std::string  inputDirectoryArg,
+                 std::string  outputDirectoryArg,
+                 bool         performIOArg,
+                 bool         pruneImdtRelsArg);
+)_";
+
+    os << "void " << classname << R"_(::runFunction(std::string  inputDirectoryArg,
                  std::string  outputDirectoryArg,
                  bool         performIOArg,
                  bool         pruneImdtRelsArg) {
@@ -3030,10 +3054,13 @@ void runFunction(std::string  inputDirectoryArg,
     os << "}\n";  // end of runFunction() method
 
     // add methods to run with and without performing IO (mainly for the interface)
-    os << "public:\nvoid run() override { runFunction(\"\", \"\", "
-          "false, false); }\n";
-    os << "public:\nvoid runAll(std::string inputDirectoryArg = \"\", std::string outputDirectoryArg = \"\", "
-          "bool performIOArg=true, bool pruneImdtRelsArg=true) override { ";
+    *decl << "public:\nvoid run() override;\n";
+    os << "void " << classname << "::run() {\nrunFunction(\"\", \"\", "
+          "false, false);\n}\n";
+    *decl << "public:\nvoid runAll(std::string inputDirectoryArg = \"\", std::string outputDirectoryArg = \"\", "
+          << "bool performIOArg=true, bool pruneImdtRelsArg=true) override;\n";
+    os << "void " << classname << "::runAll(std::string inputDirectoryArg, std::string outputDirectoryArg, "
+          "bool performIOArg, bool pruneImdtRelsArg) {\n";
     if (Global::config().has("live-profile")) {
         os << "std::thread profiler([]() { profile::Tui().runProf(); });\n";
     }
@@ -3043,8 +3070,10 @@ void runFunction(std::string  inputDirectoryArg,
     }
     os << "}\n";
     // issue printAll method
-    os << "public:\n";
-    os << "void printAll(std::string outputDirectoryArg = \"\") override {\n";
+    *decl << "public:\n";
+    *decl << "void printAll(std::string outputDirectoryArg = \"\") override;\n";
+
+    os << "void " << classname << "::printAll(std::string outputDirectoryArg) {\n";
 
     // print directives as C++ initializers
     auto printDirectives = [&](const std::map<std::string, std::string>& registry) {
@@ -3078,8 +3107,9 @@ void runFunction(std::string  inputDirectoryArg,
     os << "}\n";  // end of printAll() method
 
     // issue loadAll method
-    os << "public:\n";
-    os << "void loadAll(std::string inputDirectoryArg = \"\") override {\n";
+    *decl << "public:\n";
+    *decl << "void loadAll(std::string inputDirectoryArg = \"\") override;\n";
+    os << "void " << classname << "::loadAll(std::string inputDirectoryArg) {\n";
 
     for (auto load : loadIOs) {
         os << "try {";
@@ -3125,40 +3155,45 @@ void runFunction(std::string  inputDirectoryArg,
     };
 
     // dump inputs
-    os << "public:\n";
-    os << "void dumpInputs() override {\n";
+    *decl << "public:\n";
+    *decl << "void dumpInputs() override;\n";
+    os << "void " << classname << "::dumpInputs() {\n";
+
     for (auto load : loadIOs) {
         dumpRelation(*lookup(load->getRelation()));
     }
     os << "}\n";  // end of dumpInputs() method
 
     // dump outputs
-    os << "public:\n";
-    os << "void dumpOutputs() override {\n";
+    *decl << "public:\n";
+    *decl << "void dumpOutputs() override;\n";
+    os << "void " << classname << "::dumpOutputs() {\n";
     for (auto store : storeIOs) {
         dumpRelation(*lookup(store->getRelation()));
     }
     os << "}\n";  // end of dumpOutputs() method
 
-    os << "public:\n";
-    os << "SymbolTable& getSymbolTable() override {\n";
-    os << "return symTable;\n";
-    os << "}\n";  // end of getSymbolTable() method
+    *decl << "public:\n";
+    *decl << "SymbolTable& getSymbolTable() override {\n";
+    *decl << "return symTable;\n";
+    *decl << "}\n";  // end of getSymbolTable() method
 
-    os << "RecordTable& getRecordTable() override {\n";
-    os << "return recordTable;\n";
-    os << "}\n";  // end of getRecordTable() method
+    *decl << "RecordTable& getRecordTable() override {\n";
+    *decl << "return recordTable;\n";
+    *decl << "}\n";  // end of getRecordTable() method
 
-    os << "void setNumThreads(std::size_t numThreadsValue) override {\n";
-    os << "SouffleProgram::setNumThreads(numThreadsValue);\n";
-    os << "symTable.setNumLanes(getNumThreads());\n";
-    os << "recordTable.setNumLanes(getNumThreads());\n";
-    os << "}\n";  // end of setNumThreads
+    *decl << "void setNumThreads(std::size_t numThreadsValue) override {\n";
+    *decl << "SouffleProgram::setNumThreads(numThreadsValue);\n";
+    *decl << "symTable.setNumLanes(getNumThreads());\n";
+    *decl << "recordTable.setNumLanes(getNumThreads());\n";
+    *decl << "}\n";  // end of setNumThreads
 
     if (!prog.getSubroutines().empty()) {
         // generate subroutine adapter
-        os << "void executeSubroutine(std::string name, const std::vector<RamDomain>& args, "
-              "std::vector<RamDomain>& ret) override {\n";
+        *decl << "void executeSubroutine(std::string name, const std::vector<RamDomain>& args, "
+              "std::vector<RamDomain>& ret) override;\n";
+        os << "void " << classname << "::executeSubroutine(std::string name, const std::vector<RamDomain>& args, "
+              "std::vector<RamDomain>& ret) {\n";
         // subroutine number
         std::size_t subroutineNum = 0;
         for (auto& sub : prog.getSubroutines()) {
@@ -3177,8 +3212,10 @@ void runFunction(std::string  inputDirectoryArg,
     //  Frequency counts must be emitted after subroutines otherwise lookup tables
     //  are not populated.
     if (Global::config().has("profile")) {
-        os << "private:\n";
-        os << "void dumpFreqs() {\n";
+        *decl << "private:\n";
+        *decl << "void dumpFreqs() {\n";
+
+        os << "void " << classname << "::dumpFreqs() {\n";
         for (auto const& cur : idxMap) {
             os << "\tProfileEventSingleton::instance().makeQuantityEvent(R\"_(" << cur.first << ")_\", freqs["
                << cur.second << "],0);\n";
@@ -3189,7 +3226,7 @@ void runFunction(std::string  inputDirectoryArg,
         }
         os << "}\n";  // end of dumpFreqs() method
     }
-    os << "};\n";  // end of class declaration
+    *decl << "};\n";  // end of class declaration
 
     // hidden hooks
     os << "SouffleProgram *newInstance_" << id << "(){return new " << classname << ";}\n";
@@ -3265,13 +3302,7 @@ void runFunction(std::string  inputDirectoryArg,
     os << "}\n";
     os << "\n#endif\n";
 
-    *recordTable_os << "SpecializedRecordTable<0";
-    for (std::size_t arity : arities) {
-        if (arity > 0) {
-            *recordTable_os << "," << arity;
-        }
-    }
-    *recordTable_os << "> recordTable{};\n";
+
 
     os.flushAll(sos);
 }
