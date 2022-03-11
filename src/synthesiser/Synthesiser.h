@@ -69,7 +69,7 @@ private:
 
     /** Is set to true if the current subroutine uses std::regex */
     bool SubroutineUsingStdRegex = false;
-
+    bool SubroutineUsingSubstr = false;
 
     /** Set of packed and unpacked records arities */
     std::set<std::size_t> arities;

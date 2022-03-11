@@ -2262,6 +2262,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
                 /** Ternary Functor Operators */
                 case FunctorOp::SUBSTR: {
+                    synthesiser.SubroutineUsingSubstr = true;
                     out << "symTable.encode(";
                     out << "substr_wrapper(symTable.decode(";
                     dispatch(*args[0], out);
@@ -2754,6 +2755,7 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
             os << "std::mutex lock;\n";
         }
         SubroutineUsingStdRegex = false;
+        SubroutineUsingSubstr = false;
         // emit code for subroutine
         emitCode(os, *sub.second);
         // issue end of subroutine
@@ -2774,17 +2776,19 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         }
 
         // substring wrapper
-        os << "private:\n";
-        os << "static inline std::string substr_wrapper(const std::string& str, std::size_t idx, "
-              "std::size_t "
-              "len) {\n";
-        os << "   std::string result; \n";
-        os << "   try { result = str.substr(idx,len); } catch(...) { \n";
-        os << "     std::cerr << \"warning: wrong index position provided by substr(\\\"\";\n";
-        os << "     std::cerr << str << \"\\\",\" << (int32_t)idx << \",\" << (int32_t)len << \") "
-              "functor.\\n\";\n";
-        os << "   } return result;\n";
-        os << "}\n";
+        if (SubroutineUsingSubstr) {
+            os << "private:\n";
+            os << "static inline std::string substr_wrapper(const std::string& str, std::size_t idx, "
+                  "std::size_t "
+                  "len) {\n";
+            os << "   std::string result; \n";
+            os << "   try { result = str.substr(idx,len); } catch(...) { \n";
+            os << "     std::cerr << \"warning: wrong index position provided by substr(\\\"\";\n";
+            os << "     std::cerr << str << \"\\\",\" << (int32_t)idx << \",\" << (int32_t)len << \") "
+                  "functor.\\n\";\n";
+            os << "   } return result;\n";
+            os << "}\n";
+        }
 
 
 
