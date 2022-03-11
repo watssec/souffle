@@ -2316,7 +2316,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
             auto args = op.getArguments();
             if (op.isStateful()) {
-                out << name << "(&symTable, &recordTable";
+                out << "lambda_" << name << "(&symTable, &recordTable";
                 for (auto& arg : args) {
                     out << ",";
                     dispatch(*arg, out);
@@ -2328,7 +2328,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 if (op.getReturnType() == TypeAttribute::Symbol) {
                     out << "symTable.encode(";
                 }
-                out << name << "(";
+                out << "lambda_" << name << "(";
 
                 for (std::size_t i = 0; i < args.size(); i++) {
                     if (i > 0) {
@@ -2515,6 +2515,10 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         *_os << "#include <regex>\n";
     }
 
+    os << "#include <any>\n";
+    os << "#include <exception>\n";
+
+
     if (Global::config().has("profile") || Global::config().has("live-profile")) {
         os << "#include \"souffle/profile/Logger.h\"\n";
         os << "#include \"souffle/profile/ProfileEvent.h\"\n";
@@ -2529,7 +2533,11 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         }
         withSharedLibrary = true;
     });
-    os << "extern \"C\" {\n";
+    auto extern_c = os.delayed();
+
+    std::map<std::string, std::pair<std::vector<std::string>, std::string>> functor_signatures;
+
+    *extern_c << "extern \"C\" {\n";
     for (const auto& f : functors) {
         //        std::size_t arity = f.second.length() - 1;
         const std::string& name = f.first;
@@ -2552,21 +2560,66 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
             UNREACHABLE_BAD_CASE_ANALYSIS
         };
 
+        std::vector<std::string> argsTy;
+        std::string retTy;
         if (stateful) {
-            os << "souffle::RamDomain " << name << "(souffle::SymbolTable *, souffle::RecordTable *";
+            retTy = "souffle::RamDomain";
+            argsTy.push_back("souffle::SymbolTable*");
+            argsTy.push_back("souffle::RecordTable*");
             for (std::size_t i = 0; i < argsTypes.size(); i++) {
-                os << ",souffle::RamDomain";
+                argsTy.push_back("souffle::RamDomain");
             }
-            os << ");\n";
         } else {
-            tfm::format(os, "%s %s(%s);\n", cppTypeDecl(returnType), name,
-                    join(map(argsTypes, cppTypeDecl), ","));
+            retTy = cppTypeDecl(returnType);
+            for (auto ty : argsTypes) {
+                argsTy.push_back(cppTypeDecl(ty));
+            }
         }
+        functor_signatures[name] = std::make_pair(argsTy, retTy);
+        auto extern_decl = [&](std::ostream& os) {
+            os << retTy << " __attribute__((weak)) " << name << "("
+               << join(argsTy, ", ", [&](auto& out, const std::string ty) {
+                        out << ty;
+                    })
+               << ");\n";
+        };
+
+        extern_decl(*extern_c);
     }
-    os << "}\n";
+    *extern_c << "}\n";
     os << "\n";
     os << "namespace souffle {\n";
     os << "static const RamDomain RAM_BIT_SHIFT_MASK = RAM_DOMAIN_SIZE - 1;\n";
+
+    auto function_ty = [&](std::ostream& os, std::string name) {
+        auto [argsTy, retTy] = functor_signatures[name];
+        os << "std::function<" << retTy << "("
+           << join(argsTy, ", ", [&](auto& out, const std::string ty) {
+                    out << ty;
+                })
+           << ")>";
+    };
+    auto lambda_impl = [&](std::ostream& os, std::string name) {
+        auto [argsTy, retTy] = functor_signatures[name];
+        function_ty(os, name);
+        std::size_t i = 0;
+        os << " lambda_" << name << " = [=]("
+           << join(argsTy, ", ", [&](auto& out, const std::string ty) {
+                    out << ty << " a_" << i++;
+                })
+           << ") {\n";
+        i = 0;
+        //os << "if (!" << name
+        //   << ") {\n  throw std::bad_function_call(\"Undefined reference to user-defined functor: "
+        //   << name << "\");\n}\n";
+        os << "return " << name << "("
+           << join(argsTy, ", ", [&](auto& out, const std::string) {
+                    out << "a_" << i++;
+                })
+           << ");\n};\n";
+    };
+
+
 
     std::map<std::string, std::string> relationTypes;
 
@@ -2621,16 +2674,21 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         return accessed;
     };
 
+    auto accessedUserDefinedFunctors = [&](Statement& stmt) -> std::set<std::string> {
+        std::set<std::string> accessed;
+        visit(stmt, [&](const UserDefinedOperator& node) {
+            const std::string& name = node.getName();
+            accessed.insert(name);
+        });
+        return accessed;
+    };
+
     // generate class for each subroutine
     std::size_t subroutineNum = 0;
     for (auto& sub : prog.getSubroutines()) {
-        auto accessed = accessedRelations(*sub.second);
-        std::map<std::string /*name*/, std::string /*type*/> rels;
-        for (std::string rel : accessed) {
-            std::string name = getRelationName(lookup(rel));
-            std::string tyname = relationTypes[name];
-            rels[name] = tyname;
-        }
+        auto accessedRels = accessedRelations(*sub.second);
+        auto accessedFunctors = accessedUserDefinedFunctors(*sub.second);
+
 
         // silence unused argument warnings on MSVC
         os << "#ifdef _MSC_VER\n";
@@ -2638,52 +2696,65 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         os << "#endif // _MSC_VER\n";
         os << "struct Subroutine_" << subroutineNum << "{\n";
 
-        std::vector<std::pair<std::string,std::string>> args;
-        args.push_back(std::make_pair("symTable", "SymbolTable"));
-        args.push_back(std::make_pair("recordTable", "RecordTable"));
-        args.push_back(std::make_pair("pruneImdtRels", "bool"));
-        args.push_back(std::make_pair("performIO", "bool"));
-        args.push_back(std::make_pair("signalHandler", "SignalHandler*"));
-        args.push_back(std::make_pair("iter", "std::atomic<std::size_t>"));
-        args.push_back(std::make_pair("ctr", "std::atomic<RamDomain>"));
-        args.push_back(std::make_pair("inputDirectory", "std::string"));
-        args.push_back(std::make_pair("outputDirectory", "std::string"));
+        enum Mode {
+            Reference,
+            Relation
+        };
+        std::vector<std::tuple<Mode, std::string /*name*/, std::string /*type*/>> args;
+        args.push_back(std::make_tuple(Reference, "symTable", "SymbolTable"));
+        args.push_back(std::make_tuple(Reference, "recordTable", "RecordTable"));
+        args.push_back(std::make_tuple(Reference, "pruneImdtRels", "bool"));
+        args.push_back(std::make_tuple(Reference, "performIO", "bool"));
+        args.push_back(std::make_tuple(Reference, "signalHandler", "SignalHandler*"));
+        args.push_back(std::make_tuple(Reference, "iter", "std::atomic<std::size_t>"));
+        args.push_back(std::make_tuple(Reference, "ctr", "std::atomic<RamDomain>"));
+        args.push_back(std::make_tuple(Reference, "inputDirectory", "std::string"));
+        args.push_back(std::make_tuple(Reference, "outputDirectory", "std::string"));
+        for (std::string rel : accessedRels) {
+            std::string name = getRelationName(lookup(rel));
+            std::string tyname = relationTypes[name];
+            args.push_back(std::make_tuple(Relation, name, tyname));
+        }
+        for (std::string fn : accessedFunctors) {
+            std::stringstream ty;
+            function_ty(ty, fn);
+            args.push_back(std::make_tuple(Reference, "lambda_" + fn, ty.str()));
+        }
+
 
         // constructor
         os << "Subroutine_" << subroutineNum << "(\n";
+
         os << join(args, ",\n", [&](auto& out, const auto arg) {
-                out << arg.second << "& " << arg.first;
-            });
-        os << (rels.empty() ? "" : ",\n");
-        os << join(rels, ",\n", [&](auto& out, const auto pair) {
-                out << pair.second << "& " << pair.first;
+                Mode kind;
+                std::string name, ty;
+                std::tie(kind, name, ty) = arg;
+                out << ty << "&" << name;
             });
         os << "):\n";
         os << join(args, ",\n", [&](auto& out, const auto arg) {
-                out << arg.first << "(" << arg.first << ")";
-            });
-        os << (rels.empty() ? "" : ",\n");
-        os << join(rels, ",\n", [&](auto& out, const auto pair) {
-                out << pair.first << "(&" << pair.first << ")";
+                Mode kind;
+                std::string name, ty;
+                std::tie(kind, name, ty) = arg;
+                out << name << "(" << (kind == Relation ? "&" : "")<< name << ")";
             });
         os << "{}\n\n";
 
         // fields
         for (auto arg: args) {
-            os << arg.second << "& " << arg.first << ";\n";
-        }
-        for (auto [name, ty]: rels) {
-            os << ty << "* " << name << ";\n";
+            Mode kind;
+            std::string name, ty;
+            std::tie(kind, name, ty) = arg;
+            os << ty << (kind == Relation ? "* " : "& ") << name << ";\n";
         }
 
         initConsSep() << "subroutine_" << subroutineNum
             << "("
-            << join(args, ",", [&](auto& out, const auto pair) {
-                out << pair.first;
-            })
-            << (rels.empty() ? "" : ", ")
-            << join(rels, ",", [&](auto& out, const auto pair) {
-                out << "*" << pair.first;
+            << join(args, ",", [&](auto& out, const auto arg) {
+                Mode kind;
+                std::string name, ty;
+                std::tie(kind, name, ty) = arg;
+                out << (kind == Relation ? "*" : "") << name;
             })
             << ")";
 
@@ -2785,7 +2856,30 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         os << "  std::size_t reads[" << numRead << "]{};\n";
     }
 
+    auto functors_os = os.delayed();
 
+    for (const auto& f : functors) {
+        const std::string& name = f.first;
+        lambda_impl(*functors_os, name);
+    }
+
+    auto lambda_assign = [&](std::ostream& os, std::string name) {
+        auto [argsTy, retTy] = functor_signatures[name];
+        os << "if (name == \"" << name << "\") {\n";
+        os << "  lambda_" << name << " = std::any_cast<";
+        function_ty(os, name);
+        os << ">(fn);\n";
+        os << "  return true;\n";
+        os << "}\n";
+    };
+
+    os << "bool setFunctor(std::string name, std::any fn) override {\n";
+    for (const auto& f : functors) {
+        const std::string& name = f.first;
+        lambda_assign(os, name);
+    }
+    os << "return false;\n"
+       << "}\n";
 
     // `pf` must be a ctor param (see below)
     if (Global::config().has("profile")) {
