@@ -2577,7 +2577,7 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         }
         functor_signatures[name] = std::make_pair(argsTy, retTy);
         auto extern_decl = [&](std::ostream& os) {
-            os << retTy << " __attribute__((weak)) " << name << "("
+            os << retTy << " " << name << "("
                << join(argsTy, ", ", [&](auto& out, const std::string ty) {
                         out << ty;
                     })
@@ -2599,27 +2599,15 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
                 })
            << ")>";
     };
-    auto lambda_impl = [&](std::ostream& os, std::string name) {
+    auto lambda_decl = [&](std::ostream& os, std::string name) {
         auto [argsTy, retTy] = functor_signatures[name];
         function_ty(os, name);
-        std::size_t i = 0;
-        os << " lambda_" << name << " = [=]("
-           << join(argsTy, ", ", [&](auto& out, const std::string ty) {
-                    out << ty << " a_" << i++;
-                })
-           << ") {\n";
-        i = 0;
-        //os << "if (!" << name
-        //   << ") {\n  throw std::bad_function_call(\"Undefined reference to user-defined functor: "
-        //   << name << "\");\n}\n";
-        os << "return " << name << "("
-           << join(argsTy, ", ", [&](auto& out, const std::string) {
-                    out << "a_" << i++;
-                })
-           << ");\n};\n";
+        os << " lambda_" << name << ";\n";
     };
-
-
+    auto functors_initialize = [&](std::ostream& os, std::string name) {
+        auto [argsTy, retTy] = functor_signatures[name];
+        os << "lambda_" << name << " = " << name << ";\n";
+    };
 
     std::map<std::string, std::string> relationTypes;
 
@@ -2860,7 +2848,7 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
 
     for (const auto& f : functors) {
         const std::string& name = f.first;
-        lambda_impl(*functors_os, name);
+        lambda_decl(*functors_os, name);
     }
 
     auto lambda_assign = [&](std::ostream& os, std::string name) {
@@ -2955,6 +2943,12 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         os << "ProfileEventSingleton::instance().setOutputFile(profiling_fname);\n";
     }
     os << registerRel.str();
+
+    for (const auto& f : functors) {
+        const std::string& name = f.first;
+        functors_initialize(os, name);
+    }
+
     os << "}\n";
     // -- destructor --
 

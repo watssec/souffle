@@ -1,6 +1,6 @@
 /*
  * Souffle - A Datalog Compiler
- * Copyright (c) 2019 The Souffle Developers. All rights reserved
+ * Copyright (c) 2022 The Souffle Developers. All rights reserved
  * Licensed under the Universal Permissive License v 1.0 as shown at:
  * - https://opensource.org/licenses/UPL
  * - <souffle root>/licenses/SOUFFLE-UPL.txt
@@ -31,13 +31,12 @@ void error(std::string txt) {
 }
 
 extern "C" {
-    int32_t minus(int32_t x, int32_t y) {
-        return x - y;
-    }
-}
+    int32_t plus(int32_t x, int32_t y) {return x + y;}
+    int32_t minus(int32_t x, int32_t y) {return x - y;}
 
-souffle::RamSigned plus(souffle::RamSigned x, souffle::RamSigned y) {
-    return x + y;
+    souffle::RamSigned cnt() {return 0;}
+    souffle::RamSigned mul(souffle::RamSigned, souffle::RamSigned) {return 0;}
+    souffle::RamDomain point_plus(souffle::SymbolTable*, souffle::RecordTable*, souffle::RamDomain, souffle::RamDomain) {return 0;}
 }
 
 // with an object
