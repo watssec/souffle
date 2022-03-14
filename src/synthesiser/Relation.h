@@ -10,6 +10,7 @@
 
 #include "ram/Relation.h"
 #include "ram/analysis/Index.h"
+#include "synthesiser/GenDb.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -65,7 +66,7 @@ public:
             const std::unordered_set<std::size_t>& attributesUsed) const;
 
     /** Generate relation type struct */
-    virtual void generateTypeStruct(std::ostream& header, std::ostream& out) = 0;
+    virtual void generateTypeStruct(GenDb& db) = 0;
 
     /** Factory method to generate a SynthesiserRelation */
     static Own<Relation> getSynthesiserRelation(
@@ -98,7 +99,7 @@ public:
 
     void computeIndices() override;
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
+    void generateTypeStruct(GenDb& db) override;
 };
 
 class InfoRelation : public Relation {
@@ -108,7 +109,7 @@ public:
 
     void computeIndices() override;
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
+    void generateTypeStruct(GenDb& db) override;
 };
 
 class DirectRelation : public Relation {
@@ -120,7 +121,7 @@ public:
     void computeIndices() override;
     std::string getTypeNamespace();
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
+    void generateTypeStruct(GenDb& db) override;
 
 private:
     const bool isProvenance;
@@ -134,7 +135,7 @@ public:
 
     void computeIndices() override;
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
+    void generateTypeStruct(GenDb& db) override;
 };
 
 class BrieRelation : public Relation {
@@ -144,7 +145,7 @@ public:
 
     void computeIndices() override;
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
+    void generateTypeStruct(GenDb& db) override;
 };
 
 class EqrelRelation : public Relation {
@@ -154,6 +155,6 @@ public:
 
     void computeIndices() override;
     std::string getTypeName() override;
-    void generateTypeStruct(std::ostream& header, std::ostream& out) override;
+    void generateTypeStruct(GenDb& db) override;
 };
 }  // namespace souffle::synthesiser

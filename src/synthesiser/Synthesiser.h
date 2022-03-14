@@ -24,6 +24,7 @@
 #include "souffle/RecordTable.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "synthesiser/Relation.h"
+#include "synthesiser/GenDb.h"
 #include <cstddef>
 #include <map>
 #include <memory>
@@ -89,7 +90,7 @@ protected:
     const std::string getOpContextName(const ram::Relation& rel);
 
     /** Get relation struct definition */
-    void generateRelationTypeStruct(std::ostream& out, Own<Relation> relationType);
+    void generateRelationTypeStruct(GenDb& db, Own<Relation> relationType);
 
     /** Get referenced relations */
     std::set<const ram::Relation*> getReferencedRelations(const ram::Operation& op);
@@ -145,6 +146,6 @@ public:
     }
 
     /** Generate code */
-    void generateCode(std::ostream& os, const std::string& id, bool& withSharedLibrary);
+    void generateCode(GenDb& db, const std::string& id, bool& withSharedLibrary);
 };
 }  // namespace souffle::synthesiser

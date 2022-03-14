@@ -17,6 +17,7 @@
 #include "synthesiser/Synthesiser.h"
 #include "AggregateOp.h"
 #include "FunctorOps.h"
+#include "GenDb.h"
 #include "Global.h"
 #include "RelationTag.h"
 #include "ram/AbstractParallel.h"
@@ -97,6 +98,7 @@
 #include "souffle/utility/json11.h"
 #include "souffle/utility/tinyformat.h"
 #include "synthesiser/Relation.h"
+#include "synthesiser/GenDb.h"
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -191,7 +193,7 @@ const std::string Synthesiser::getOpContextName(const ram::Relation& rel) {
 }
 
 /** Get relation type struct */
-void Synthesiser::generateRelationTypeStruct(std::ostream& out, Own<Relation> relationType) {
+void Synthesiser::generateRelationTypeStruct(GenDb& db, Own<Relation> relationType) {
     std::string name = relationType->getTypeName();
     // If this type has been generated already, use the cached version
     if (typeCache.find(name) != typeCache.end()) {
@@ -202,9 +204,7 @@ void Synthesiser::generateRelationTypeStruct(std::ostream& out, Own<Relation> re
     // Generate the type struct for the relation
     std::stringstream decl;
     std::stringstream def;
-    relationType->generateTypeStruct(decl, def);
-    out << decl.str();
-    out << def.str();
+    relationType->generateTypeStruct(db);
 }
 
 /** Get referenced relations */
@@ -2427,56 +2427,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
     CodeEmitter(*this).dispatch(stmt, out);
 }
 
-/** An output stream where some pieces may be filled later or conditionnaly. */
-class DelayableOutputStream : public std::streambuf, public std::ostream {
-public:
-    DelayableOutputStream() : std::ostream(this) {}
 
-    ~DelayableOutputStream() {}
-
-    std::streambuf::int_type overflow(std::streambuf::int_type ch) override {
-        if (!current_stream) {
-            pieces.emplace_back(std::nullopt, std::make_shared<std::stringstream>());
-            current_stream = pieces.back().second;
-        }
-        current_stream->put(ch);
-        return ch;
-    }
-
-    /** Return a piece of stream that will be included in the output only if the given condition is true when
-     * this stream is flushed. */
-    std::shared_ptr<std::ostream> delayed_if(const bool& cond) {
-        current_stream.reset();
-        pieces.emplace_back(&cond, std::make_shared<std::stringstream>());
-        return pieces.back().second;
-    }
-
-    /** Return a piece of stream that will be included in the output when this stream is flushed. */
-    std::shared_ptr<std::ostream> delayed() {
-        current_stream.reset();
-        pieces.emplace_back(std::nullopt, std::make_shared<std::stringstream>());
-        return pieces.back().second;
-    }
-
-    /** */
-    void flushAll(std::ostream& os) {
-        current_stream.reset();
-        while (!pieces.empty()) {
-            auto& piece = pieces.front();
-            if ((!piece.first) || **piece.first) {
-                os << piece.second->str();
-            }
-            pieces.pop_front();
-        }
-    }
-
-private:
-    /* the sequence of pieces that compose the output stream. */
-    std::list<std::pair<std::optional<const bool*>, std::shared_ptr<std::stringstream>>> pieces;
-
-    /* points to the current piece's stream. */
-    std::shared_ptr<std::ostream> current_stream;
-};
 
 std::set<std::string> Synthesiser::accessedRelations(Statement& stmt) {
     std::set<std::string> accessed;
@@ -2514,7 +2465,7 @@ std::set<std::string> Synthesiser::accessedUserDefinedFunctors(Statement& stmt) 
     return accessed;
 };
 
-void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& withSharedLibrary) {
+void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withSharedLibrary) {
     // ---------------------------------------------------------------
     //                      Auto-Index Generation
     // ---------------------------------------------------------------
@@ -2524,8 +2475,6 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
     //                      Code Generation
     // ---------------------------------------------------------------
 
-    DelayableOutputStream os;
-
     withSharedLibrary = false;
 
     std::string classname = "Sf_" + id;
@@ -2533,33 +2482,27 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
     // generate C++ program
 
     if (Global::config().has("verbose")) {
-        os << "#define _SOUFFLE_STATS\n";
-        os << "#include \"souffle/profile/ProfileEvent.h\"";
+        db.addGlobalDefine("_SOUFFLE_STATS");
+        db.addGlobalInclude("\"souffle/profile/ProfileEvent.h\"");
     }
-    os << "\n#include \"souffle/CompiledSouffle.h\"\n";
+
     if (Global::config().has("provenance")) {
-        os << "#include <mutex>\n";
-        os << "#include \"souffle/provenance/Explain.h\"\n";
+        db.addGlobalInclude("<mutex>");
+        db.addGlobalInclude("\"souffle/provenance/Explain.h\"");
     }
 
     if (Global::config().has("live-profile")) {
-        os << "#include <thread>\n";
-        os << "#include \"souffle/profile/Tui.h\"\n";
+        db.addGlobalInclude("<thread>");
+        db.addGlobalInclude("\"souffle/profile/Tui.h\"");
     }
 
-    {
-        auto _os = os.delayed_if(UsingStdRegex);
-        *_os << "#include <regex>\n";
-    }
-
-    os << "#include <any>\n";
+    db.addGlobalInclude("<any>");
 
     if (Global::config().has("profile") || Global::config().has("live-profile")) {
-        os << "#include \"souffle/profile/Logger.h\"\n";
-        os << "#include \"souffle/profile/ProfileEvent.h\"\n";
+        db.addGlobalInclude("\"souffle/profile/Logger.h\"");
+        db.addGlobalInclude("\"souffle/profile/ProfileEvent.h\"");
     }
 
-    os << "\n";
     // produce external definitions for user-defined functors
     std::map<std::string, std::tuple<TypeAttribute, std::vector<TypeAttribute>, bool>> functors;
     visit(prog, [&](const UserDefinedOperator& op) {
@@ -2568,11 +2511,8 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         }
         withSharedLibrary = true;
     });
-    auto extern_c = os.delayed();
 
-    *extern_c << "extern \"C\" {\n";
     for (const auto& f : functors) {
-        //        std::size_t arity = f.second.length() - 1;
         const std::string& name = f.first;
 
         const auto& functorTypes = f.second;
@@ -2617,25 +2557,24 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
                << ");\n";
         };
 
-        extern_decl(*extern_c);
+        extern_decl(db.externC());
     }
-    *extern_c << "}\n";
-    os << "\n";
-    os << "namespace souffle {\n";
-    os << "static const RamDomain RAM_BIT_SHIFT_MASK = RAM_DOMAIN_SIZE - 1;\n";
 
-    auto function_ty = [&](std::ostream& os, std::string name) {
+    // main class
+    GenClass& mainClass = db.getClass(classname);
+    mainClass.inherits("public SouffleProgram");
+    mainClass.addInclude("\"souffle/CompiledSouffle.h\"");
+    mainClass.isMain = true;
+
+    auto function_ty = [&](std::string name) -> std::string  {
         auto [argsTy, retTy] = functor_signatures[name];
+        std::stringstream os;
         os << "std::function<" << retTy << "("
            << join(argsTy, ", ", [&](auto& out, const std::string ty) {
                     out << ty;
                 })
            << ")>";
-    };
-    auto lambda_decl = [&](std::ostream& os, std::string name) {
-        auto [argsTy, retTy] = functor_signatures[name];
-        function_ty(os, name);
-        os << " lambda_" << name << ";\n";
+        return os.str();
     };
     auto functors_initialize = [&](std::ostream& os, std::string name) {
         auto [argsTy, retTy] = functor_signatures[name];
@@ -2650,37 +2589,31 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
                 Relation::getSynthesiserRelation(*rel, idxAnalysis.getIndexSelection(rel->getName()));
 
         std::string typeName = relationType->getTypeName();
-        generateRelationTypeStruct(os, std::move(relationType));
+        generateRelationTypeStruct(db, std::move(relationType));
 
         relationTypes[getRelationName(*rel)] = typeName;
-    }
-    os << '\n';
 
-    // print relation definitions
-    std::stringstream initCons;     // initialization of constructor
-    std::stringstream registerRel;  // registration of relations
-    auto initConsSep = [&, empty = true]() mutable -> std::stringstream& {
-        initCons << (empty ? "\n: " : "\n, ");
-        empty = false;
-        return initCons;
-    };
+        db.usesDatastructure(mainClass, typeName);
+    }
 
     // identify relations used by each subroutines
     std::multimap<std::string /* stratum_* */, std::string> subroutineUses;
 
     // generate class for each subroutine
     std::size_t subroutineNum = 0;
-    std::vector<std::string> subroutineInits;
+    std::vector<std::pair<std::string, std::string>> subroutineInits;
     for (auto& sub : prog.getSubroutines()) {
+        GenClass& gen = db.getClass("Subroutine_" + std::to_string(subroutineNum));
+        mainClass.addDependency(gen);
+
         auto accessedRels = accessedRelations(*sub.second);
         auto accessedFunctors = accessedUserDefinedFunctors(*sub.second);
 
+        gen.addInclude("\"souffle/SouffleInterface.h\"");
+        gen.addInclude("\"souffle/SignalHandler.h\"");
+        gen.addInclude("\"souffle/io/IOSystem.h\"", true);
 
-        // silence unused argument warnings on MSVC
-        os << "#ifdef _MSC_VER\n";
-        os << "#pragma warning(disable: 4100)\n";
-        os << "#endif // _MSC_VER\n";
-        os << "struct Subroutine_" << subroutineNum << "{\n";
+        GenFunction& constructor = gen.addConstructor(Visibility::Public);
 
         enum Mode {
             Reference,
@@ -2700,127 +2633,100 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
             std::string name = getRelationName(lookup(rel));
             std::string tyname = relationTypes[name];
             args.push_back(std::make_tuple(Relation, name, tyname));
+            db.usesDatastructure(gen, tyname);
         }
         for (std::string fn : accessedFunctors) {
-            std::stringstream ty;
-            function_ty(ty, fn);
-            args.push_back(std::make_tuple(Reference, "lambda_" + fn, ty.str()));
+            args.push_back(std::make_tuple(Reference, "lambda_" + fn, function_ty(fn)));
         }
 
-
-        // constructor
-        os << "Subroutine_" << subroutineNum << "(\n";
-
-        os << join(args, ",\n", [&](auto& out, const auto arg) {
-                Mode kind;
-                std::string name, ty;
-                std::tie(kind, name, ty) = arg;
-                out << ty << "&" << name;
-            });
-        os << "):\n";
-        os << join(args, ",\n", [&](auto& out, const auto arg) {
-                Mode kind;
-                std::string name, ty;
-                std::tie(kind, name, ty) = arg;
-                out << name << "(" << (kind == Relation ? "&" : "")<< name << ")";
-            });
-        os << "{}\n\n";
-
-        // fields
         for (auto arg: args) {
             Mode kind;
             std::string name, ty;
             std::tie(kind, name, ty) = arg;
-            os << ty << (kind == Relation ? "* " : "& ") << name << ";\n";
+            constructor.setNextArg(ty + std::string("&"), name);
+
+            constructor.setNextInitializer(
+                name,
+                (kind == Relation ? std::string("&") : std::string("")) + name
+            );
+
+            gen.addField(ty + (kind == Relation ? "*" : "&"), name, Visibility::Private);
         }
         std::stringstream initStr;
-        initStr << "subroutine_" << subroutineNum
-            << "("
+        initStr
             << join(args, ",", [&](auto& out, const auto arg) {
                 Mode kind;
                 std::string name, ty;
                 std::tie(kind, name, ty) = arg;
                 out << (kind == Relation ? "*" : "") << name;
-            })
-            << ")";
-        subroutineInits.push_back(initStr.str());
+            });
+        subroutineInits.push_back(std::make_pair(std::string("subroutine_") + std::to_string(subroutineNum), initStr.str()));
 
-        // issue method header
-        os << "void run(const std::vector<RamDomain>& args, "
-              "std::vector<RamDomain>& ret) {\n";
-        // issue lock variable for return statements
+        GenFunction& run = gen.addFunction("run", Visibility::Public);
+        run.setRetType("void");
+        run.setNextArg("[[maybe_unused]] const std::vector<RamDomain>&", "args");
+        run.setNextArg("[[maybe_unused]] std::vector<RamDomain>&", "ret");
+
         bool needLock = false;
         visit(*sub.second, [&](const SubroutineReturn&) { needLock = true; });
         if (needLock) {
-            os << "std::mutex lock;\n";
+            run.body() << "std::mutex lock;\n";
         }
         SubroutineUsingStdRegex = false;
         SubroutineUsingSubstr = false;
         // emit code for subroutine
-        emitCode(os, *sub.second);
+        emitCode(run.body(), *sub.second);
         // issue end of subroutine
-        os << "}\n";
         UsingStdRegex |= SubroutineUsingStdRegex;
 
         if (SubroutineUsingStdRegex) {
             // regex wrapper
-            os << "private:\n";
-            os << "static inline bool regex_wrapper(const std::string& pattern, const std::string& text) {\n";
-            os << "   bool result = false; \n";
-            os << "   try { result = std::regex_match(text, std::regex(pattern)); } catch(...) { \n";
-            os << "     std::cerr << \"warning: wrong pattern provided for match(\\\"\" << pattern << "
-                  "\"\\\",\\\"\" "
-                  "<< text << \"\\\").\\n\";\n}\n";
-            os << "   return result;\n";
-            os << "}\n";
+            GenFunction& wrapper = gen.addFunction("regex_wrapper", Visibility::Private);
+            gen.addInclude("<regex>");
+            wrapper.setRetType("inline bool");
+            wrapper.setNextArg("const std::string&", "pattern");
+            wrapper.setNextArg("const std::string&", "text");
+            wrapper.body()
+               << "   bool result = false; \n"
+               << "   try { result = std::regex_match(text, std::regex(pattern)); } catch(...) { \n"
+               << "     std::cerr << \"warning: wrong pattern provided for match(\\\"\" << pattern << "
+              "\"\\\",\\\"\" "
+              "<< text << \"\\\").\\n\";\n}\n"
+               << "   return result;\n";
         }
 
         // substring wrapper
         if (SubroutineUsingSubstr) {
-            os << "private:\n";
-            os << "static inline std::string substr_wrapper(const std::string& str, std::size_t idx, "
-                  "std::size_t "
-                  "len) {\n";
-            os << "   std::string result; \n";
-            os << "   try { result = str.substr(idx,len); } catch(...) { \n";
-            os << "     std::cerr << \"warning: wrong index position provided by substr(\\\"\";\n";
-            os << "     std::cerr << str << \"\\\",\" << (int32_t)idx << \",\" << (int32_t)len << \") "
-                  "functor.\\n\";\n";
-            os << "   } return result;\n";
-            os << "}\n";
+            GenFunction& wrapper = gen.addFunction("substr_wrapper", Visibility::Private);
+            wrapper.setRetType("inline std::string");
+            wrapper.setNextArg("const std::string&", "str");
+            wrapper.setNextArg("std::size_t", "idx");
+            wrapper.setNextArg("std::size_t", "len");
+            wrapper.body()
+               << "std::string result; \n"
+               << "try { result = str.substr(idx,len); } catch(...) { \n"
+               << "  std::cerr << \"warning: wrong index position provided by substr(\\\"\";\n"
+               << "  std::cerr << str << \"\\\",\" << (int32_t)idx << \",\" << (int32_t)len << \") functor.\\n\";\n"
+               << "} return result;\n";
         }
-
-
-
-        os << "}; // Subroutine_" << subroutineNum << "\n";
-        // restore unused argument warning
-        os << "#ifdef _MSC_VER\n";
-        os << "#pragma warning(default: 4100)\n";
-        os << "#endif // _MSC_VER\n";
         subroutineNum++;
     }
 
-    // main class
-    auto decl = os.delayed();
-
-    *decl << "class " << classname << " : public SouffleProgram {\n";
 
 
+    GenFunction& constructor = mainClass.addConstructor(Visibility::Public);
+    constructor.setIsConstructor();
 
     if (Global::config().has("profile")) {
-        *decl << "std::string profiling_fname;\n";
+        mainClass.addField("std::string", "profiling_fname", Visibility::Public);
+        constructor.setNextArg("std::string", "pf", std::make_optional("\"profile.log\""));
+        constructor.setNextInitializer("profiling_fname", "std::move(pf)");
+
     }
-
-    *decl << "public:\n";
-
-    // declare symbol table
-    os << "// -- initialize symbol table --\n";
 
     // issue symbol table with string constants
     visit(prog, [&](const StringConstant& sc) { convertSymbol2Idx(sc.getConstant()); });
-    *decl << "SymbolTableImpl symTable;\n";
     std::stringstream st;
-    st << "symTable(";
     if (!symbolMap.empty()) {
         st << "{\n";
         for (const auto& x : symbolIndex) {
@@ -2828,66 +2734,65 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         }
         st << "}";
     }
-    st << ")";
-    initConsSep() << st.str();
+    mainClass.addField("SymbolTableImpl", "symTable", Visibility::Private);
+    constructor.setNextInitializer("symTable", st.str());
 
 
     // declare record table
-    os << "// -- initialize record table --\n";
-    *decl << "SpecializedRecordTable<0";
+    std::stringstream rt;
+    rt << "SpecializedRecordTable<0";
     for (std::size_t arity : arities) {
         if (arity > 0) {
-            *decl << "," << arity;
+            rt << "," << arity;
         }
     }
-    //*decl << "> recordTable{};\n";
-    *decl << "> recordTable;\n";
-    initConsSep() << "recordTable()";
+    rt << ">";
+    mainClass.addField(rt.str(), "recordTable", Visibility::Private);
+    constructor.setNextInitializer("recordTable", "");
 
     if (Global::config().has("profile")) {
-        *decl << "private:\n";
         std::size_t numFreq = 0;
         visit(prog, [&](const Statement&) { numFreq++; });
-        *decl << "  std::size_t freqs[" << numFreq << "]{};\n";
+        mainClass.addField("std::size_t", "freqs[" + std::to_string(numFreq) + "]", Visibility::Private);
+        constructor.setNextInitializer("freqs", "");
         std::size_t numRead = 0;
         for (auto rel : prog.getRelations()) {
             if (!rel->isTemp()) {
                 numRead++;
             }
         }
-        *decl << "  std::size_t reads[" << numRead << "]{};\n";
+        mainClass.addField("std::size_t", "reads[" + std::to_string(numRead) + "]", Visibility::Private);
+        constructor.setNextInitializer("reads", "");
     }
 
     for (const auto& f : functors) {
         const std::string& name = f.first;
-        lambda_decl(*decl, name);
+        //lambda_decl(*decl, name);
+        mainClass.addField(function_ty(name), "lambda_" + name, Visibility::Private);
     }
 
     auto lambda_assign = [&](std::ostream& os, std::string name) {
         auto [argsTy, retTy] = functor_signatures[name];
         os << "if (name == \"" << name << "\") {\n";
         os << "  lambda_" << name << " = std::any_cast<";
-        function_ty(os, name);
+        os << function_ty(name);
         os << ">(fn);\n";
         os << "  return true;\n";
         os << "}\n";
     };
 
-    *decl << "bool setFunctor(std::string name, std::any fn) override;\n";
-    os << "bool " << classname << "::setFunctor(std::string name, std::any fn) {\n";
+    GenFunction& setFunctor = mainClass.addFunction("setFunctor", Visibility::Public);
+    setFunctor.setOverride();
+    setFunctor.setRetType("bool");
+    setFunctor.setNextArg("[[maybe_unused]] std::string", "name");
+    setFunctor.setNextArg("[[maybe_unused]] std::any", "fn");
+
     for (const auto& f : functors) {
         const std::string& name = f.first;
-        lambda_assign(os, name);
+        lambda_assign(setFunctor.body(), name);
     }
-    os << "return false;\n"
-       << "}\n";
+    setFunctor.body() << "return false;\n";
 
-    // `pf` must be a ctor param (see below)
-    if (Global::config().has("profile")) {
-        initConsSep() << "profiling_fname(std::move(pf))";
-    }
-
-    int relCtr = 0;
     std::set<std::string> storeRelations;
     std::set<std::string> loadRelations;
     std::set<const IO*> loadIOs;
@@ -2907,6 +2812,7 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         }
     });
 
+    int relCtr = 0;
     for (auto rel : prog.getRelations()) {
         // get some table details
         const std::string& datalogName = rel->getName();
@@ -2917,12 +2823,12 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         const std::string& type = relationType->getTypeName();
 
         // defining table
-        *decl << "// -- Table: " << datalogName << "\n";
-
-        *decl << "Own<" << type << "> " << cppName << ";\n";
-        initConsSep() << cppName << "(mk<" << type << ">())";
+        mainClass.addField("Own<" + type + ">", cppName, Visibility::Private);
+        constructor.setNextInitializer(cppName, "mk<" + type + ">()");
         if (!rel->isTemp()) {
-            tfm::format(*decl, "souffle::RelationWrapper<%s> wrapper_%s;\n", type, cppName);
+            std::stringstream ty, init, wrapper_name;
+            ty << "souffle::RelationWrapper<" << type << ">";
+            wrapper_name << "wrapper_" << cppName;
 
             auto strLitAry = [](auto&& xs) {
                 std::stringstream ss;
@@ -2933,69 +2839,59 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
 
             auto foundIn = [&](auto&& set) { return contains(set, rel->getName()) ? "true" : "false"; };
 
-            tfm::format(initConsSep(), "wrapper_%s(%s, *%s, *this, \"%s\", %s, %s, %s)", cppName, relCtr++,
-                    cppName, datalogName, strLitAry(rel->getAttributeTypes()),
-                    strLitAry(rel->getAttributeNames()), rel->getAuxiliaryArity());
-            tfm::format(registerRel, "addRelation(\"%s\", wrapper_%s, %s, %s);\n", datalogName, cppName,
-                    foundIn(loadRelations), foundIn(storeRelations));
+            init << relCtr++ << ", *" << cppName << ", *this, \"" << datalogName << "\", "
+                 << strLitAry(rel->getAttributeTypes()) << ", "
+                 << strLitAry(rel->getAttributeNames()) << ", "
+                 << rel->getAuxiliaryArity();
+            constructor.body() << "addRelation(\"" << datalogName << "\", wrapper_" << cppName
+                << ", " << foundIn(loadRelations)
+                << ", " << foundIn(storeRelations)
+                << ");\n";
+
+            mainClass.addField(ty.str(), wrapper_name.str(), Visibility::Private);
+            constructor.setNextInitializer(wrapper_name.str(), init.str());
         }
     }
-    for (auto init: subroutineInits) {
-        initConsSep() << init;
-    }
-    *decl << "public:\n";
-
-    // Declare subroutine objects;
-    for (size_t i = 0; i < prog.getSubroutines().size(); i++) {
-        *decl << "Subroutine_" << i << " subroutine_" << i << ";\n";
+    std::size_t i = 0;
+    for (auto [field, value]: subroutineInits) {
+        mainClass.addField("Subroutine_" + std::to_string(i), field, Visibility::Private);
+        constructor.setNextInitializer(field, value);
+        i++;
     }
 
-    // -- constructor --
-    *decl << classname;
-    *decl << (Global::config().has("profile") ? "(std::string pf=\"profile.log\");\n" : "();\n");
-    os << classname << "::" << classname;
-    os << (Global::config().has("profile") ? "(std::string pf=\"profile.log\")" : "()");
-    os << initCons.str() << '\n';
-    os << "{\n";
     if (Global::config().has("profile")) {
-        os << "ProfileEventSingleton::instance().setOutputFile(profiling_fname);\n";
+        constructor.body() << "ProfileEventSingleton::instance().setOutputFile(profiling_fname);\n";
     }
-    os << registerRel.str();
 
     for (const auto& f : functors) {
         const std::string& name = f.first;
-        functors_initialize(os, name);
+        functors_initialize(constructor.body(), name);
     }
 
-    os << "}\n";
     // -- destructor --
-
-    *decl << "~" << classname << "();\n";
-    os << classname << "::~" << classname << "() {\n";
-    os << "}\n";
+    GenFunction& destructor = mainClass.addFunction("~" + classname, Visibility::Public);
+    destructor.setIsConstructor();
 
     // issue state variables for the evaluation
     //
     // Improve compile time by storing the signal handler in one loc instead of
     // emitting thousands of `SignalHandler::instance()`. The volume of calls
     // makes GVN and register alloc very expensive, even if the call is inlined.
-    *decl << R"_(
-private:
-std::string             inputDirectory;
-std::string             outputDirectory;
-SignalHandler*          signalHandler {SignalHandler::instance()};
-std::atomic<RamDomain>  ctr {};
-std::atomic<std::size_t>     iter {};
-void runFunction(std::string  inputDirectoryArg,
-                 std::string  outputDirectoryArg,
-                 bool         performIOArg,
-                 bool         pruneImdtRelsArg);
-)_";
+    mainClass.addField("std::string", "inputDirectory", Visibility::Private);
+    mainClass.addField("std::string", "outputDirectory", Visibility::Private);
+    mainClass.addField("SignalHandler*", "signalHandler", Visibility::Private, "{SignalHandler::instance()}");
+    mainClass.addField("std::atomic<RamDomain>", "ctr", Visibility::Private, "{}");
+    mainClass.addField("std::atomic<std::size_t>", "iter", Visibility::Private, "{}");
 
-    os << "void " << classname << R"_(::runFunction(std::string  inputDirectoryArg,
-                 std::string  outputDirectoryArg,
-                 bool         performIOArg,
-                 bool         pruneImdtRelsArg) {
+    GenFunction& runFunction = mainClass.addFunction("runFunction", Visibility::Private);
+    runFunction.setRetType("void");
+    runFunction.setNextArg("std::string", "inputDirectoryArg");
+    runFunction.setNextArg("std::string", "outputDirectoryArg");
+    runFunction.setNextArg("bool", "performIOArg");
+    runFunction.setNextArg("bool", "pruneImdtRelsArg");
+
+
+    runFunction.body() << R"_(
     this->inputDirectory  = std::move(inputDirectoryArg);
     this->outputDirectory = std::move(outputDirectoryArg);
     this->performIO       = performIOArg;
@@ -3010,15 +2906,15 @@ void runFunction(std::string  inputDirectoryArg,
     signalHandler->set();
 )_";
     if (Global::config().has("verbose")) {
-        os << "signalHandler->enableLogging();\n";
+        runFunction.body() << "signalHandler->enableLogging();\n";
     }
 
     // add actual program body
-    os << "// -- query evaluation --\n";
+    runFunction.body() << "// -- query evaluation --\n";
     if (Global::config().has("profile")) {
-        os << "ProfileEventSingleton::instance().startTimer();\n";
-        os << R"_(ProfileEventSingleton::instance().makeTimeEvent("@time;starttime");)_" << '\n';
-        os << "{\n"
+        runFunction.body() << "ProfileEventSingleton::instance().startTimer();\n"
+           << R"_(ProfileEventSingleton::instance().makeTimeEvent("@time;starttime");)_" << '\n'
+           << "{\n"
            << R"_(Logger logger("@runtime;", 0);)_" << '\n';
         // Store count of relations
         std::size_t relationCount = 0;
@@ -3028,113 +2924,116 @@ void runFunction(std::string  inputDirectoryArg,
             }
         }
         // Store configuration
-        os << R"_(ProfileEventSingleton::instance().makeConfigRecord("relationCount", std::to_string()_"
+        runFunction.body() << R"_(ProfileEventSingleton::instance().makeConfigRecord("relationCount", std::to_string()_"
            << relationCount << "));";
     }
 
     // emit code
-    emitCode(os, prog.getMain());
+    emitCode(runFunction.body(), prog.getMain());
 
     if (Global::config().has("profile")) {
-        os << "}\n";
-        os << "ProfileEventSingleton::instance().stopTimer();\n";
-        os << "dumpFreqs();\n";
+        runFunction.body() << "}\n"
+           << "ProfileEventSingleton::instance().stopTimer();\n"
+           << "dumpFreqs();\n";
     }
 
     // add code printing hint statistics
-    os << "\n// -- relation hint statistics --\n";
+    runFunction.body() << "\n// -- relation hint statistics --\n";
 
     if (Global::config().has("verbose")) {
         for (auto rel : prog.getRelations()) {
             auto name = getRelationName(*rel);
-            os << "std::cout << \"Statistics for Relation " << name << ":\\n\";\n";
-            os << name << "->printStatistics(std::cout);\n";
-            os << "std::cout << \"\\n\";\n";
+            runFunction.body() << "std::cout << \"Statistics for Relation " << name << ":\\n\";\n"
+              << name << "->printStatistics(std::cout);\n"
+              << "std::cout << \"\\n\";\n";
         }
     }
 
-    os << "signalHandler->reset();\n";
+    runFunction.body() << "signalHandler->reset();\n";
 
-    os << "}\n";  // end of runFunction() method
 
     // add methods to run with and without performing IO (mainly for the interface)
-    *decl << "public:\nvoid run() override;\n";
-    os << "void " << classname << "::run() {\nrunFunction(\"\", \"\", "
-          "false, false);\n}\n";
-    *decl << "public:\nvoid runAll(std::string inputDirectoryArg = \"\", std::string outputDirectoryArg = \"\", "
-          << "bool performIOArg=true, bool pruneImdtRelsArg=true) override;\n";
-    os << "void " << classname << "::runAll(std::string inputDirectoryArg, std::string outputDirectoryArg, "
-          "bool performIOArg, bool pruneImdtRelsArg) {\n";
-    if (Global::config().has("live-profile")) {
-        os << "std::thread profiler([]() { profile::Tui().runProf(); });\n";
-    }
-    os << "runFunction(inputDirectoryArg, outputDirectoryArg, performIOArg, pruneImdtRelsArg);\n";
-    if (Global::config().has("live-profile")) {
-        os << "if (profiler.joinable()) { profiler.join(); }\n";
-    }
-    os << "}\n";
-    // issue printAll method
-    *decl << "public:\n";
-    *decl << "void printAll(std::string outputDirectoryArg = \"\") override;\n";
+    GenFunction& run = mainClass.addFunction("run", Visibility::Public);
+    run.setOverride();
+    run.setRetType("void");
+    run.body() << "runFunction(\"\", \"\", false, false);\n";
 
-    os << "void " << classname << "::printAll(std::string outputDirectoryArg) {\n";
+    GenFunction& runAll = mainClass.addFunction("runAll", Visibility::Public);
+    runAll.setOverride();
+    runAll.setRetType("void");
+    runAll.setNextArg("std::string", "inputDirectoryArg", std::make_optional("\"\""));
+    runAll.setNextArg("std::string", "outputDirectoryArg", std::make_optional("\"\""));
+    runAll.setNextArg("bool", "performIOArg", std::make_optional("true"));
+    runAll.setNextArg("bool", "pruneImdtRelsArg", std::make_optional("true"));
+    if (Global::config().has("live-profile")) {
+        runAll.body() << "std::thread profiler([]() { profile::Tui().runProf(); });\n";
+    }
+    runAll.body() << "runFunction(inputDirectoryArg, outputDirectoryArg, performIOArg, pruneImdtRelsArg);\n";
+    if (Global::config().has("live-profile")) {
+        runAll.body() << "if (profiler.joinable()) { profiler.join(); }\n";
+    }
+
+    // issue printAll method
+    GenFunction& printAll = mainClass.addFunction("printAll", Visibility::Public);
+    printAll.setOverride();
+    printAll.setRetType("void");
+    printAll.setNextArg("[[maybe_unused]] std::string", "outputDirectoryArg", std::make_optional("\"\""));
 
     // print directives as C++ initializers
-    auto printDirectives = [&](const std::map<std::string, std::string>& registry) {
+    auto printDirectives = [&](std::ostream&o, const std::map<std::string, std::string>& registry) {
         auto cur = registry.begin();
         if (cur == registry.end()) {
             return;
         }
-        os << "{{\"" << cur->first << "\",\"" << escape(cur->second) << "\"}";
+        o << "{{\"" << cur->first << "\",\"" << escape(cur->second) << "\"}";
         ++cur;
         for (; cur != registry.end(); ++cur) {
-            os << ",{\"" << cur->first << "\",\"" << escape(cur->second) << "\"}";
+            o << ",{\"" << cur->first << "\",\"" << escape(cur->second) << "\"}";
         }
-        os << '}';
+        o << '}';
     };
 
     for (auto store : storeIOs) {
         auto const& directive = store->getDirectives();
-        os << "try {";
-        os << "std::map<std::string, std::string> directiveMap(";
-        printDirectives(directive);
-        os << ");\n";
-        os << R"_(if (!outputDirectoryArg.empty()) {)_";
-        os << R"_(directiveMap["output-dir"] = outputDirectoryArg;)_";
-        os << "}\n";
-        os << "IOSystem::getInstance().getWriter(";
-        os << "directiveMap, symTable, recordTable";
-        os << ")->writeAll(*" << getRelationName(lookup(store->getRelation())) << ");\n";
+        printAll.body() << "try {";
+        printAll.body() << "std::map<std::string, std::string> directiveMap(";
+        printDirectives(printAll.body(), directive);
+        printAll.body() << ");\n";
+        printAll.body() << R"_(if (!outputDirectoryArg.empty()) {)_";
+        printAll.body() << R"_(directiveMap["output-dir"] = outputDirectoryArg;)_";
+        printAll.body() << "}\n";
+        printAll.body() << "IOSystem::getInstance().getWriter(";
+        printAll.body() << "directiveMap, symTable, recordTable";
+        printAll.body() << ")->writeAll(*" << getRelationName(lookup(store->getRelation())) << ");\n";
 
-        os << "} catch (std::exception& e) {std::cerr << e.what();exit(1);}\n";
+        printAll.body() << "} catch (std::exception& e) {std::cerr << e.what();exit(1);}\n";
     }
-    os << "}\n";  // end of printAll() method
 
     // issue loadAll method
-    *decl << "public:\n";
-    *decl << "void loadAll(std::string inputDirectoryArg = \"\") override;\n";
-    os << "void " << classname << "::loadAll(std::string inputDirectoryArg) {\n";
+    GenFunction& loadAll = mainClass.addFunction("loadAll", Visibility::Public);
+    loadAll.setOverride();
+    loadAll.setRetType("void");
+    loadAll.setNextArg("[[maybe_unused]] std::string", "inputDirectoryArg", std::make_optional("\"\""));
 
     for (auto load : loadIOs) {
-        os << "try {";
-        os << "std::map<std::string, std::string> directiveMap(";
-        printDirectives(load->getDirectives());
-        os << ");\n";
-        os << R"_(if (!inputDirectoryArg.empty()) {)_";
-        os << R"_(directiveMap["fact-dir"] = inputDirectoryArg;)_";
-        os << "}\n";
-        os << "IOSystem::getInstance().getReader(";
-        os << "directiveMap, symTable, recordTable";
-        os << ")->readAll(*" << getRelationName(lookup(load->getRelation()));
-        os << ");\n";
-        os << "} catch (std::exception& e) {std::cerr << \"Error loading " << load->getRelation()
+        loadAll.body() << "try {";
+        loadAll.body() << "std::map<std::string, std::string> directiveMap(";
+        printDirectives(loadAll.body(), load->getDirectives());
+        loadAll.body() << ");\n";
+        loadAll.body() << R"_(if (!inputDirectoryArg.empty()) {)_";
+        loadAll.body() << R"_(directiveMap["fact-dir"] = inputDirectoryArg;)_";
+        loadAll.body() << "}\n";
+        loadAll.body() << "IOSystem::getInstance().getReader(";
+        loadAll.body() << "directiveMap, symTable, recordTable";
+        loadAll.body() << ")->readAll(*" << getRelationName(lookup(load->getRelation()));
+        loadAll.body() << ");\n";
+        loadAll.body() << "} catch (std::exception& e) {std::cerr << \"Error loading " << load->getRelation()
            << " data: \" << e.what() << "
               "'\\n';}\n";
     }
 
-    os << "}\n";  // end of loadAll() method
     // issue dump methods
-    auto dumpRelation = [&](const ram::Relation& ramRelation) {
+    auto dumpRelation = [&](std::ostream& os, const ram::Relation& ramRelation) {
         const auto& relName = getRelationName(ramRelation);
         const auto& name = ramRelation.getName();
         const auto& attributesTypes = ramRelation.getAttributeTypes();
@@ -3159,98 +3058,103 @@ void runFunction(std::string  inputDirectoryArg,
     };
 
     // dump inputs
-    *decl << "public:\n";
-    *decl << "void dumpInputs() override;\n";
-    os << "void " << classname << "::dumpInputs() {\n";
-
+    GenFunction& dumpInputs = mainClass.addFunction("dumpInputs", Visibility::Public);
+    dumpInputs.setOverride();
+    dumpInputs.setRetType("void");
     for (auto load : loadIOs) {
-        dumpRelation(*lookup(load->getRelation()));
+        dumpRelation(dumpInputs.body(), *lookup(load->getRelation()));
     }
-    os << "}\n";  // end of dumpInputs() method
 
     // dump outputs
-    *decl << "public:\n";
-    *decl << "void dumpOutputs() override;\n";
-    os << "void " << classname << "::dumpOutputs() {\n";
+    GenFunction& dumpOutputs = mainClass.addFunction("dumpOutputs", Visibility::Public);
+    dumpOutputs.setOverride();
+    dumpOutputs.setRetType("void");
     for (auto store : storeIOs) {
-        dumpRelation(*lookup(store->getRelation()));
+        dumpRelation(dumpOutputs.body(), *lookup(store->getRelation()));
     }
-    os << "}\n";  // end of dumpOutputs() method
 
-    *decl << "public:\n";
-    *decl << "SymbolTable& getSymbolTable() override {\n";
-    *decl << "return symTable;\n";
-    *decl << "}\n";  // end of getSymbolTable() method
+    GenFunction& getSymbolTable = mainClass.addFunction("getSymbolTable", Visibility::Public);
+    getSymbolTable.setOverride();
+    getSymbolTable.setRetType("SymbolTable&");
+    getSymbolTable.body() << "return symTable;\n";
 
-    *decl << "RecordTable& getRecordTable() override {\n";
-    *decl << "return recordTable;\n";
-    *decl << "}\n";  // end of getRecordTable() method
+    GenFunction& getRecordTable = mainClass.addFunction("getRecordTable", Visibility::Public);
+    getRecordTable.setOverride();
+    getRecordTable.setRetType("RecordTable&");
+    getRecordTable.body() << "return recordTable;\n";
 
-    *decl << "void setNumThreads(std::size_t numThreadsValue) override {\n";
-    *decl << "SouffleProgram::setNumThreads(numThreadsValue);\n";
-    *decl << "symTable.setNumLanes(getNumThreads());\n";
-    *decl << "recordTable.setNumLanes(getNumThreads());\n";
-    *decl << "}\n";  // end of setNumThreads
+    GenFunction& setNumThreads = mainClass.addFunction("setNumThreads", Visibility::Public);
+    setNumThreads.setRetType("void");
+    setNumThreads.setNextArg("std::size_t", "numThreadsValue");
+
+    setNumThreads.body() << "SouffleProgram::setNumThreads(numThreadsValue);\n";
+    setNumThreads.body() << "symTable.setNumLanes(getNumThreads());\n";
+    setNumThreads.body() << "recordTable.setNumLanes(getNumThreads());\n";
 
     if (!prog.getSubroutines().empty()) {
         // generate subroutine adapter
-        *decl << "void executeSubroutine(std::string name, const std::vector<RamDomain>& args, "
-              "std::vector<RamDomain>& ret) override;\n";
-        os << "void " << classname << "::executeSubroutine(std::string name, const std::vector<RamDomain>& args, "
-              "std::vector<RamDomain>& ret) {\n";
-        // subroutine number
+        GenFunction& executeSubroutine = mainClass.addFunction("executeSubroutine", Visibility::Public);
+        executeSubroutine.setRetType("void");
+        executeSubroutine.setOverride();
+        executeSubroutine.setNextArg("std::string", "name");
+        executeSubroutine.setNextArg("const std::vector<RamDomain>&", "args");
+        executeSubroutine.setNextArg("std::vector<RamDomain>&", "ret");
+
         std::size_t subroutineNum = 0;
         for (auto& sub : prog.getSubroutines()) {
-            os << "if (name == \"" << sub.first << "\") {\n"
+            executeSubroutine.body() << "if (name == \"" << sub.first << "\") {\n"
                << "subroutine_" << subroutineNum
                << ".run(args, ret);\n"  // subroutine_<i> to deal with special characters in relation names
                << "return;"
                << "}\n";
             subroutineNum++;
         }
-        os << "fatal(\"unknown subroutine\");\n";
-        os << "}\n";  // end of executeSubroutine
+        executeSubroutine.body() << "fatal(\"unknown subroutine\");\n";
+        //os << "}\n";  // end of executeSubroutine
 
     }
     // dumpFreqs method
     //  Frequency counts must be emitted after subroutines otherwise lookup tables
     //  are not populated.
     if (Global::config().has("profile")) {
-        *decl << "private:\n";
-        *decl << "void dumpFreqs() {\n";
+        GenFunction& dumpFreqs = mainClass.addFunction("dumpFreqs", Visibility::Private);
+        dumpFreqs.setRetType("void");
 
-        os << "void " << classname << "::dumpFreqs() {\n";
         for (auto const& cur : idxMap) {
-            os << "\tProfileEventSingleton::instance().makeQuantityEvent(R\"_(" << cur.first << ")_\", freqs["
+            dumpFreqs.body() << "\tProfileEventSingleton::instance().makeQuantityEvent(R\"_(" << cur.first << ")_\", freqs["
                << cur.second << "],0);\n";
         }
         for (auto const& cur : neIdxMap) {
-            os << "\tProfileEventSingleton::instance().makeQuantityEvent(R\"_(@relation-reads;" << cur.first
+            dumpFreqs.body() << "\tProfileEventSingleton::instance().makeQuantityEvent(R\"_(@relation-reads;" << cur.first
                << ")_\", reads[" << cur.second << "],0);\n";
         }
-        os << "}\n";  // end of dumpFreqs() method
     }
-    *decl << "};\n";  // end of class declaration
 
+    GenClass& factory = db.getClass("factory_" + classname);
+    factory.addInclude("\"souffle/SouffleInterface.h\"");
+    factory.addDependency(mainClass, true);
+    factory.inherits("souffle::ProgramFactory");
+    GenFunction& newInstance = factory.addFunction("newInstance", Visibility::Public);
+    newInstance.setRetType("SouffleProgram*");
+    newInstance.body() << "return new " << classname << "();\n";
+    GenFunction& factoryConstructor = factory.addConstructor(Visibility::Public);
+    factoryConstructor.setNextInitializer("ProgramFactory", "\"" + id + "\"");
+
+
+    std::ostream&os =  db.hooks();
     // hidden hooks
+    os << "namespace souffle {\n";
     os << "SouffleProgram *newInstance_" << id << "(){return new " << classname << ";}\n";
     os << "SymbolTable *getST_" << id << "(SouffleProgram *p){return &reinterpret_cast<" << classname
        << "*>(p)->getSymbolTable();}\n";
-
     os << "\n#ifdef __EMBEDDED_SOUFFLE__\n";
-    os << "class factory_" << classname << ": public souffle::ProgramFactory {\n";
-    os << "SouffleProgram *newInstance() {\n";
-    os << "return new " << classname << "();\n";
-    os << "};\n";
-    os << "public:\n";
-    os << "factory_" << classname << "() : ProgramFactory(\"" << id << "\"){}\n";
-    os << "};\n";
     os << "extern \"C\" {\n";
     os << "factory_" << classname << " __factory_" << classname << "_instance;\n";
     os << "}\n";
-    os << "}\n";
+    os << "} // namespace souffle\n";
     os << "#else\n";
-    os << "}\n";
+    os << "} // namespace souffle\n";
+
     os << "int main(int argc, char** argv)\n{\n";
     os << "try{\n";
 
@@ -3306,9 +3210,6 @@ void runFunction(std::string  inputDirectoryArg,
     os << "}\n";
     os << "\n#endif\n";
 
-
-
-    os.flushAll(sos);
 }
 
 }  // namespace souffle::synthesiser

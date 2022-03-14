@@ -92,7 +92,8 @@ std::string InfoRelation::getTypeName() {
 
 /** Generate type struct of a info relation, which is empty,
  * the actual implementation is in CompiledSouffle.h */
-void InfoRelation::generateTypeStruct(std::ostream&, std::ostream&) {
+void InfoRelation::generateTypeStruct(GenDb&db) {
+    db.datastructureIncludes(getTypeName(), "\"souffle/CompiledSouffle.h\"");
     return;
 }
 
@@ -110,7 +111,8 @@ std::string NullaryRelation::getTypeName() {
 
 /** Generate type struct of a nullary relation, which is empty,
  * the actual implementation is in CompiledSouffle.h */
-void NullaryRelation::generateTypeStruct(std::ostream&, std::ostream&) {
+void NullaryRelation::generateTypeStruct(GenDb& db) {
+    db.datastructureIncludes(getTypeName(), "\"souffle/CompiledSouffle.h\"");
     return;
 }
 
@@ -194,8 +196,6 @@ std::string DirectRelation::getTypeNamespace() {
         res << "__" << search;
     }
 
-    res << "::Type";
-
     return res.str();
 }
 
@@ -204,7 +204,7 @@ std::string DirectRelation::getTypeName() {
 }
 
 /** Generate type struct of a direct indexed relation */
-void DirectRelation::generateTypeStruct(std::ostream&decl, std::ostream& def) {
+void DirectRelation::generateTypeStruct(GenDb& db) {
     std::size_t arity = getArity();
     std::size_t auxiliaryArity = relation.getAuxiliaryArity();
     auto types = relation.getAttributeTypes();
@@ -212,9 +212,18 @@ void DirectRelation::generateTypeStruct(std::ostream&decl, std::ostream& def) {
     std::size_t numIndexes = inds.size();
     std::map<LexOrder, std::size_t> indexToNumMap;
 
-    decl << "namespace " << getTypeNamespace() << " {\n";
-    def << "namespace " << getTypeNamespace() << " {\n";
+    GenDatastructure& cl = db.getDatastructure("Type", std::make_optional(getTypeNamespace()));
+    std::ostream& decl = cl.decl();
+    std::ostream& def = cl.def();
 
+    cl.addInclude("<iostream>");
+    cl.addInclude("\"souffle/SouffleInterface.h\"");
+    cl.addInclude("\"souffle/datastructure/Table.h\"");
+    if (hasErase) {
+        cl.addInclude("\"souffle/datastructure/BTreeDelete.h\"");
+    } else {
+        cl.addInclude("\"souffle/datastructure/BTree.h\"");
+    }
 
     // struct definition
     decl << "struct Type {\n";
@@ -580,8 +589,6 @@ void DirectRelation::generateTypeStruct(std::ostream&decl, std::ostream& def) {
     // end struct
     decl << "};\n";
 
-    decl << "} // namespace " << getTypeNamespace() << "\n";
-    def << "} // namespace " << getTypeNamespace() << "\n";
 }  // namespace souffle
 
 // -------- Indirect Indexed B-Tree Relation --------
@@ -631,12 +638,16 @@ std::string IndirectRelation::getTypeName() {
 }
 
 /** Generate type struct of a indirect indexed relation */
-void IndirectRelation::generateTypeStruct(std::ostream&, std::ostream& out) {
+void IndirectRelation::generateTypeStruct(GenDb& db) {
     std::size_t arity = getArity();
     const auto& inds = getIndices();
     auto types = relation.getAttributeTypes();
     std::size_t numIndexes = inds.size();
     std::map<LexOrder, std::size_t> indexToNumMap;
+
+    GenDatastructure& cl = db.getDatastructure(getTypeName(), std::nullopt);
+    cl.addInclude("\"souffle/datastructure/BTree.h\"");
+    std::ostream& out = cl.decl();
 
     // struct definition
     out << "struct " << getTypeName() << " {\n";
@@ -974,11 +985,15 @@ std::string BrieRelation::getTypeName() {
 }
 
 /** Generate type struct of a brie relation */
-void BrieRelation::generateTypeStruct(std::ostream&, std::ostream& out) {
+void BrieRelation::generateTypeStruct(GenDb& db) {
     std::size_t arity = getArity();
     const auto& inds = getIndices();
     std::size_t numIndexes = inds.size();
     std::map<LexOrder, std::size_t> indexToNumMap;
+
+    GenDatastructure& cl = db.getDatastructure(getTypeName(), std::nullopt);
+    std::ostream& out = cl.decl();
+    cl.addInclude("\"souffle/datastructure/Brie.h\"");
 
     // struct definition
     out << "struct " << getTypeName() << " {\n";
@@ -1224,7 +1239,8 @@ std::string EqrelRelation::getTypeName() {
 
 /** Generate type struct of a eqrel relation, which is empty,
  * the actual implementation is in CompiledSouffle.h */
-void EqrelRelation::generateTypeStruct(std::ostream&, std::ostream&) {
+void EqrelRelation::generateTypeStruct(GenDb& db) {
+    db.datastructureIncludes(getTypeName(), "\"souffle/CompiledSouffle.h\"");
     return;
 }
 

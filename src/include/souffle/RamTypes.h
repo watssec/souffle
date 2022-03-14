@@ -39,6 +39,8 @@ using Tuple = std::array<A, N>;
 #ifndef RAM_DOMAIN_SIZE
 #define RAM_DOMAIN_SIZE 32
 #endif
+constexpr std::size_t RAM_BIT_SHIFT_MASK = RAM_DOMAIN_SIZE - 1;
+
 
 #if RAM_DOMAIN_SIZE == 64
 using RamDomain = int64_t;

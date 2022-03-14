@@ -103,6 +103,7 @@
 #include "souffle/utility/StringUtil.h"
 #include "souffle/utility/SubProcess.h"
 #include "synthesiser/Synthesiser.h"
+#include "synthesiser/GenDb.h"
 #include <cassert>
 #include <chrono>
 #include <cstdio>
@@ -252,6 +253,9 @@ int main(int argc, char** argv) {
                 {"generate", 'g', "FILE", "", false,
                         "Generate C++ source code for the given Datalog program and write it to "
                         "<FILE>. If <FILE> is `-` then stdout is used."},
+                {"generate-many", 'G', "DIR", "", false,
+                        "Generate C++ source code in multiple files for the given Datalog program "
+                        "and write it to <DIR>."},
                 {"inline-exclude", '\x7', "RELATIONS", "", false,
                         "Prevent the given relations from being inlined. Overrides any `inline` qualifiers."},
                 {"swig", 's', "LANG", "", false,
@@ -714,9 +718,10 @@ int main(int argc, char** argv) {
     const bool execute_mode = Global::config().has("compile");
     const bool compile_mode = Global::config().has("dl-program");
     const bool generate_mode = Global::config().has("generate");
+    const bool generate_many_mode = Global::config().has("generate-many");
 
     const bool must_interpret =
-            !execute_mode && !compile_mode && !generate_mode && !Global::config().has("swig");
+            !execute_mode && !compile_mode && !generate_mode && !generate_many_mode && !Global::config().has("swig");
     const bool must_execute = execute_mode;
     const bool must_compile = must_execute || compile_mode || Global::config().has("swig");
 
@@ -772,6 +777,8 @@ int main(int argc, char** argv) {
                 if (baseFilename.size() >= 4 && baseFilename.substr(baseFilename.size() - 4) == ".cpp") {
                     baseFilename = baseFilename.substr(0, baseFilename.size() - 4);
                 }
+            } else if (generate_many_mode) {
+                baseFilename = Global::config().get("generate-many");
             } else {
                 baseFilename = tempFile();
             }
@@ -786,11 +793,18 @@ int main(int argc, char** argv) {
             bool withSharedLibrary;
             auto synthesisStart = std::chrono::high_resolution_clock::now();
             const bool emitToStdOut = Global::config().has("generate", "-");
+            const bool emitMultipleFiles = Global::config().has("generate-many");
+
+            synthesiser::GenDb db;
+            synthesiser->generateCode(db, baseIdentifier, withSharedLibrary);
+
             if (emitToStdOut)
-                synthesiser->generateCode(std::cout, baseIdentifier, withSharedLibrary);
-            else {
+                db.emitSingleFile(std::cout);
+            else if (emitMultipleFiles) {
+                db.emitMultipleFilesInDir(Global::config().get("generate-many"));
+            } else {
                 std::ofstream os{sourceFilename};
-                synthesiser->generateCode(os, baseIdentifier, withSharedLibrary);
+                db.emitSingleFile(os);
                 os.close();
             }
             if (Global::config().has("verbose")) {
