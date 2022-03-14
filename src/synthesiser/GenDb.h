@@ -17,22 +17,21 @@
 
 #pragma once
 
-#include <sstream>
-#include <memory>
-#include <ostream>
-#include <optional>
-#include <vector>
-#include <map>
-#include <set>
 #include "souffle/utility/Types.h"
-#include <filesystem>
 #include <cassert>
+#include <filesystem>
 #include <iostream>
+#include <map>
+#include <memory>
+#include <optional>
+#include <ostream>
+#include <set>
+#include <sstream>
+#include <vector>
 
 namespace fs = std::filesystem;
 
 namespace souffle::synthesiser {
-
 
 /** An output stream where some pieces may be filled later or conditionnaly. */
 class DelayableOutputStream : public std::streambuf, public std::ostream {
@@ -67,9 +66,7 @@ private:
  */
 class Gen {
 public:
-    Gen(std::string name):
-    name(name)
-    {}
+    Gen(std::string name) : name(name) {}
 
     /* Emit the declaration of this construct in C++,
      * typically what we would expect from a .hpp file
@@ -81,13 +78,17 @@ public:
      */
     virtual void definition(std::ostream& o) = 0;
 
-    std::string& getName() { return name;}
+    std::string& getName() {
+        return name;
+    }
 
     /*
      * Basename of the file (without extension) where
      * that should be produced for this code.
      */
-    virtual fs::path fileBaseName() { return fs::path(name);};
+    virtual fs::path fileBaseName() {
+        return fs::path(name);
+    };
 
     /*
      * Sets 'dep' as a class that is used by the current construct
@@ -104,10 +105,18 @@ public:
     /**
      * Accessors for private members
      */
-    std::set<std::string>& getDeclIncludes() {return decl_includes;}
-    std::set<std::string>& getIncludes() {return includes;}
-    std::set<Gen*>& getDeclDependencies() {return decl_dependencies;}
-    std::set<Gen*>& getDependencies() {return dependencies;}
+    std::set<std::string>& getDeclIncludes() {
+        return decl_includes;
+    }
+    std::set<std::string>& getIncludes() {
+        return includes;
+    }
+    std::set<Gen*>& getDeclDependencies() {
+        return decl_dependencies;
+    }
+    std::set<Gen*>& getDependencies() {
+        return dependencies;
+    }
 
     fs::path getHeader() {
         return fileBaseName().concat(".hpp");
@@ -120,7 +129,6 @@ protected:
     std::set<Gen*> decl_dependencies;
     std::set<std::string> includes;
     std::set<Gen*> dependencies;
-
 };
 
 class GenClass;
@@ -129,38 +137,39 @@ class GenDb;
 /**
  * Visibility of the elements in the class
  */
-enum Visibility {
-    Public = 0,
-    Private
-};
+enum Visibility { Public = 0, Private };
 
 /**
  * Class helper to manipulate/build a function to be emitted
  * by the C++ Synthesizer.
  */
-class GenFunction: public Gen {
+class GenFunction : public Gen {
 public:
-    GenFunction(std::string name, GenClass* cl, Visibility v):
-    Gen(name),
-    cl(cl),
-    visibility(v),
-    override(false)
-    {}
+    GenFunction(std::string name, GenClass* cl, Visibility v)
+            : Gen(name), cl(cl), visibility(v), override(false) {}
 
     void setRetType(std::string ty);
     void setNextArg(std::string ty, std::string name, std::optional<std::string> defaultValue = std::nullopt);
     void setNextInitializer(std::string name, std::string value);
 
-    void setIsConstructor() {isConstructor = true;};
-    void setOverride() {override = true;};
+    void setIsConstructor() {
+        isConstructor = true;
+    };
+    void setOverride() {
+        override = true;
+    };
 
     void declaration(std::ostream& o) override;
 
     void definition(std::ostream& o) override;
 
-    Visibility getVisibility() { return visibility;}
+    Visibility getVisibility() {
+        return visibility;
+    }
 
-    std::ostream& body() { return bodyStream;}
+    std::ostream& body() {
+        return bodyStream;
+    }
 
 private:
     GenClass* cl;
@@ -168,8 +177,8 @@ private:
     bool isConstructor = false;
     bool override;
     std::string retType;
-    std::vector<std::tuple<std::string,std::string, std::optional<std::string>>> args;
-    std::vector<std::pair<std::string,std::string>> initializer;
+    std::vector<std::tuple<std::string, std::string, std::optional<std::string>>> args;
+    std::vector<std::pair<std::string, std::string>> initializer;
     std::stringstream bodyStream;
 };
 
@@ -177,17 +186,14 @@ private:
  * Class helper to manipulate/build a class to be emitted
  * by the C++ Synthesizer.
  */
-class GenClass: public Gen {
-
+class GenClass : public Gen {
 public:
-    GenClass(std::string name, GenDb* db):
-    Gen(name),
-    db(db)
-    {}
+    GenClass(std::string name, GenDb* db) : Gen(name), db(db) {}
     GenFunction& addFunction(std::string name, Visibility);
     GenFunction& addConstructor(Visibility);
 
-    void addField(std::string type, std::string name, Visibility, std::optional<std::string> init = std::nullopt);
+    void addField(
+            std::string type, std::string name, Visibility, std::optional<std::string> init = std::nullopt);
 
     void declaration(std::ostream& o) override;
 
@@ -203,12 +209,10 @@ public:
 private:
     GenDb* db;
     std::vector<Own<GenFunction>> methods;
-    std::vector<std::tuple<
-        std::string /*name*/,
-        std::string /*type*/,
-        Visibility,
-        std::optional<std::string> /* initializer value */
-    >> fields;
+    std::vector<std::tuple<std::string /*name*/, std::string /*type*/, Visibility,
+            std::optional<std::string> /* initializer value */
+            >>
+            fields;
     std::vector<std::string> inheritance;
 };
 
@@ -217,16 +221,17 @@ private:
  * for one of the Souffle specialized datastructures
  * (e.g. BTree, BTreeDelete, Brie, etc.)
  */
-class GenDatastructure: public Gen {
+class GenDatastructure : public Gen {
 public:
-    GenDatastructure(std::string name, std::optional<std::string> namespace_opt, GenDb* db):
-    Gen(name),
-    namespace_name(namespace_opt),
-    db(db)
-    {}
+    GenDatastructure(std::string name, std::optional<std::string> namespace_opt, GenDb* db)
+            : Gen(name), namespace_name(namespace_opt), db(db) {}
 
-    std::ostream& decl() {return declarationStream;}
-    std::ostream& def() {return definitionStream;}
+    std::ostream& decl() {
+        return declarationStream;
+    }
+    std::ostream& def() {
+        return definitionStream;
+    }
 
     void declaration(std::ostream& o) override;
     void definition(std::ostream& o) override;
@@ -238,7 +243,6 @@ private:
     GenDb* db;
     std::stringstream declarationStream;
     std::stringstream definitionStream;
-
 };
 
 /**
@@ -254,8 +258,12 @@ public:
     void emitSingleFile(std::ostream& o);
     void emitMultipleFilesInDir(std::string dir);
 
-    std::ostream& hooks() { return hiddenHooksStream;}
-    std::ostream& externC() { return externCStream;}
+    std::ostream& hooks() {
+        return hiddenHooksStream;
+    }
+    std::ostream& externC() {
+        return externCStream;
+    }
 
     void addGlobalInclude(std::string str) {
         globalIncludes.emplace(str);
@@ -289,4 +297,4 @@ private:
     std::set<std::string> globalDefines;
 };
 
-} // namespace
+}  // namespace souffle::synthesiser

@@ -23,8 +23,8 @@
 #include "ram/utility/Visitor.h"
 #include "souffle/RecordTable.h"
 #include "souffle/utility/ContainerUtil.h"
-#include "synthesiser/Relation.h"
 #include "synthesiser/GenDb.h"
+#include "synthesiser/Relation.h"
 #include <cstddef>
 #include <map>
 #include <memory>
@@ -129,7 +129,6 @@ protected:
 
     /** return the set of User-defined functor names used in the statement */
     std::set<std::string> accessedUserDefinedFunctors(ram::Statement& stmt);
-
 
 public:
     explicit Synthesiser(/*const std::size_t laneCount, */ ram::TranslationUnit& tUnit)

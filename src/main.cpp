@@ -102,8 +102,8 @@
 #include "souffle/utility/StreamUtil.h"
 #include "souffle/utility/StringUtil.h"
 #include "souffle/utility/SubProcess.h"
-#include "synthesiser/Synthesiser.h"
 #include "synthesiser/GenDb.h"
+#include "synthesiser/Synthesiser.h"
 #include <cassert>
 #include <chrono>
 #include <cstdio>
@@ -720,8 +720,8 @@ int main(int argc, char** argv) {
     const bool generate_mode = Global::config().has("generate");
     const bool generate_many_mode = Global::config().has("generate-many");
 
-    const bool must_interpret =
-            !execute_mode && !compile_mode && !generate_mode && !generate_many_mode && !Global::config().has("swig");
+    const bool must_interpret = !execute_mode && !compile_mode && !generate_mode && !generate_many_mode &&
+                                !Global::config().has("swig");
     const bool must_execute = execute_mode;
     const bool must_compile = must_execute || compile_mode || Global::config().has("swig");
 

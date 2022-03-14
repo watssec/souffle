@@ -92,7 +92,7 @@ std::string InfoRelation::getTypeName() {
 
 /** Generate type struct of a info relation, which is empty,
  * the actual implementation is in CompiledSouffle.h */
-void InfoRelation::generateTypeStruct(GenDb&db) {
+void InfoRelation::generateTypeStruct(GenDb& db) {
     db.datastructureIncludes(getTypeName(), "\"souffle/CompiledSouffle.h\"");
     return;
 }
@@ -273,8 +273,8 @@ void DirectRelation::generateTypeStruct(GenDb& db) {
                 const auto& typecast = typecasts[attrib];
 
                 decl << "(" << typecast << "(a[" << attrib << "]) < " << typecast << "(b[" << attrib
-                    << "])) ? -1 : (" << typecast << "(a[" << attrib << "]) > " << typecast << "(b[" << attrib
-                    << "])) ? 1 :(";
+                     << "])) ? -1 : (" << typecast << "(a[" << attrib << "]) > " << typecast << "(b["
+                     << attrib << "])) ? 1 :(";
                 if (i + 1 < bound) {
                     gencmp(i + 1);
                 } else {
@@ -293,7 +293,7 @@ void DirectRelation::generateTypeStruct(GenDb& db) {
                 decl << "(" << typecast << "(a[" << attrib << "]) < " << typecast << "(b[" << attrib << "]))";
                 if (i + 1 < bound) {
                     decl << "|| ((" << typecast << "(a[" << attrib << "]) == " << typecast << "(b[" << attrib
-                        << "])) && (";
+                         << "])) && (";
                     genless(i + 1);
                     decl << "))";
                 }
@@ -306,7 +306,8 @@ void DirectRelation::generateTypeStruct(GenDb& db) {
                 std::size_t attrib = ind[i];
                 const auto& typecast = typecasts[attrib];
 
-                decl << "(" << typecast << "(a[" << attrib << "]) == " << typecast << "(b[" << attrib << "]))";
+                decl << "(" << typecast << "(a[" << attrib << "]) == " << typecast << "(b[" << attrib
+                     << "]))";
                 if (i + 1 < bound) {
                     decl << "&&";
                     geneq(i + 1);
@@ -334,9 +335,9 @@ void DirectRelation::generateTypeStruct(GenDb& db) {
                 comparator_aux = comparator;
             }
             decl << "using t_ind_" << i << " = btree_set<t_tuple," << comparator
-                << ",std::allocator<t_tuple>,256,typename "
-                   "souffle::detail::default_strategy<t_tuple>::type,"
-                << comparator_aux << ",updater>;\n";
+                 << ",std::allocator<t_tuple>,256,typename "
+                    "souffle::detail::default_strategy<t_tuple>::type,"
+                 << comparator_aux << ",updater>;\n";
         } else {
             std::string btree_name = "btree";
             if (hasErase) {
@@ -347,7 +348,7 @@ void DirectRelation::generateTypeStruct(GenDb& db) {
             } else {
                 // without provenance, some indices may be not full, so we use btree_multiset for those
                 decl << "using t_ind_" << i << " = " << btree_name << "_multiset<t_tuple," << comparator
-                    << ">;\n";
+                     << ">;\n";
             }
         }
         decl << "t_ind_" << i << " ind_" << i << ";\n";
@@ -362,9 +363,9 @@ void DirectRelation::generateTypeStruct(GenDb& db) {
     decl << "struct context {\n";
     for (std::size_t i = 0; i < numIndexes; i++) {
         decl << "t_ind_" << i << "::operation_hints hints_" << i << "_lower"
-            << ";\n";
+             << ";\n";
         decl << "t_ind_" << i << "::operation_hints hints_" << i << "_upper"
-            << ";\n";
+             << ";\n";
     }
     decl << "};\n";
     def << "using context = Type::context;\n";
@@ -465,7 +466,7 @@ void DirectRelation::generateTypeStruct(GenDb& db) {
 
     // empty lowerUpperRange method
     decl << "range<iterator> lowerUpperRange_" << SearchSignature(arity)
-        << "(const t_tuple& /* lower */, const t_tuple& /* upper */, context& /* h */) const;\n";
+         << "(const t_tuple& /* lower */, const t_tuple& /* upper */, context& /* h */) const;\n";
     def << "range<iterator> Type::lowerUpperRange_" << SearchSignature(arity)
         << "(const t_tuple& /* lower */, const t_tuple& /* upper */, context& /* h */) const "
            "{\n";
@@ -474,7 +475,7 @@ void DirectRelation::generateTypeStruct(GenDb& db) {
     def << "}\n";
 
     decl << "range<iterator> lowerUpperRange_" << SearchSignature(arity)
-        << "(const t_tuple& /* lower */, const t_tuple& /* upper */) const;\n";
+         << "(const t_tuple& /* lower */, const t_tuple& /* upper */) const;\n";
     def << "range<iterator> Type::lowerUpperRange_" << SearchSignature(arity)
         << "(const t_tuple& /* lower */, const t_tuple& /* upper */) const {\n";
 

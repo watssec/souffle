@@ -97,8 +97,8 @@
 #include "souffle/utility/StringUtil.h"
 #include "souffle/utility/json11.h"
 #include "souffle/utility/tinyformat.h"
-#include "synthesiser/Relation.h"
 #include "synthesiser/GenDb.h"
+#include "synthesiser/Relation.h"
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -2427,28 +2427,14 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
     CodeEmitter(*this).dispatch(stmt, out);
 }
 
-
-
 std::set<std::string> Synthesiser::accessedRelations(Statement& stmt) {
     std::set<std::string> accessed;
-    visit(stmt, [&](const Insert& node) {
-        accessed.insert(node.getRelation());
-    });
-    visit(stmt, [&](const RelationOperation& node) {
-        accessed.insert(node.getRelation());
-    });
-    visit(stmt, [&](const RelationStatement& node) {
-        accessed.insert(node.getRelation());
-    });
-    visit(stmt, [&](const AbstractExistenceCheck& node) {
-        accessed.insert(node.getRelation());
-    });
-    visit(stmt, [&](const EmptinessCheck& node) {
-        accessed.insert(node.getRelation());
-    });
-    visit(stmt, [&](const RelationSize& node) {
-        accessed.insert(node.getRelation());
-    });
+    visit(stmt, [&](const Insert& node) { accessed.insert(node.getRelation()); });
+    visit(stmt, [&](const RelationOperation& node) { accessed.insert(node.getRelation()); });
+    visit(stmt, [&](const RelationStatement& node) { accessed.insert(node.getRelation()); });
+    visit(stmt, [&](const AbstractExistenceCheck& node) { accessed.insert(node.getRelation()); });
+    visit(stmt, [&](const EmptinessCheck& node) { accessed.insert(node.getRelation()); });
+    visit(stmt, [&](const RelationSize& node) { accessed.insert(node.getRelation()); });
     visit(stmt, [&](const BinRelationStatement& node) {
         accessed.insert(node.getFirstRelation());
         accessed.insert(node.getSecondRelation());
@@ -2551,10 +2537,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         functor_signatures[name] = std::make_pair(argsTy, retTy);
         auto extern_decl = [&](std::ostream& os) {
             os << retTy << " " << name << "("
-               << join(argsTy, ", ", [&](auto& out, const std::string ty) {
-                        out << ty;
-                    })
-               << ");\n";
+               << join(argsTy, ", ", [&](auto& out, const std::string ty) { out << ty; }) << ");\n";
         };
 
         extern_decl(db.externC());
@@ -2566,14 +2549,11 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     mainClass.addInclude("\"souffle/CompiledSouffle.h\"");
     mainClass.isMain = true;
 
-    auto function_ty = [&](std::string name) -> std::string  {
+    auto function_ty = [&](std::string name) -> std::string {
         auto [argsTy, retTy] = functor_signatures[name];
         std::stringstream os;
         os << "std::function<" << retTy << "("
-           << join(argsTy, ", ", [&](auto& out, const std::string ty) {
-                    out << ty;
-                })
-           << ")>";
+           << join(argsTy, ", ", [&](auto& out, const std::string ty) { out << ty; }) << ")>";
         return os.str();
     };
     auto functors_initialize = [&](std::ostream& os, std::string name) {
@@ -2615,10 +2595,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
 
         GenFunction& constructor = gen.addConstructor(Visibility::Public);
 
-        enum Mode {
-            Reference,
-            Relation
-        };
+        enum Mode { Reference, Relation };
         std::vector<std::tuple<Mode, std::string /*name*/, std::string /*type*/>> args;
         args.push_back(std::make_tuple(Reference, "symTable", "SymbolTable"));
         args.push_back(std::make_tuple(Reference, "recordTable", "RecordTable"));
@@ -2639,28 +2616,26 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
             args.push_back(std::make_tuple(Reference, "lambda_" + fn, function_ty(fn)));
         }
 
-        for (auto arg: args) {
+        for (auto arg : args) {
             Mode kind;
             std::string name, ty;
             std::tie(kind, name, ty) = arg;
             constructor.setNextArg(ty + std::string("&"), name);
 
             constructor.setNextInitializer(
-                name,
-                (kind == Relation ? std::string("&") : std::string("")) + name
-            );
+                    name, (kind == Relation ? std::string("&") : std::string("")) + name);
 
             gen.addField(ty + (kind == Relation ? "*" : "&"), name, Visibility::Private);
         }
         std::stringstream initStr;
-        initStr
-            << join(args, ",", [&](auto& out, const auto arg) {
-                Mode kind;
-                std::string name, ty;
-                std::tie(kind, name, ty) = arg;
-                out << (kind == Relation ? "*" : "") << name;
-            });
-        subroutineInits.push_back(std::make_pair(std::string("subroutine_") + std::to_string(subroutineNum), initStr.str()));
+        initStr << join(args, ",", [&](auto& out, const auto arg) {
+            Mode kind;
+            std::string name, ty;
+            std::tie(kind, name, ty) = arg;
+            out << (kind == Relation ? "*" : "") << name;
+        });
+        subroutineInits.push_back(
+                std::make_pair(std::string("subroutine_") + std::to_string(subroutineNum), initStr.str()));
 
         GenFunction& run = gen.addFunction("run", Visibility::Public);
         run.setRetType("void");
@@ -2687,12 +2662,12 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
             wrapper.setNextArg("const std::string&", "pattern");
             wrapper.setNextArg("const std::string&", "text");
             wrapper.body()
-               << "   bool result = false; \n"
-               << "   try { result = std::regex_match(text, std::regex(pattern)); } catch(...) { \n"
-               << "     std::cerr << \"warning: wrong pattern provided for match(\\\"\" << pattern << "
-              "\"\\\",\\\"\" "
-              "<< text << \"\\\").\\n\";\n}\n"
-               << "   return result;\n";
+                    << "   bool result = false; \n"
+                    << "   try { result = std::regex_match(text, std::regex(pattern)); } catch(...) { \n"
+                    << "     std::cerr << \"warning: wrong pattern provided for match(\\\"\" << pattern << "
+                       "\"\\\",\\\"\" "
+                       "<< text << \"\\\").\\n\";\n}\n"
+                    << "   return result;\n";
         }
 
         // substring wrapper
@@ -2702,17 +2677,15 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
             wrapper.setNextArg("const std::string&", "str");
             wrapper.setNextArg("std::size_t", "idx");
             wrapper.setNextArg("std::size_t", "len");
-            wrapper.body()
-               << "std::string result; \n"
-               << "try { result = str.substr(idx,len); } catch(...) { \n"
-               << "  std::cerr << \"warning: wrong index position provided by substr(\\\"\";\n"
-               << "  std::cerr << str << \"\\\",\" << (int32_t)idx << \",\" << (int32_t)len << \") functor.\\n\";\n"
-               << "} return result;\n";
+            wrapper.body() << "std::string result; \n"
+                           << "try { result = str.substr(idx,len); } catch(...) { \n"
+                           << "  std::cerr << \"warning: wrong index position provided by substr(\\\"\";\n"
+                           << "  std::cerr << str << \"\\\",\" << (int32_t)idx << \",\" << (int32_t)len << "
+                              "\") functor.\\n\";\n"
+                           << "} return result;\n";
         }
         subroutineNum++;
     }
-
-
 
     GenFunction& constructor = mainClass.addConstructor(Visibility::Public);
     constructor.setIsConstructor();
@@ -2721,7 +2694,6 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         mainClass.addField("std::string", "profiling_fname", Visibility::Public);
         constructor.setNextArg("std::string", "pf", std::make_optional("\"profile.log\""));
         constructor.setNextInitializer("profiling_fname", "std::move(pf)");
-
     }
 
     // issue symbol table with string constants
@@ -2736,7 +2708,6 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     }
     mainClass.addField("SymbolTableImpl", "symTable", Visibility::Private);
     constructor.setNextInitializer("symTable", st.str());
-
 
     // declare record table
     std::stringstream rt;
@@ -2767,7 +2738,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
 
     for (const auto& f : functors) {
         const std::string& name = f.first;
-        //lambda_decl(*decl, name);
+        // lambda_decl(*decl, name);
         mainClass.addField(function_ty(name), "lambda_" + name, Visibility::Private);
     }
 
@@ -2840,20 +2811,17 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
             auto foundIn = [&](auto&& set) { return contains(set, rel->getName()) ? "true" : "false"; };
 
             init << relCtr++ << ", *" << cppName << ", *this, \"" << datalogName << "\", "
-                 << strLitAry(rel->getAttributeTypes()) << ", "
-                 << strLitAry(rel->getAttributeNames()) << ", "
+                 << strLitAry(rel->getAttributeTypes()) << ", " << strLitAry(rel->getAttributeNames()) << ", "
                  << rel->getAuxiliaryArity();
-            constructor.body() << "addRelation(\"" << datalogName << "\", wrapper_" << cppName
-                << ", " << foundIn(loadRelations)
-                << ", " << foundIn(storeRelations)
-                << ");\n";
+            constructor.body() << "addRelation(\"" << datalogName << "\", wrapper_" << cppName << ", "
+                               << foundIn(loadRelations) << ", " << foundIn(storeRelations) << ");\n";
 
             mainClass.addField(ty.str(), wrapper_name.str(), Visibility::Private);
             constructor.setNextInitializer(wrapper_name.str(), init.str());
         }
     }
     std::size_t i = 0;
-    for (auto [field, value]: subroutineInits) {
+    for (auto [field, value] : subroutineInits) {
         mainClass.addField("Subroutine_" + std::to_string(i), field, Visibility::Private);
         constructor.setNextInitializer(field, value);
         i++;
@@ -2890,7 +2858,6 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     runFunction.setNextArg("bool", "performIOArg");
     runFunction.setNextArg("bool", "pruneImdtRelsArg");
 
-
     runFunction.body() << R"_(
     this->inputDirectory  = std::move(inputDirectoryArg);
     this->outputDirectory = std::move(outputDirectoryArg);
@@ -2913,9 +2880,10 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     runFunction.body() << "// -- query evaluation --\n";
     if (Global::config().has("profile")) {
         runFunction.body() << "ProfileEventSingleton::instance().startTimer();\n"
-           << R"_(ProfileEventSingleton::instance().makeTimeEvent("@time;starttime");)_" << '\n'
-           << "{\n"
-           << R"_(Logger logger("@runtime;", 0);)_" << '\n';
+                           << R"_(ProfileEventSingleton::instance().makeTimeEvent("@time;starttime");)_"
+                           << '\n'
+                           << "{\n"
+                           << R"_(Logger logger("@runtime;", 0);)_" << '\n';
         // Store count of relations
         std::size_t relationCount = 0;
         for (auto rel : prog.getRelations()) {
@@ -2924,8 +2892,9 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
             }
         }
         // Store configuration
-        runFunction.body() << R"_(ProfileEventSingleton::instance().makeConfigRecord("relationCount", std::to_string()_"
-           << relationCount << "));";
+        runFunction.body()
+                << R"_(ProfileEventSingleton::instance().makeConfigRecord("relationCount", std::to_string()_"
+                << relationCount << "));";
     }
 
     // emit code
@@ -2933,8 +2902,8 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
 
     if (Global::config().has("profile")) {
         runFunction.body() << "}\n"
-           << "ProfileEventSingleton::instance().stopTimer();\n"
-           << "dumpFreqs();\n";
+                           << "ProfileEventSingleton::instance().stopTimer();\n"
+                           << "dumpFreqs();\n";
     }
 
     // add code printing hint statistics
@@ -2944,13 +2913,12 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         for (auto rel : prog.getRelations()) {
             auto name = getRelationName(*rel);
             runFunction.body() << "std::cout << \"Statistics for Relation " << name << ":\\n\";\n"
-              << name << "->printStatistics(std::cout);\n"
-              << "std::cout << \"\\n\";\n";
+                               << name << "->printStatistics(std::cout);\n"
+                               << "std::cout << \"\\n\";\n";
         }
     }
 
     runFunction.body() << "signalHandler->reset();\n";
-
 
     // add methods to run with and without performing IO (mainly for the interface)
     GenFunction& run = mainClass.addFunction("run", Visibility::Public);
@@ -2980,7 +2948,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     printAll.setNextArg("[[maybe_unused]] std::string", "outputDirectoryArg", std::make_optional("\"\""));
 
     // print directives as C++ initializers
-    auto printDirectives = [&](std::ostream&o, const std::map<std::string, std::string>& registry) {
+    auto printDirectives = [&](std::ostream& o, const std::map<std::string, std::string>& registry) {
         auto cur = registry.begin();
         if (cur == registry.end()) {
             return;
@@ -3028,8 +2996,8 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         loadAll.body() << ")->readAll(*" << getRelationName(lookup(load->getRelation()));
         loadAll.body() << ");\n";
         loadAll.body() << "} catch (std::exception& e) {std::cerr << \"Error loading " << load->getRelation()
-           << " data: \" << e.what() << "
-              "'\\n';}\n";
+                       << " data: \" << e.what() << "
+                          "'\\n';}\n";
     }
 
     // issue dump methods
@@ -3103,15 +3071,15 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         std::size_t subroutineNum = 0;
         for (auto& sub : prog.getSubroutines()) {
             executeSubroutine.body() << "if (name == \"" << sub.first << "\") {\n"
-               << "subroutine_" << subroutineNum
-               << ".run(args, ret);\n"  // subroutine_<i> to deal with special characters in relation names
-               << "return;"
-               << "}\n";
+                                     << "subroutine_" << subroutineNum
+                                     << ".run(args, ret);\n"  // subroutine_<i> to deal with special
+                                                              // characters in relation names
+                                     << "return;"
+                                     << "}\n";
             subroutineNum++;
         }
         executeSubroutine.body() << "fatal(\"unknown subroutine\");\n";
-        //os << "}\n";  // end of executeSubroutine
-
+        // os << "}\n";  // end of executeSubroutine
     }
     // dumpFreqs method
     //  Frequency counts must be emitted after subroutines otherwise lookup tables
@@ -3121,12 +3089,12 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         dumpFreqs.setRetType("void");
 
         for (auto const& cur : idxMap) {
-            dumpFreqs.body() << "\tProfileEventSingleton::instance().makeQuantityEvent(R\"_(" << cur.first << ")_\", freqs["
-               << cur.second << "],0);\n";
+            dumpFreqs.body() << "\tProfileEventSingleton::instance().makeQuantityEvent(R\"_(" << cur.first
+                             << ")_\", freqs[" << cur.second << "],0);\n";
         }
         for (auto const& cur : neIdxMap) {
-            dumpFreqs.body() << "\tProfileEventSingleton::instance().makeQuantityEvent(R\"_(@relation-reads;" << cur.first
-               << ")_\", reads[" << cur.second << "],0);\n";
+            dumpFreqs.body() << "\tProfileEventSingleton::instance().makeQuantityEvent(R\"_(@relation-reads;"
+                             << cur.first << ")_\", reads[" << cur.second << "],0);\n";
         }
     }
 
@@ -3140,8 +3108,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     GenFunction& factoryConstructor = factory.addConstructor(Visibility::Public);
     factoryConstructor.setNextInitializer("ProgramFactory", "\"" + id + "\"");
 
-
-    std::ostream&os =  db.hooks();
+    std::ostream& os = db.hooks();
     // hidden hooks
     os << "namespace souffle {\n";
     os << "SouffleProgram *newInstance_" << id << "(){return new " << classname << ";}\n";
@@ -3209,7 +3176,6 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     os << "} catch(std::exception &e) { souffle::SignalHandler::instance()->error(e.what());}\n";
     os << "}\n";
     os << "\n#endif\n";
-
 }
 
 }  // namespace souffle::synthesiser

@@ -21,6 +21,7 @@
 #include "souffle/SymbolTable.h"
 #include "souffle/utility/MiscUtil.h"
 #include <algorithm>
+#include <any>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -33,7 +34,6 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-#include <any>
 
 namespace souffle {
 

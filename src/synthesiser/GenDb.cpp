@@ -14,9 +14,7 @@
  * and a way to produce C++ code.
  *
  ***********************************************************************/
-#include <list>
 #include "GenDb.h"
-#include "synthesiser/GenDb.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/FileUtil.h"
 #include "souffle/utility/MiscUtil.h"
@@ -24,11 +22,12 @@
 #include "souffle/utility/StringUtil.h"
 #include "souffle/utility/json11.h"
 #include "souffle/utility/tinyformat.h"
+#include "synthesiser/GenDb.h"
 #include <filesystem>
+#include <list>
 namespace fs = std::filesystem;
 
 namespace souffle::synthesiser {
-
 
 std::streambuf::int_type DelayableOutputStream::overflow(std::streambuf::int_type ch) {
     if (!current_stream) {
@@ -85,24 +84,21 @@ void GenFunction::setRetType(std::string ty) {
 }
 
 void GenFunction::setNextArg(std::string ty, std::string name, std::optional<std::string> defaultValue) {
-    args.push_back(std::make_tuple(ty,name, defaultValue));
+    args.push_back(std::make_tuple(ty, name, defaultValue));
 }
 
 void GenFunction::setNextInitializer(std::string field, std::string value) {
-    initializer.push_back(std::make_pair(field,value));
+    initializer.push_back(std::make_pair(field, value));
 }
 
-
 void GenFunction::declaration(std::ostream& o) {
-    o << retType << " " << name << "("
-      << join(args, ",", [&](auto& out, const auto arg) {
-                    out << std::get<0>(arg) << " " << std::get<1>(arg);
-                    std::optional<std::string> defaultValue = std::get<2>(arg);
-                    if (defaultValue) {
-                        out << " = " << *defaultValue;
-                    }
-                })
-      << ");";
+    o << retType << " " << name << "(" << join(args, ",", [&](auto& out, const auto arg) {
+        out << std::get<0>(arg) << " " << std::get<1>(arg);
+        std::optional<std::string> defaultValue = std::get<2>(arg);
+        if (defaultValue) {
+            out << " = " << *defaultValue;
+        }
+    }) << ");";
 }
 
 void GenFunction::definition(std::ostream& o) {
@@ -110,16 +106,13 @@ void GenFunction::definition(std::ostream& o) {
     if (cl) {
         o << cl->getName() << "::";
     }
-    o << name << "("
-      << join(args, ",", [&](auto& out, const auto arg) {
-                    out << std::get<0>(arg) << " " << std::get<1>(arg);
-                })
-      << ")";
+    o << name << "(" << join(args, ",", [&](auto& out, const auto arg) {
+        out << std::get<0>(arg) << " " << std::get<1>(arg);
+    }) << ")";
     if (isConstructor && initializer.size() > 0) {
         o << ":\n";
-        o << join(initializer, ",\n", [&](auto& out, const auto arg) {
-                    out << arg.first << "(" << arg.second << ")";
-                });
+        o << join(initializer, ",\n",
+                [&](auto& out, const auto arg) { out << arg.first << "(" << arg.second << ")"; });
     }
     o << "{\n";
     o << bodyStream.str();
@@ -147,10 +140,7 @@ void GenClass::declaration(std::ostream& o) {
 
     o << "class " << name;
     if (inheritance.size() > 0) {
-        o << ": "
-          << join(inheritance, ", ", [&](auto& out, const auto arg) {
-                    out << arg;
-                });
+        o << ": " << join(inheritance, ", ", [&](auto& out, const auto arg) { out << arg; });
     }
     o << " {\n";
     DelayableOutputStream public_o;
@@ -163,7 +153,7 @@ void GenClass::declaration(std::ostream& o) {
         fn->declaration(o);
         o << "\n";
     }
-    for (auto& [field,ty,v,init] : fields) {
+    for (auto& [field, ty, v, init] : fields) {
         auto& o = (v == Public) ? public_o : private_o;
         o << ty << " " << field;
         if (init) {
@@ -175,7 +165,6 @@ void GenClass::declaration(std::ostream& o) {
     private_o.flushAll(o);
     o << "};\n";
     o << "} // namespace souffle\n";
-
 }
 
 void GenClass::definition(std::ostream& o) {
@@ -255,13 +244,17 @@ void GenDb::emitSingleFile(std::ostream& o) {
         includes.insert(inc.begin(), inc.end());
     };
 
-    for (auto& ds : datastructures) {add(*ds);}
-    for (auto& cl : classes) {add(*cl);}
+    for (auto& ds : datastructures) {
+        add(*ds);
+    }
+    for (auto& cl : classes) {
+        add(*cl);
+    }
 
-    for (auto& def: defines) {
+    for (auto& def : defines) {
         o << "#define " << def << "\n";
     }
-    for (auto& inc: includes) {
+    for (auto& inc : includes) {
         o << "#include " << inc << "\n";
     }
     o << "extern \"C\" {\n";
@@ -272,7 +265,7 @@ void GenDb::emitSingleFile(std::ostream& o) {
         ds->definition(o);
     }
     std::size_t size = classes.size();
-    for (std::size_t i = 1; i < size-1; i++) {
+    for (std::size_t i = 1; i < size - 1; i++) {
         Own<GenClass>& cl = classes[i];
         cl->declaration(o);
         cl->definition(o);
@@ -289,10 +282,10 @@ void GenDb::emitMultipleFilesInDir(std::string dir) {
     fs::create_directories(rootDir);
 
     auto globalHeader = [&](std::ofstream& hpp) {
-        for (auto& def: globalDefines) {
+        for (auto& def : globalDefines) {
             hpp << "#define " << def << "\n";
         }
-        for (auto& inc: globalIncludes) {
+        for (auto& inc : globalIncludes) {
             hpp << "#include " << inc << "\n";
         }
     };
@@ -300,16 +293,16 @@ void GenDb::emitMultipleFilesInDir(std::string dir) {
     auto genHeader = [&](std::ofstream& hpp, std::ofstream& cpp, Gen& gen) {
         hpp << "#pragma once\n";
         globalHeader(hpp);
-        for (const std::string& inc: gen.getDeclIncludes()) {
+        for (const std::string& inc : gen.getDeclIncludes()) {
             hpp << "#include " << inc << "\n";
         }
-        for (Gen* dep: gen.getDeclDependencies()) {
+        for (Gen* dep : gen.getDeclDependencies()) {
             hpp << "#include " << dep->getHeader() << "\n";
         }
-        for (const std::string& inc: gen.getIncludes()) {
+        for (const std::string& inc : gen.getIncludes()) {
             cpp << "#include " << inc << "\n";
         }
-        for (Gen* dep: gen.getDependencies()) {
+        for (Gen* dep : gen.getDependencies()) {
             cpp << "#include " << dep->getHeader() << "\n";
         }
         cpp << "#include " << gen.getHeader() << "\n";
@@ -332,7 +325,6 @@ void GenDb::emitMultipleFilesInDir(std::string dir) {
             cpp << hiddenHooksStream.str() << "\n";
         }
     }
-
 }
 
-} // namespace
+}  // namespace souffle::synthesiser
