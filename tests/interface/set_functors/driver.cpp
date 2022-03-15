@@ -31,12 +31,23 @@ void error(std::string txt) {
 }
 
 extern "C" {
-    int32_t plus(int32_t x, int32_t y) {return x + y;}
-    int32_t minus(int32_t x, int32_t y) {return x - y;}
+int32_t plus(int32_t x, int32_t y) {
+    return x + y;
+}
+int32_t minus(int32_t x, int32_t y) {
+    return x - y;
+}
 
-    souffle::RamSigned cnt() {return 0;}
-    souffle::RamSigned mul(souffle::RamSigned, souffle::RamSigned) {return 0;}
-    souffle::RamDomain point_plus(souffle::SymbolTable*, souffle::RecordTable*, souffle::RamDomain, souffle::RamDomain) {return 0;}
+souffle::RamSigned cnt() {
+    return 0;
+}
+souffle::RamSigned mul(souffle::RamSigned, souffle::RamSigned) {
+    return 0;
+}
+souffle::RamDomain point_plus(
+        souffle::SymbolTable*, souffle::RecordTable*, souffle::RamDomain, souffle::RamDomain) {
+    return 0;
+}
 }
 
 // with an object
@@ -50,7 +61,6 @@ struct Obj {
     }
     std::atomic<souffle::RamSigned> cnt = 100;
 };
-
 
 /**
  * Main program
@@ -70,20 +80,21 @@ int main(int argc, char** argv) {
 
     Obj obj;
 
-    std::function<souffle::RamSigned(souffle::RamSigned, souffle::RamSigned)> lambda_mul
-        = std::bind(&Obj::mul, &obj, std::placeholders::_1, std::placeholders::_2);
+    std::function<souffle::RamSigned(souffle::RamSigned, souffle::RamSigned)> lambda_mul =
+            std::bind(&Obj::mul, &obj, std::placeholders::_1, std::placeholders::_2);
 
     prog->setFunctor("mul", lambda_mul);
     obj.cnt = 0;
 
-    std::function<souffle::RamSigned()> lambda_cnt
-        = std::bind(&Obj::count, &obj);
+    std::function<souffle::RamSigned()> lambda_cnt = std::bind(&Obj::count, &obj);
     prog->setFunctor("cnt", lambda_cnt);
 
     souffle::RamDomain k = 10;
 
-    std::function<souffle::RamDomain(souffle::SymbolTable*, souffle::RecordTable*, souffle::RamDomain, souffle::RamDomain)>
-    lambda_point_plus = [&](souffle::SymbolTable*, souffle::RecordTable* recordTable, souffle::RamDomain x, souffle::RamDomain y) -> souffle::RamDomain {
+    std::function<souffle::RamDomain(
+            souffle::SymbolTable*, souffle::RecordTable*, souffle::RamDomain, souffle::RamDomain)>
+            lambda_point_plus = [&](souffle::SymbolTable*, souffle::RecordTable* recordTable,
+                                        souffle::RamDomain x, souffle::RamDomain y) -> souffle::RamDomain {
         const souffle::RamDomain* pt_x = recordTable->unpack(x, 2);
         const souffle::RamDomain* pt_y = recordTable->unpack(y, 2);
         souffle::RamDomain res[2] = {pt_x[0] + pt_y[0] + k, pt_x[1] + pt_y[1] + k};
