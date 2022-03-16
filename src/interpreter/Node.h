@@ -53,8 +53,8 @@ struct RelationWrapper;
 
 // clang-format off
 
-/* This macro defines all the interpreterNode token. 
- * For common operation, pass to Forward. 
+/* This macro defines all the interpreterNode token.
+ * For common operation, pass to Forward.
  * For specialized operation, pass to FOR_EACH(Expand, tok)
  */
 #define FOR_EACH_INTERPRETER_TOKEN(Forward, Expand)\
@@ -116,7 +116,7 @@ struct RelationWrapper;
 #define EXPAND_TOKEN(structure, arity, tok)\
     I_##tok##_##structure##_##arity,
 
-/* 
+/*
  * Declares all the tokens.
  * For Forward token OP, creates I_OP
  * For Extended token OP, generate I_OP_Structure_Arity for each data structure and supported arity.
@@ -148,7 +148,7 @@ inline NodeType constructNodeType(std::string tokBase, const ram::Relation& rel)
     std::string arity = std::to_string(rel.getArity());
     if (rel.getRepresentation() == RelationRepresentation::EQREL) {
         return map.at("I_" + tokBase + "_Eqrel_" + arity);
-    } else if(rel.getRepresentation() == RelationRepresentation::BTREE_DELETE) { 
+    } else if(rel.getRepresentation() == RelationRepresentation::BTREE_DELETE) {
         return map.at("I_" + tokBase + "_BtreeDelete_" + arity);
     } else if (isProvenance) {
         return map.at("I_" + tokBase + "_Provenance_" + arity);
@@ -882,15 +882,15 @@ public:
  */
 class Call : public Node {
 public:
-    Call(enum NodeType ty, const ram::Node* sdw, std::size_t subroutineId)
-            : Node(ty, sdw), subroutineId(subroutineId) {}
+    Call(enum NodeType ty, const ram::Node* sdw, std::string subroutineName)
+            : Node(ty, sdw), subroutineName(subroutineName) {}
 
-    std::size_t getSubroutineId() const {
-        return subroutineId;
+    const std::string& getSubroutineName() const {
+        return subroutineName;
     }
 
 private:
-    const std::size_t subroutineId;
+    const std::string subroutineName;
 };
 
 /**

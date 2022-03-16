@@ -72,6 +72,9 @@ private:
     bool SubroutineUsingStdRegex = false;
     bool SubroutineUsingSubstr = false;
 
+    /** Pointer to the subroutine class currently being built */
+    GenClass* currentClass = nullptr;
+
     /** Set of packed and unpacked records arities */
     std::set<std::size_t> arities;
 
@@ -81,6 +84,9 @@ private:
 protected:
     /** Convert RAM identifier */
     const std::string convertRamIdent(const std::string& name);
+
+    /** Convert stratum name to a C++-compliant identifier */
+    const std::string convertStratumIdent(const std::string& name);
 
     /** Get relation name */
     const std::string getRelationName(const ram::Relation& rel);

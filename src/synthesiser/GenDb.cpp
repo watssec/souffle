@@ -186,6 +186,7 @@ void GenClass::definition(std::ostream& o) {
         o << "#pragma warning(default: 4100)\n";
         o << "#endif // _MSC_VER\n";
     }
+    o << hiddenHooksStream.str() << "\n";
 }
 
 GenClass& GenDb::getClass(std::string name) {
@@ -274,7 +275,6 @@ void GenDb::emitSingleFile(std::ostream& o) {
     classes.front()->definition(o);
     classes.back()->declaration(o);
     classes.back()->definition(o);
-    o << hiddenHooksStream.str() << "\n";
 }
 
 void GenDb::emitMultipleFilesInDir(std::string dir) {
@@ -320,10 +320,12 @@ void GenDb::emitMultipleFilesInDir(std::string dir) {
         std::ofstream cpp{rootDir / cl->fileBaseName().concat(".cpp")};
         genHeader(hpp, cpp, *cl);
         cl->declaration(hpp);
-        cl->definition(cpp);
         if (cl->isMain) {
-            cpp << hiddenHooksStream.str() << "\n";
+            cpp << "extern \"C\" {\n";
+            cpp << externCStream.str() << "\n";
+            cpp << "}\n";
         }
+        cl->definition(cpp);
     }
 }
 

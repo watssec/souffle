@@ -207,6 +207,10 @@ public:
     bool ignoreUnusedArgumentWarning = false;
     bool isMain = false;
 
+    std::ostream& hooks() {
+        return hiddenHooksStream;
+    }
+
 private:
     GenDb* db;
     std::vector<Own<GenFunction>> methods;
@@ -215,6 +219,7 @@ private:
             >>
             fields;
     std::vector<std::string> inheritance;
+    std::stringstream hiddenHooksStream;
 };
 
 /**
@@ -259,9 +264,6 @@ public:
     void emitSingleFile(std::ostream& o);
     void emitMultipleFilesInDir(std::string dir);
 
-    std::ostream& hooks() {
-        return hiddenHooksStream;
-    }
     std::ostream& externC() {
         return externCStream;
     }
@@ -292,7 +294,7 @@ private:
     std::map<std::string, Gen*> nameToGen;
     std::map<std::string, std::string> nameToInclude;
 
-    std::stringstream hiddenHooksStream, externCStream;
+    std::stringstream externCStream;
 
     std::set<std::string> globalIncludes;
     std::set<std::string> globalDefines;

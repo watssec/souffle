@@ -216,9 +216,7 @@ void DirectRelation::generateTypeStruct(GenDb& db) {
     std::ostream& decl = cl.decl();
     std::ostream& def = cl.def();
 
-    cl.addInclude("<iostream>");
     cl.addInclude("\"souffle/SouffleInterface.h\"");
-    cl.addInclude("\"souffle/datastructure/Table.h\"");
     if (hasErase) {
         cl.addInclude("\"souffle/datastructure/BTreeDelete.h\"");
     } else {
@@ -647,6 +645,8 @@ void IndirectRelation::generateTypeStruct(GenDb& db) {
     std::map<LexOrder, std::size_t> indexToNumMap;
 
     GenDatastructure& cl = db.getDatastructure(getTypeName(), std::nullopt);
+    cl.addInclude("\"souffle/SouffleInterface.h\"");
+    cl.addInclude("\"souffle/datastructure/Table.h\"");
     cl.addInclude("\"souffle/datastructure/BTree.h\"");
     std::ostream& out = cl.decl();
 
@@ -994,6 +994,7 @@ void BrieRelation::generateTypeStruct(GenDb& db) {
 
     GenDatastructure& cl = db.getDatastructure(getTypeName(), std::nullopt);
     std::ostream& out = cl.decl();
+    cl.addInclude("\"souffle/SouffleInterface.h\"");
     cl.addInclude("\"souffle/datastructure/Brie.h\"");
 
     // struct definition

@@ -71,6 +71,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <set>
@@ -696,6 +697,7 @@ Own<ram::Sequence> UnitTranslator::generateProgram(const ast::TranslationUnit& t
     }
     const auto& sccOrdering =
             translationUnit.getAnalysis<ast::analysis::TopologicallySortedSCCGraphAnalysis>().order();
+    VecOwn<ram::Statement> res;
 
     // Create subroutines for each SCC according to topological order
     for (std::size_t i = 0; i < sccOrdering.size(); i++) {
@@ -707,14 +709,14 @@ Own<ram::Sequence> UnitTranslator::generateProgram(const ast::TranslationUnit& t
         stratum = mk<ram::Sequence>(std::move(stratum), generateClearExpiredRelations(expiredRelations));
 
         // Add the subroutine
-        std::string stratumID = "stratum_" + toString(i);
-        addRamSubroutine(stratumID, std::move(stratum));
-    }
+        const ast::Relation* rel = *context->getRelationsInSCC(sccOrdering.at(i)).begin();
 
-    // Invoke all strata
-    VecOwn<ram::Statement> res;
-    for (std::size_t i = 0; i < sccOrdering.size(); i++) {
-        appendStmt(res, mk<ram::Call>("stratum_" + toString(i)));
+        std::string stratumID = rel->getQualifiedName().toString();//toString(i);
+        addRamSubroutine(stratumID, std::move(stratum));
+
+        // invoke the strata
+        appendStmt(res, mk<ram::Call>("stratum_" + stratumID));
+
     }
 
     // Add main timer if profiling

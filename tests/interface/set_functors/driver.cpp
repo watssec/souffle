@@ -16,6 +16,8 @@
 
 #include "souffle/SouffleInterface.h"
 #include <array>
+#include <atomic>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>

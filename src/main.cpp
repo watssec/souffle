@@ -480,7 +480,7 @@ int main(int argc, char** argv) {
     if (preprocessor_status == -1) {
         perror(nullptr);
         throw std::runtime_error("failed to close pre-processor pipe");
-    } else if (preprocessor_status != 0) {
+    } else if (false && preprocessor_status != 0) {
         std::cerr << "Pre-processors command failed with code " << preprocessor_status << ": '" << cmd
                   << "'\n";
         throw std::runtime_error("Pre-processor command failed");

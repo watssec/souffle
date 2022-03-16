@@ -17,7 +17,7 @@
 #pragma once
 
 #include "souffle/RamTypes.h"
-
+#include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/StringUtil.h"
 #include "souffle/utility/json11.h"
 #include <cassert>

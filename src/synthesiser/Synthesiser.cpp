@@ -151,15 +151,18 @@ const std::string Synthesiser::convertRamIdent(const std::string& name) {
     if (it != identifiers.end()) {
         return it->second;
     }
+    bool requiresHash = false;
+
     // strip leading numbers
     unsigned int i;
     for (i = 0; i < name.length(); ++i) {
         if ((isalnum(name.at(i)) != 0) || name.at(i) == '_') {
             break;
         }
+        requiresHash = true;
     }
     std::string id;
-    for (auto ch : std::to_string(identifiers.size() + 1) + '_' + name.substr(i)) {
+    for (auto ch : name.substr(i)) {
         // alphanumeric characters are allowed
         if (isalnum(ch) != 0) {
             id += ch;
@@ -169,13 +172,25 @@ const std::string Synthesiser::convertRamIdent(const std::string& name) {
         // in identifiers are reserved by the standard
         else if (id.empty() || id.back() != '_') {
             id += '_';
+            requiresHash = true;
         }
+        requiresHash = true;
     }
     // most compilers have a limit of 2048 characters (if they have a limit at all) for
     // identifiers; we use half of that for safety
-    id = id.substr(0, 1024);
+    if (id.length() > 1024) {
+        requiresHash = true;
+        id = id.substr(0, 1024);
+    }
+    if (requiresHash) {
+        id += "_" + std::to_string(std::hash<std::string>{}(name));
+    }
     identifiers.insert(std::make_pair(name, id));
     return id;
+}
+
+const std::string Synthesiser::convertStratumIdent(const std::string& name) {
+    return convertRamIdent(name);
 }
 
 /** Get relation name */
@@ -589,7 +604,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             const auto& subs = prog.getSubroutines();
             out << "{\n";
             out << " std::vector<RamDomain> args, ret;\n";
-            out << "subroutine_" << distance(subs.begin(), subs.find(call.getName())) << ".run(args, ret);\n";
+            out << synthesiser.convertStratumIdent(call.getName()) << ".run(args, ret);\n";
             out << "}\n";
             PRINT_END_COMMENT(out);
         }
@@ -2144,14 +2159,17 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         dispatch(*args[0], out);                  \
         out << "))";                              \
     } break;
-#define CONV_FROM_STRING(opcode, ty)                                            \
-    case FunctorOp::opcode: {                                                   \
-        out << "souffle::evaluator::symbol2numeric<" #ty ">(symTable.decode(";  \
-        dispatch(*args[0], out);                                                \
-        out << "))";                                                            \
+#define CONV_FROM_STRING(opcode, ty)                                                       \
+    case FunctorOp::opcode: {                                                              \
+        synthesiser.currentClass->addInclude("\"souffle/utility/EvaluatorUtil.h\"", true); \
+        out << "souffle::evaluator::symbol2numeric<" #ty ">(symTable.decode(";             \
+        dispatch(*args[0], out);                                                           \
+        out << "))";                                                                       \
     } break;
             // clang-format on
-
+            if (op.getOperator() == FunctorOp::LXOR) {
+                synthesiser.currentClass->addInclude("\"souffle/utility/EvaluatorUtil.h\"", true);
+            }
             auto args = op.getArguments();
             switch (op.getOperator()) {
                 /** Unary Functor Operators */
@@ -2299,6 +2317,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             };
 
             auto emitRange = [&](char const* ty) {
+                synthesiser.currentClass->addInclude("\"souffle/utility/EvaluatorUtil.h\"", true);
                 return emitHelper(tfm::format("souffle::evaluator::runRange<%s>", ty));
             };
 
@@ -2482,8 +2501,6 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         db.addGlobalInclude("\"souffle/profile/Tui.h\"");
     }
 
-    db.addGlobalInclude("<any>");
-
     if (Global::config().has("profile") || Global::config().has("live-profile")) {
         db.addGlobalInclude("\"souffle/profile/Logger.h\"");
         db.addGlobalInclude("\"souffle/profile/ProfileEvent.h\"");
@@ -2547,6 +2564,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     GenClass& mainClass = db.getClass(classname);
     mainClass.inherits("public SouffleProgram");
     mainClass.addInclude("\"souffle/CompiledSouffle.h\"");
+    mainClass.addInclude("<any>");
     mainClass.isMain = true;
 
     auto function_ty = [&](std::string name) -> std::string {
@@ -2583,7 +2601,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     std::size_t subroutineNum = 0;
     std::vector<std::pair<std::string, std::string>> subroutineInits;
     for (auto& sub : prog.getSubroutines()) {
-        GenClass& gen = db.getClass("Subroutine_" + std::to_string(subroutineNum));
+        GenClass& gen = db.getClass(convertStratumIdent("Stratum_" + sub.first));
         mainClass.addDependency(gen);
 
         auto accessedRels = accessedRelations(*sub.second);
@@ -2635,7 +2653,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
             out << (kind == Relation ? "*" : "") << name;
         });
         subroutineInits.push_back(
-                std::make_pair(std::string("subroutine_") + std::to_string(subroutineNum), initStr.str()));
+                std::make_pair(sub.first, initStr.str()));
 
         GenFunction& run = gen.addFunction("run", Visibility::Public);
         run.setRetType("void");
@@ -2650,6 +2668,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         SubroutineUsingStdRegex = false;
         SubroutineUsingSubstr = false;
         // emit code for subroutine
+        currentClass = &gen;
         emitCode(run.body(), *sub.second);
         // issue end of subroutine
         UsingStdRegex |= SubroutineUsingStdRegex;
@@ -2821,9 +2840,11 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         }
     }
     std::size_t i = 0;
-    for (auto [field, value] : subroutineInits) {
-        mainClass.addField("Subroutine_" + std::to_string(i), field, Visibility::Private);
-        constructor.setNextInitializer(field, value);
+    for (auto [name, value] : subroutineInits) {
+        std::string clName = convertStratumIdent("Stratum_" + name);
+        std::string fName = convertStratumIdent("stratum_" + name);
+        mainClass.addField(clName, fName, Visibility::Private);
+        constructor.setNextInitializer(fName, value);
         i++;
     }
 
@@ -2898,6 +2919,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     }
 
     // emit code
+    currentClass = &mainClass;
     emitCode(runFunction.body(), prog.getMain());
 
     if (Global::config().has("profile")) {
@@ -3071,15 +3093,13 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         std::size_t subroutineNum = 0;
         for (auto& sub : prog.getSubroutines()) {
             executeSubroutine.body() << "if (name == \"" << sub.first << "\") {\n"
-                                     << "subroutine_" << subroutineNum
-                                     << ".run(args, ret);\n"  // subroutine_<i> to deal with special
-                                                              // characters in relation names
+                                     << convertStratumIdent("stratum_" + sub.first)
+                                     << ".run(args, ret);\n"
                                      << "return;"
                                      << "}\n";
             subroutineNum++;
         }
-        executeSubroutine.body() << "fatal(\"unknown subroutine\");\n";
-        // os << "}\n";  // end of executeSubroutine
+        executeSubroutine.body() << "fatal((\"unknown subroutine \" + name).c_str());\n";
     }
     // dumpFreqs method
     //  Frequency counts must be emitted after subroutines otherwise lookup tables
@@ -3108,74 +3128,83 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     GenFunction& factoryConstructor = factory.addConstructor(Visibility::Public);
     factoryConstructor.setNextInitializer("ProgramFactory", "\"" + id + "\"");
 
-    std::ostream& os = db.hooks();
-    // hidden hooks
-    os << "namespace souffle {\n";
-    os << "SouffleProgram *newInstance_" << id << "(){return new " << classname << ";}\n";
-    os << "SymbolTable *getST_" << id << "(SouffleProgram *p){return &reinterpret_cast<" << classname
-       << "*>(p)->getSymbolTable();}\n";
-    os << "\n#ifdef __EMBEDDED_SOUFFLE__\n";
-    os << "extern \"C\" {\n";
-    os << "factory_" << classname << " __factory_" << classname << "_instance;\n";
-    os << "}\n";
-    os << "} // namespace souffle\n";
-    os << "#else\n";
-    os << "} // namespace souffle\n";
 
-    os << "int main(int argc, char** argv)\n{\n";
-    os << "try{\n";
+    std::ostream& hook = mainClass.hooks();
+    std::ostream& factory_hook = factory.hooks();
+
+    // hidden hooks
+    hook << "namespace souffle {\n";
+    hook << "SouffleProgram *newInstance_" << id << "(){return new " << classname << ";}\n";
+    hook << "SymbolTable *getST_" << id << "(SouffleProgram *p){return &reinterpret_cast<" << classname
+       << "*>(p)->getSymbolTable();}\n";
+
+    hook << "} // namespace souffle\n";
+
+
+    factory_hook << "namespace souffle \{\n";
+    factory_hook << "\n#ifdef __EMBEDDED_SOUFFLE__\n";
+    factory_hook << "extern \"C\" {\n";
+    factory_hook << "factory_" << classname << " __factory_" << classname << "_instance;\n";
+    factory_hook << "}\n";
+    factory_hook << "#endif\n";
+    factory_hook << "} // namespace souffle\n";
+
+    hook << "\n#ifndef __EMBEDDED_SOUFFLE__\n";
+
+    hook << "int main(int argc, char** argv)\n{\n";
+    hook << "try{\n";
 
     // parse arguments
-    os << "souffle::CmdOptions opt(";
-    os << "R\"(" << Global::config().get("") << ")\",\n";
-    os << "R\"()\",\n";
-    os << "R\"()\",\n";
+    hook << "souffle::CmdOptions opt(";
+    hook << "R\"(" << Global::config().get("") << ")\",\n";
+    hook << "R\"()\",\n";
+    hook << "R\"()\",\n";
     if (Global::config().has("profile")) {
-        os << "true,\n";
-        os << "R\"(" << Global::config().get("profile") << ")\",\n";
+        hook << "true,\n";
+        hook << "R\"(" << Global::config().get("profile") << ")\",\n";
     } else {
-        os << "false,\n";
-        os << "R\"()\",\n";
+        hook << "false,\n";
+        hook << "R\"()\",\n";
     }
-    os << std::stoi(Global::config().get("jobs"));
-    os << ");\n";
+    hook << std::stoi(Global::config().get("jobs"));
+    hook << ");\n";
 
-    os << "if (!opt.parse(argc,argv)) return 1;\n";
+    hook << "if (!opt.parse(argc,argv)) return 1;\n";
 
-    os << "souffle::";
+    hook << "souffle::";
     if (Global::config().has("profile")) {
-        os << classname + " obj(opt.getProfileName());\n";
+        hook << classname + " obj(opt.getProfileName());\n";
     } else {
-        os << classname + " obj;\n";
+        hook << classname + " obj;\n";
     }
 
-    os << "#if defined(_OPENMP) \n";
-    os << "obj.setNumThreads(opt.getNumJobs());\n";
-    os << "\n#endif\n";
+    hook << "#if defined(_OPENMP) \n";
+    hook << "obj.setNumThreads(opt.getNumJobs());\n";
+    hook << "\n#endif\n";
 
     if (Global::config().has("profile")) {
-        os << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("", opt.getSourceFileName());)_"
+        hook << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("", opt.getSourceFileName());)_"
            << '\n';
-        os << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("fact-dir", opt.getInputFileDir());)_"
+        hook << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("fact-dir", opt.getInputFileDir());)_"
            << '\n';
-        os << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("jobs", std::to_string(opt.getNumJobs()));)_"
+        hook << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("jobs", std::to_string(opt.getNumJobs()));)_"
            << '\n';
-        os << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("output-dir", opt.getOutputFileDir());)_"
+        hook << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("output-dir", opt.getOutputFileDir());)_"
            << '\n';
-        os << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("version", ")_"
+        hook << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("version", ")_"
            << Global::config().get("version") << R"_(");)_" << '\n';
     }
-    os << "obj.runAll(opt.getInputFileDir(), opt.getOutputFileDir());\n";
+    hook << "obj.runAll(opt.getInputFileDir(), opt.getOutputFileDir());\n";
 
     if (Global::config().get("provenance") == "explain") {
-        os << "explain(obj, false);\n";
+        hook << "explain(obj, false);\n";
     } else if (Global::config().get("provenance") == "explore") {
-        os << "explain(obj, true);\n";
+        hook << "explain(obj, true);\n";
     }
-    os << "return 0;\n";
-    os << "} catch(std::exception &e) { souffle::SignalHandler::instance()->error(e.what());}\n";
-    os << "}\n";
-    os << "\n#endif\n";
+    hook << "return 0;\n";
+    hook << "} catch(std::exception &e) { souffle::SignalHandler::instance()->error(e.what());}\n";
+    hook << "}\n";
+    hook << "#endif\n";
 }
 
 }  // namespace souffle::synthesiser
