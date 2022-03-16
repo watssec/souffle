@@ -711,12 +711,11 @@ Own<ram::Sequence> UnitTranslator::generateProgram(const ast::TranslationUnit& t
         // Add the subroutine
         const ast::Relation* rel = *context->getRelationsInSCC(sccOrdering.at(i)).begin();
 
-        std::string stratumID = rel->getQualifiedName().toString();//toString(i);
+        std::string stratumID = rel->getQualifiedName().toString();
         addRamSubroutine(stratumID, std::move(stratum));
 
         // invoke the strata
         appendStmt(res, mk<ram::Call>("stratum_" + stratumID));
-
     }
 
     // Add main timer if profiling

@@ -2652,8 +2652,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
             std::tie(kind, name, ty) = arg;
             out << (kind == Relation ? "*" : "") << name;
         });
-        subroutineInits.push_back(
-                std::make_pair(sub.first, initStr.str()));
+        subroutineInits.push_back(std::make_pair(sub.first, initStr.str()));
 
         GenFunction& run = gen.addFunction("run", Visibility::Public);
         run.setRetType("void");
@@ -3093,8 +3092,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         std::size_t subroutineNum = 0;
         for (auto& sub : prog.getSubroutines()) {
             executeSubroutine.body() << "if (name == \"" << sub.first << "\") {\n"
-                                     << convertStratumIdent("stratum_" + sub.first)
-                                     << ".run(args, ret);\n"
+                                     << convertStratumIdent("stratum_" + sub.first) << ".run(args, ret);\n"
                                      << "return;"
                                      << "}\n";
             subroutineNum++;
@@ -3128,7 +3126,6 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     GenFunction& factoryConstructor = factory.addConstructor(Visibility::Public);
     factoryConstructor.setNextInitializer("ProgramFactory", "\"" + id + "\"");
 
-
     std::ostream& hook = mainClass.hooks();
     std::ostream& factory_hook = factory.hooks();
 
@@ -3136,10 +3133,9 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     hook << "namespace souffle {\n";
     hook << "SouffleProgram *newInstance_" << id << "(){return new " << classname << ";}\n";
     hook << "SymbolTable *getST_" << id << "(SouffleProgram *p){return &reinterpret_cast<" << classname
-       << "*>(p)->getSymbolTable();}\n";
+         << "*>(p)->getSymbolTable();}\n";
 
     hook << "} // namespace souffle\n";
-
 
     factory_hook << "namespace souffle \{\n";
     factory_hook << "\n#ifdef __EMBEDDED_SOUFFLE__\n";
@@ -3184,15 +3180,15 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
 
     if (Global::config().has("profile")) {
         hook << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("", opt.getSourceFileName());)_"
-           << '\n';
+             << '\n';
         hook << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("fact-dir", opt.getInputFileDir());)_"
-           << '\n';
+             << '\n';
         hook << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("jobs", std::to_string(opt.getNumJobs()));)_"
-           << '\n';
+             << '\n';
         hook << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("output-dir", opt.getOutputFileDir());)_"
-           << '\n';
+             << '\n';
         hook << R"_(souffle::ProfileEventSingleton::instance().makeConfigRecord("version", ")_"
-           << Global::config().get("version") << R"_(");)_" << '\n';
+             << Global::config().get("version") << R"_(");)_" << '\n';
     }
     hook << "obj.runAll(opt.getInputFileDir(), opt.getOutputFileDir());\n";
 
