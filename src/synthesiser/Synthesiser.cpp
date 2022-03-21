@@ -2336,7 +2336,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
             auto args = op.getArguments();
             if (op.isStateful()) {
-                out << "lambda_" << name << "(&symTable, &recordTable";
+                out << name << "(&symTable, &recordTable";
                 for (auto& arg : args) {
                     out << ",";
                     dispatch(*arg, out);
@@ -2348,7 +2348,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 if (op.getReturnType() == TypeAttribute::Symbol) {
                     out << "symTable.encode(";
                 }
-                out << "lambda_" << name << "(";
+                out << name << "(";
 
                 for (std::size_t i = 0; i < args.size(); i++) {
                     if (i > 0) {
@@ -2514,7 +2514,6 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         }
         withSharedLibrary = true;
     });
-
     for (const auto& f : functors) {
         const std::string& name = f.first;
 
@@ -2576,7 +2575,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     };
     auto functors_initialize = [&](std::ostream& os, std::string name) {
         auto [argsTy, retTy] = functor_signatures[name];
-        os << "lambda_" << name << " = " << name << ";\n";
+        os << name << " = functors::" << name << ";\n";
     };
 
     std::map<std::string, std::string> relationTypes;
@@ -2631,7 +2630,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
             db.usesDatastructure(gen, tyname);
         }
         for (std::string fn : accessedFunctors) {
-            args.push_back(std::make_tuple(Reference, "lambda_" + fn, function_ty(fn)));
+            args.push_back(std::make_tuple(Reference, fn, function_ty(fn)));
         }
 
         for (auto arg : args) {
@@ -2757,13 +2756,13 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     for (const auto& f : functors) {
         const std::string& name = f.first;
         // lambda_decl(*decl, name);
-        mainClass.addField(function_ty(name), "lambda_" + name, Visibility::Private);
+        mainClass.addField(function_ty(name), name, Visibility::Private);
     }
 
     auto lambda_assign = [&](std::ostream& os, std::string name) {
         auto [argsTy, retTy] = functor_signatures[name];
         os << "if (name == \"" << name << "\") {\n";
-        os << "  lambda_" << name << " = std::any_cast<";
+        os << "  " << name << " = std::any_cast<";
         os << function_ty(name);
         os << ">(fn);\n";
         os << "  return true;\n";

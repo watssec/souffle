@@ -258,9 +258,11 @@ void GenDb::emitSingleFile(std::ostream& o) {
     for (auto& inc : includes) {
         o << "#include " << inc << "\n";
     }
+    o << "namespace functors {\n";
     o << "extern \"C\" {\n";
     o << externCStream.str();
     o << "}\n";
+    o << "} //namespace functors\n";
     for (auto& ds : datastructures) {
         ds->declaration(o);
         ds->definition(o);
