@@ -3136,7 +3136,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
 
     hook << "} // namespace souffle\n";
 
-    factory_hook << "namespace souffle \{\n";
+    factory_hook << "namespace souffle {\n";
     factory_hook << "\n#ifdef __EMBEDDED_SOUFFLE__\n";
     factory_hook << "extern \"C\" {\n";
     factory_hook << "factory_" << classname << " __factory_" << classname << "_instance;\n";
