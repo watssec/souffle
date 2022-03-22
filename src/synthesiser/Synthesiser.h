@@ -130,6 +130,8 @@ protected:
         }
     }
 
+    std::string convertSymbolToIdentifier(const std::string& symbol) const;
+
     /** return the set of relation names accessed/used in the statement */
     std::set<std::string> accessedRelations(ram::Statement& stmt);
 

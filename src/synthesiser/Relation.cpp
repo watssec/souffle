@@ -12,6 +12,7 @@
 #include "souffle/SouffleInterface.h"
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
+#include "synthesiser/Utils.h"
 #include <algorithm>
 #include <cassert>
 #include <functional>
@@ -212,7 +213,8 @@ void DirectRelation::generateTypeStruct(GenDb& db) {
     std::size_t numIndexes = inds.size();
     std::map<LexOrder, std::size_t> indexToNumMap;
 
-    GenDatastructure& cl = db.getDatastructure("Type", std::make_optional(getTypeNamespace()));
+    fs::path basename(uniqueCppIdent(getTypeNamespace(), 20));
+    GenDatastructure& cl = db.getDatastructure("Type", basename, std::make_optional(getTypeNamespace()));
     std::ostream& decl = cl.decl();
     std::ostream& def = cl.def();
 
@@ -644,7 +646,8 @@ void IndirectRelation::generateTypeStruct(GenDb& db) {
     std::size_t numIndexes = inds.size();
     std::map<LexOrder, std::size_t> indexToNumMap;
 
-    GenDatastructure& cl = db.getDatastructure(getTypeName(), std::nullopt);
+    fs::path basename(uniqueCppIdent(getTypeName(), 20));
+    GenDatastructure& cl = db.getDatastructure(getTypeName(), basename, std::nullopt);
     cl.addInclude("\"souffle/SouffleInterface.h\"");
     cl.addInclude("\"souffle/datastructure/Table.h\"");
     cl.addInclude("\"souffle/datastructure/BTree.h\"");
@@ -992,7 +995,8 @@ void BrieRelation::generateTypeStruct(GenDb& db) {
     std::size_t numIndexes = inds.size();
     std::map<LexOrder, std::size_t> indexToNumMap;
 
-    GenDatastructure& cl = db.getDatastructure(getTypeName(), std::nullopt);
+    fs::path basename(uniqueCppIdent(getTypeName(), 20));
+    GenDatastructure& cl = db.getDatastructure(getTypeName(), basename, std::nullopt);
     std::ostream& out = cl.decl();
     cl.addInclude("\"souffle/SouffleInterface.h\"");
     cl.addInclude("\"souffle/datastructure/Brie.h\"");

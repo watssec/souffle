@@ -29,7 +29,7 @@ namespace fs = std::filesystem;
 
 namespace souffle::synthesiser {
 
-void Gen::addDependency(Gen& dep, bool def_only) {
+void GenFile::addDependency(GenFile& dep, bool def_only) {
     if (def_only) {
         dependencies.emplace(&dep);
     } else {
@@ -37,7 +37,7 @@ void Gen::addDependency(Gen& dep, bool def_only) {
     }
 }
 
-void Gen::addInclude(std::string str, bool def_only) {
+void GenFile::addInclude(std::string str, bool def_only) {
     if (def_only) {
         includes.emplace(str);
     } else {
@@ -155,19 +155,19 @@ void GenClass::definition(std::ostream& o) {
     o << hiddenHooksStream.str() << "\n";
 }
 
-GenClass& GenDb::getClass(std::string name) {
-    classes.push_back(mk<GenClass>(name));
+GenClass& GenDb::getClass(std::string name, fs::path basename) {
+    classes.push_back(mk<GenClass>(name, basename));
     GenClass& res = *classes.back();
     nameToGen[name] = &res;
     return res;
 }
 
-GenDatastructure& GenDb::getDatastructure(std::string name, std::optional<std::string> namespace_opt) {
+GenDatastructure& GenDb::getDatastructure(std::string name, fs::path basename, std::optional<std::string> namespace_opt) {
     std::string fullName = name;
     if (namespace_opt) {
         fullName = *namespace_opt + "::" + name;
     }
-    datastructures.push_back(mk<GenDatastructure>(name, namespace_opt));
+    datastructures.push_back(mk<GenDatastructure>(name, basename, namespace_opt));
     GenDatastructure& res = *datastructures.back();
     nameToGen[fullName] = &res;
     return res;
@@ -193,18 +193,10 @@ void GenDatastructure::definition(std::ostream& o) {
     o << "} // namespace " << ns << " \n";
 }
 
-fs::path GenDatastructure::fileBaseName() {
-    fs::path p = name;
-    if (namespace_name) {
-        p = fs::path(*namespace_name);
-    }
-    return p;
-}
-
 void GenDb::emitSingleFile(std::ostream& o) {
     std::set<std::string> defines = globalDefines;
     std::set<std::string> includes = globalIncludes;
-    auto add = [&](Gen& gen) {
+    auto add = [&](GenFile& gen) {
         auto& inc = gen.getDeclIncludes();
         includes.insert(inc.begin(), inc.end());
         inc = gen.getIncludes();
@@ -258,19 +250,19 @@ void GenDb::emitMultipleFilesInDir(std::string dir) {
         }
     };
 
-    auto genHeader = [&](std::ofstream& hpp, std::ofstream& cpp, Gen& gen) {
+    auto genHeader = [&](std::ofstream& hpp, std::ofstream& cpp, GenFile& gen) {
         hpp << "#pragma once\n";
         globalHeader(hpp);
         for (const std::string& inc : gen.getDeclIncludes()) {
             hpp << "#include " << inc << "\n";
         }
-        for (Gen* dep : gen.getDeclDependencies()) {
+        for (GenFile* dep : gen.getDeclDependencies()) {
             hpp << "#include " << dep->getHeader() << "\n";
         }
         for (const std::string& inc : gen.getIncludes()) {
             cpp << "#include " << inc << "\n";
         }
-        for (Gen* dep : gen.getDependencies()) {
+        for (GenFile* dep : gen.getDependencies()) {
             cpp << "#include " << dep->getHeader() << "\n";
         }
         cpp << "#include " << gen.getHeader() << "\n";

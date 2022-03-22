@@ -98,6 +98,7 @@
 #include "souffle/utility/json11.h"
 #include "souffle/utility/tinyformat.h"
 #include "synthesiser/GenDb.h"
+#include "synthesiser/Utils.h"
 #include "synthesiser/Relation.h"
 #include <algorithm>
 #include <cassert>
@@ -151,40 +152,7 @@ const std::string Synthesiser::convertRamIdent(const std::string& name) {
     if (it != identifiers.end()) {
         return it->second;
     }
-    bool requiresHash = false;
-
-    // strip leading numbers
-    unsigned int i;
-    for (i = 0; i < name.length(); ++i) {
-        if ((isalnum(name.at(i)) != 0) || name.at(i) == '_') {
-            break;
-        }
-        requiresHash = true;
-    }
-    std::string id;
-    for (auto ch : name.substr(i)) {
-        // alphanumeric characters are allowed
-        if (isalnum(ch) != 0) {
-            id += ch;
-        }
-        // all other characters are replaced by an underscore, except when
-        // the previous character was an underscore as double underscores
-        // in identifiers are reserved by the standard
-        else if (id.empty() || id.back() != '_') {
-            id += '_';
-            requiresHash = true;
-        }
-        requiresHash = true;
-    }
-    // most compilers have a limit of 2048 characters (if they have a limit at all) for
-    // identifiers; we use half of that for safety
-    if (id.length() > 1024) {
-        requiresHash = true;
-        id = id.substr(0, 1024);
-    }
-    if (requiresHash) {
-        id += "_" + std::to_string(std::hash<std::string>{}(name));
-    }
+    std::string id = uniqueCppIdent(name);
     identifiers.insert(std::make_pair(name, id));
     return id;
 }
@@ -2560,7 +2528,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     }
 
     // main class
-    GenClass& mainClass = db.getClass(classname);
+    GenClass& mainClass = db.getClass(classname, fs::path(classname));
     mainClass.inherits("public SouffleProgram");
     mainClass.addInclude("\"souffle/CompiledSouffle.h\"");
     mainClass.addInclude("<any>");
@@ -2600,7 +2568,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     std::size_t subroutineNum = 0;
     std::vector<std::pair<std::string, std::string>> subroutineInits;
     for (auto& sub : prog.getSubroutines()) {
-        GenClass& gen = db.getClass(convertStratumIdent("Stratum_" + sub.first));
+        GenClass& gen = db.getClass(convertStratumIdent("Stratum_" + sub.first), fs::path(convertStratumIdent("Stratum_" + sub.first)));
         mainClass.addDependency(gen);
 
         auto accessedRels = accessedRelations(*sub.second);
@@ -3115,7 +3083,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         }
     }
 
-    GenClass& factory = db.getClass("factory_" + classname);
+    GenClass& factory = db.getClass("factory_" + classname, fs::path("factory_" + classname));
     factory.addInclude("\"souffle/SouffleInterface.h\"");
     factory.addDependency(mainClass, true);
     factory.inherits("souffle::ProgramFactory");

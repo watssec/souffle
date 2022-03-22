@@ -28,11 +28,66 @@
 #include <ostream>
 #include <set>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
 
 namespace souffle::synthesiser {
+
+class GenFile {
+public:
+    GenFile(fs::path basename) : basename(std::move(basename)) {}
+
+    /*
+     * Basename of the file (without extension) where
+     * that should be produced for this code.
+     */
+    virtual fs::path fileBaseName() {
+        return basename;
+    };
+
+    fs::path getHeader() {
+        return fileBaseName().concat(".hpp");
+    }
+
+    /*
+     * Sets 'dep' as a class that is used by the current construct
+     * and must be #include in the current construct
+     * Set 'def_only' to true if only the .cpp file must include it.
+     */
+    void addDependency(GenFile& dep, bool def_only = false);
+
+    /*
+     * #include 'str' must be included when generating the code
+     */
+    void addInclude(std::string str, bool def_only = false);
+
+    /**
+     * Accessors for private members
+     */
+    std::set<std::string>& getDeclIncludes() {
+        return decl_includes;
+    }
+    std::set<std::string>& getIncludes() {
+        return includes;
+    }
+    std::set<GenFile*>& getDeclDependencies() {
+        return decl_dependencies;
+    }
+    std::set<GenFile*>& getDependencies() {
+        return dependencies;
+    }
+private:
+    fs::path basename;
+
+    std::set<std::string> decl_includes;
+    std::set<GenFile*> decl_dependencies;
+    std::set<std::string> includes;
+    std::set<GenFile*> dependencies;
+};
+
+
 /**
  * Object representing some C++ construct that should be emitted in the
  * generated code. For instance, a class, a function...
@@ -55,53 +110,8 @@ public:
         return name;
     }
 
-    /*
-     * Basename of the file (without extension) where
-     * that should be produced for this code.
-     */
-    virtual fs::path fileBaseName() {
-        return fs::path(name);
-    };
-
-    /*
-     * Sets 'dep' as a class that is used by the current construct
-     * and must be #include in the current construct
-     * Set 'def_only' to true if only the .cpp file must include it.
-     */
-    void addDependency(Gen& dep, bool def_only = false);
-
-    /*
-     * #include 'str' must be included when generating the code
-     */
-    void addInclude(std::string str, bool def_only = false);
-
-    /**
-     * Accessors for private members
-     */
-    std::set<std::string>& getDeclIncludes() {
-        return decl_includes;
-    }
-    std::set<std::string>& getIncludes() {
-        return includes;
-    }
-    std::set<Gen*>& getDeclDependencies() {
-        return decl_dependencies;
-    }
-    std::set<Gen*>& getDependencies() {
-        return dependencies;
-    }
-
-    fs::path getHeader() {
-        return fileBaseName().concat(".hpp");
-    }
-
 protected:
     std::string name;
-
-    std::set<std::string> decl_includes;
-    std::set<Gen*> decl_dependencies;
-    std::set<std::string> includes;
-    std::set<Gen*> dependencies;
 };
 
 class GenClass;
@@ -159,9 +169,9 @@ private:
  * Class helper to manipulate/build a class to be emitted
  * by the C++ Synthesizer.
  */
-class GenClass : public Gen {
+class GenClass : public Gen, public GenFile {
 public:
-    GenClass(std::string name) : Gen(name) {}
+    GenClass(std::string name, fs::path basename) : Gen(name), GenFile(basename) {}
     GenFunction& addFunction(std::string name, Visibility);
     GenFunction& addConstructor(Visibility);
 
@@ -198,10 +208,10 @@ private:
  * for one of the Souffle specialized datastructures
  * (e.g. BTree, BTreeDelete, Brie, etc.)
  */
-class GenDatastructure : public Gen {
+class GenDatastructure : public Gen, public GenFile {
 public:
-    GenDatastructure(std::string name, std::optional<std::string> namespace_opt)
-            : Gen(name), namespace_name(namespace_opt) {}
+    GenDatastructure(std::string name, fs::path basename, std::optional<std::string> namespace_opt)
+            : Gen(name), GenFile(basename), namespace_name(namespace_opt) {}
 
     std::ostream& decl() {
         return declarationStream;
@@ -212,8 +222,6 @@ public:
 
     void declaration(std::ostream& o) override;
     void definition(std::ostream& o) override;
-
-    fs::path fileBaseName() override;
 
 private:
     std::optional<std::string> namespace_name;
@@ -228,8 +236,8 @@ private:
  */
 class GenDb {
 public:
-    GenClass& getClass(std::string name);
-    GenDatastructure& getDatastructure(std::string name, std::optional<std::string> namespace_opt);
+    GenClass& getClass(std::string name, fs::path basename);
+    GenDatastructure& getDatastructure(std::string name, fs::path basename, std::optional<std::string> namespace_opt);
 
     void emitSingleFile(std::ostream& o);
     void emitMultipleFilesInDir(std::string dir);
@@ -261,7 +269,7 @@ private:
     std::vector<Own<GenDatastructure>> datastructures;
     std::vector<Own<GenClass>> classes;
 
-    std::map<std::string, Gen*> nameToGen;
+    std::map<std::string, GenFile*> nameToGen;
     std::map<std::string, std::string> nameToInclude;
 
     std::stringstream externCStream;
