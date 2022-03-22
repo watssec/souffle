@@ -95,7 +95,7 @@ std::string ClauseTranslator::getClauseString(const ast::Clause& clause) const {
 }
 
 Own<ram::Statement> ClauseTranslator::translateRecursiveClause(
-        const ast::Clause& clause, const std::set<const ast::Relation*>& scc, std::size_t version) {
+        const ast::Clause& clause, const ast::RelationSet& scc, std::size_t version) {
     // Update version config
     sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(clause),
             [&](auto* atom) { return contains(scc, context.getProgram()->getRelation(*atom)); });

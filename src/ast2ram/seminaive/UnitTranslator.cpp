@@ -185,7 +185,7 @@ Own<ram::Statement> UnitTranslator::generateStratum(std::size_t scc) const {
 }
 
 Own<ram::Statement> UnitTranslator::generateClearExpiredRelations(
-        const std::set<const ast::Relation*>& expiredRelations) const {
+        const ast::RelationSet& expiredRelations) const {
     VecOwn<ram::Statement> stmts;
     for (const auto& relation : expiredRelations) {
         appendStmt(stmts, generateClearRelation(relation));
@@ -257,7 +257,7 @@ Own<ram::Statement> UnitTranslator::generateMergeRelations(
 }
 
 Own<ram::Statement> UnitTranslator::translateRecursiveClauses(
-        const std::set<const ast::Relation*>& scc, const ast::Relation* rel) const {
+        const ast::RelationSet& scc, const ast::Relation* rel) const {
     assert(contains(scc, rel) && "relation should belong to scc");
     VecOwn<ram::Statement> code;
 
@@ -279,7 +279,7 @@ Own<ram::Statement> UnitTranslator::translateRecursiveClauses(
 }
 
 Own<ram::Statement> UnitTranslator::translateSubsumptiveRecursiveClauses(
-        const std::set<const ast::Relation*>& scc, const ast::Relation* rel) const {
+        const ast::RelationSet& scc, const ast::Relation* rel) const {
     assert(contains(scc, rel) && "relation should belong to scc");
 
     VecOwn<ram::Statement> code;
@@ -340,7 +340,7 @@ Own<ram::Statement> UnitTranslator::translateSubsumptiveRecursiveClauses(
 }
 
 std::vector<ast::Atom*> UnitTranslator::getSccAtoms(
-        const ast::Clause* clause, const std::set<const ast::Relation*>& scc) const {
+        const ast::Clause* clause, const ast::RelationSet& scc) const {
     const auto& sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(*clause), [&](const ast::Atom* atom) {
         if (isA<ast::SubsumptiveClause>(clause)) {
             const auto& body = clause->getBodyLiterals();
@@ -354,7 +354,7 @@ std::vector<ast::Atom*> UnitTranslator::getSccAtoms(
 }
 
 VecOwn<ram::Statement> UnitTranslator::generateClauseVersions(
-        const ast::Clause* clause, const std::set<const ast::Relation*>& scc) const {
+        const ast::Clause* clause, const ast::RelationSet& scc) const {
     const auto& sccAtoms = getSccAtoms(clause, scc);
 
     // Create each version
@@ -376,7 +376,7 @@ VecOwn<ram::Statement> UnitTranslator::generateClauseVersions(
 }
 
 Own<ram::Statement> UnitTranslator::generateNonRecursiveDelete(
-        const std::set<const ast::Relation*>& scc) const {
+        const ast::RelationSet& scc) const {
     VecOwn<ram::Statement> code;
 
     // Generate code for non-recursive subsumption
@@ -423,7 +423,7 @@ Own<ram::Statement> UnitTranslator::generateNonRecursiveDelete(
     return mk<ram::Sequence>(std::move(code));
 }
 
-Own<ram::Statement> UnitTranslator::generateStratumPreamble(const std::set<const ast::Relation*>& scc) const {
+Own<ram::Statement> UnitTranslator::generateStratumPreamble(const ast::RelationSet& scc) const {
     VecOwn<ram::Statement> preamble;
 
     // Generate code for non-recursive rules
@@ -446,7 +446,7 @@ Own<ram::Statement> UnitTranslator::generateStratumPreamble(const std::set<const
 }
 
 Own<ram::Statement> UnitTranslator::generateStratumPostamble(
-        const std::set<const ast::Relation*>& scc) const {
+        const ast::RelationSet& scc) const {
     VecOwn<ram::Statement> postamble;
     for (const ast::Relation* rel : scc) {
         // Drop temporary tables after recursion
@@ -457,7 +457,7 @@ Own<ram::Statement> UnitTranslator::generateStratumPostamble(
 }
 
 Own<ram::Statement> UnitTranslator::generateStratumTableUpdates(
-        const std::set<const ast::Relation*>& scc) const {
+        const ast::RelationSet& scc) const {
     VecOwn<ram::Statement> updateTable;
 
     for (const ast::Relation* rel : scc) {
@@ -487,7 +487,7 @@ Own<ram::Statement> UnitTranslator::generateStratumTableUpdates(
     return mk<ram::Sequence>(std::move(updateTable));
 }
 
-Own<ram::Statement> UnitTranslator::generateStratumLoopBody(const std::set<const ast::Relation*>& scc) const {
+Own<ram::Statement> UnitTranslator::generateStratumLoopBody(const ast::RelationSet& scc) const {
     VecOwn<ram::Statement> loopBody;
 
     auto addProfiling = [](const ast::Relation* rel, Own<ram::Statement> stmt) -> Own<ram::Statement> {
@@ -521,7 +521,7 @@ Own<ram::Statement> UnitTranslator::generateStratumLoopBody(const std::set<const
 }
 
 Own<ram::Statement> UnitTranslator::generateStratumExitSequence(
-        const std::set<const ast::Relation*>& scc) const {
+        const ast::RelationSet& scc) const {
     // Helper function to add a new term to a conjunctive condition
     auto addCondition = [&](Own<ram::Condition>& cond, Own<ram::Condition> term) {
         cond = (cond == nullptr) ? std::move(term) : mk<ram::Conjunction>(std::move(cond), std::move(term));
@@ -557,7 +557,7 @@ Own<ram::Statement> UnitTranslator::generateStratumExitSequence(
 
 /** generate RAM code for recursive relations in a strongly-connected component */
 Own<ram::Statement> UnitTranslator::generateRecursiveStratum(
-        const std::set<const ast::Relation*>& scc) const {
+        const ast::RelationSet& scc) const {
     assert(!scc.empty() && "scc set should not be empty");
     VecOwn<ram::Statement> result;
 

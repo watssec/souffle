@@ -22,6 +22,9 @@
 namespace souffle::ast {
 class Clause;
 class Relation;
+class NameComparison;
+using RelationSet = std::set<const Relation*, NameComparison>;
+
 }  // namespace souffle::ast
 
 namespace souffle::ram {
@@ -73,7 +76,7 @@ public:
 
     /** Translate a recursive clause */
     virtual Own<ram::Statement> translateRecursiveClause(
-            const ast::Clause& clause, const std::set<const ast::Relation*>& scc, std::size_t version) = 0;
+            const ast::Clause& clause, const ast::RelationSet& scc, std::size_t version) = 0;
 
 protected:
     /** Translation context */

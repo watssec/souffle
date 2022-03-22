@@ -53,7 +53,7 @@ bool RecursiveClausesAnalysis::computeIsRecursive(
     // we want to reach the atom of the head through the body
     const Relation* trg = program.getRelation(clause);
 
-    std::set<const Relation*> reached;
+    RelationSet reached;
     std::vector<const Relation*> worklist;
 
     // set up start list

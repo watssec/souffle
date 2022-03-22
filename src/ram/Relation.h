@@ -154,7 +154,7 @@ protected:
 struct NameComparison {
     bool operator()(const Relation* x, const Relation* y) const {
         if (x != nullptr && y != nullptr) {
-            return x->getName() < y->getName();
+            return *x < *y;
         }
         return y != nullptr;
     }

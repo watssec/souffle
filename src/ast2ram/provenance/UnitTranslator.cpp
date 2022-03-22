@@ -149,7 +149,7 @@ void UnitTranslator::addAuxiliaryArity(
 }
 
 Own<ram::Statement> UnitTranslator::generateClearExpiredRelations(
-        const std::set<const ast::Relation*>& /* expiredRelations */) const {
+        const ast::RelationSet& /* expiredRelations */) const {
     // Relations should be preserved if provenance is enabled
     return mk<ram::Sequence>();
 }

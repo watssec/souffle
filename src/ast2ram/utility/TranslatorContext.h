@@ -90,10 +90,10 @@ public:
     /** SCC methods */
     std::size_t getNumberOfSCCs() const;
     bool isRecursiveSCC(std::size_t scc) const;
-    std::set<const ast::Relation*> getExpiredRelations(std::size_t scc) const;
-    std::set<const ast::Relation*> getRelationsInSCC(std::size_t scc) const;
-    std::set<const ast::Relation*> getInputRelationsInSCC(std::size_t scc) const;
-    std::set<const ast::Relation*> getOutputRelationsInSCC(std::size_t scc) const;
+    ast::RelationSet getExpiredRelations(std::size_t scc) const;
+    ast::RelationSet getRelationsInSCC(std::size_t scc) const;
+    ast::RelationSet getInputRelationsInSCC(std::size_t scc) const;
+    ast::RelationSet getOutputRelationsInSCC(std::size_t scc) const;
 
     /** Functor methods */
     TypeAttribute getFunctorReturnTypeAttribute(const ast::Functor& functor) const;
@@ -121,7 +121,7 @@ public:
     Own<ram::Statement> translateNonRecursiveClause(
             const ast::Clause& clause, TranslationMode mode = DEFAULT) const;
     Own<ram::Statement> translateRecursiveClause(const ast::Clause& clause,
-            const std::set<const ast::Relation*>& scc, std::size_t version,
+            const ast::RelationSet& scc, std::size_t version,
             TranslationMode mode = DEFAULT) const;
 
     Own<ram::Condition> translateConstraint(const ValueIndex& index, const ast::Literal* lit) const;

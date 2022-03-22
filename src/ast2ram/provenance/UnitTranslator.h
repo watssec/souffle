@@ -44,7 +44,7 @@ public:
 protected:
     Own<ram::Sequence> generateProgram(const ast::TranslationUnit& translationUnit) override;
     Own<ram::Statement> generateClearExpiredRelations(
-            const std::set<const ast::Relation*>& expiredRelations) const override;
+            const ast::RelationSet& expiredRelations) const override;
     Own<ram::Relation> createRamRelation(
             const ast::Relation* baseRelation, std::string ramRelationName) const override;
     VecOwn<ram::Relation> createRamRelations(const std::vector<std::size_t>& sccOrdering) const override;

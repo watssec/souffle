@@ -94,13 +94,13 @@ public:
     }
 
     /** Get all internal relations of a given SCC. */
-    const std::set<const Relation*>& getInternalRelations(const std::size_t scc) const {
+    const RelationSet& getInternalRelations(const std::size_t scc) const {
         return sccToRelation.at(scc);
     }
 
     /** Get all external output predecessor relations of a given SCC. */
-    std::set<const Relation*> getExternalOutputPredecessorRelations(const std::size_t scc) const {
-        std::set<const Relation*> externOutPreds;
+    RelationSet getExternalOutputPredecessorRelations(const std::size_t scc) const {
+        RelationSet externOutPreds;
         for (const auto& relation : getInternalRelations(scc)) {
             for (const auto& predecessor : precedenceGraph->graph().predecessors(relation)) {
                 if (relationToScc.at(predecessor) != scc && ioType->isOutput(predecessor)) {
@@ -112,8 +112,8 @@ public:
     }
 
     /** Get all external non-output predecessor relations of a given SCC. */
-    std::set<const Relation*> getExternalNonOutputPredecessorRelations(const std::size_t scc) const {
-        std::set<const Relation*> externNonOutPreds;
+    RelationSet getExternalNonOutputPredecessorRelations(const std::size_t scc) const {
+        RelationSet externNonOutPreds;
         for (const auto& relation : getInternalRelations(scc)) {
             for (const auto& predecessor : precedenceGraph->graph().predecessors(relation)) {
                 if (relationToScc.at(predecessor) != scc && !ioType->isOutput(predecessor)) {
@@ -125,8 +125,8 @@ public:
     }
 
     /** Get all external predecessor relations of a given SCC. */
-    std::set<const Relation*> getExternalPredecessorRelations(const std::size_t scc) const {
-        std::set<const Relation*> externPreds;
+    RelationSet getExternalPredecessorRelations(const std::size_t scc) const {
+        RelationSet externPreds;
         for (const auto& relation : getInternalRelations(scc)) {
             for (const auto& predecessor : precedenceGraph->graph().predecessors(relation)) {
                 if (relationToScc.at(predecessor) != scc) {
@@ -138,8 +138,8 @@ public:
     }
 
     /** Get all internal output relations of a given SCC. */
-    std::set<const Relation*> getInternalOutputRelations(const std::size_t scc) const {
-        std::set<const Relation*> internOuts;
+    RelationSet getInternalOutputRelations(const std::size_t scc) const {
+        RelationSet internOuts;
         for (const auto& relation : getInternalRelations(scc)) {
             if (ioType->isOutput(relation)) {
                 internOuts.insert(relation);
@@ -149,8 +149,8 @@ public:
     }
 
     /** Get all internal relations of a given SCC with external successors. */
-    std::set<const Relation*> getInternalRelationsWithExternalSuccessors(const std::size_t scc) const {
-        std::set<const Relation*> internsWithExternSuccs;
+    RelationSet getInternalRelationsWithExternalSuccessors(const std::size_t scc) const {
+        RelationSet internsWithExternSuccs;
         for (const auto& relation : getInternalRelations(scc)) {
             for (const auto& successor : precedenceGraph->graph().successors(relation)) {
                 if (relationToScc.at(successor) != scc) {
@@ -163,9 +163,9 @@ public:
     }
 
     /** Get all internal non-output relations of a given SCC with external successors. */
-    std::set<const Relation*> getInternalNonOutputRelationsWithExternalSuccessors(
+    RelationSet getInternalNonOutputRelationsWithExternalSuccessors(
             const std::size_t scc) const {
-        std::set<const Relation*> internNonOutsWithExternSuccs;
+        RelationSet internNonOutsWithExternSuccs;
         for (const auto& relation : getInternalRelations(scc)) {
             if (!ioType->isOutput(relation)) {
                 for (const auto& successor : precedenceGraph->graph().successors(relation)) {
@@ -180,8 +180,8 @@ public:
     }
 
     /** Get all internal input relations of a given SCC. */
-    std::set<const Relation*> getInternalInputRelations(const std::size_t scc) const {
-        std::set<const Relation*> internIns;
+    RelationSet getInternalInputRelations(const std::size_t scc) const {
+        RelationSet internIns;
         for (const auto& relation : getInternalRelations(scc)) {
             if (ioType->isInput(relation)) {
                 internIns.insert(relation);
@@ -192,7 +192,7 @@ public:
 
     /** Return if the given SCC is recursive. */
     bool isRecursive(const std::size_t scc) const {
-        const std::set<const Relation*>& sccRelations = sccToRelation.at(scc);
+        const RelationSet& sccRelations = sccToRelation.at(scc);
         if (sccRelations.size() == 1) {
             const Relation* singleRelation = *sccRelations.begin();
             if (precedenceGraph->graph().predecessors(singleRelation).count(singleRelation) == 0u) {
@@ -221,7 +221,7 @@ private:
     std::vector<std::set<std::size_t>> predecessors;
 
     /** Relations contained in a SCC */
-    std::vector<std::set<const Relation*>> sccToRelation;
+    std::vector<RelationSet> sccToRelation;
 
     /** Recursive scR method for computing SCC */
     void scR(const Relation* relation, std::map<const Relation*, std::size_t>& preOrder, std::size_t& counter,
