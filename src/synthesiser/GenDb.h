@@ -33,34 +33,6 @@
 namespace fs = std::filesystem;
 
 namespace souffle::synthesiser {
-
-/** An output stream where some pieces may be filled later or conditionnaly. */
-class DelayableOutputStream : public std::streambuf, public std::ostream {
-public:
-    DelayableOutputStream() : std::ostream(this) {}
-
-    ~DelayableOutputStream() {}
-
-    std::streambuf::int_type overflow(std::streambuf::int_type ch) override;
-
-    /** Return a piece of stream that will be included in the output only if the given condition is true when
-     * this stream is flushed. */
-    std::shared_ptr<std::ostream> delayed_if(const bool& cond);
-
-    /** Return a piece of stream that will be included in the output when this stream is flushed. */
-    std::shared_ptr<std::ostream> delayed();
-
-    /** */
-    void flushAll(std::ostream& os);
-
-private:
-    /* the sequence of pieces that compose the output stream. */
-    std::list<std::pair<std::optional<const bool*>, std::shared_ptr<std::stringstream>>> pieces;
-
-    /* points to the current piece's stream. */
-    std::shared_ptr<std::ostream> current_stream;
-};
-
 /**
  * Object representing some C++ construct that should be emitted in the
  * generated code. For instance, a class, a function...
@@ -189,7 +161,7 @@ private:
  */
 class GenClass : public Gen {
 public:
-    GenClass(std::string name, GenDb* db) : Gen(name), db(db) {}
+    GenClass(std::string name) : Gen(name) {}
     GenFunction& addFunction(std::string name, Visibility);
     GenFunction& addConstructor(Visibility);
 
@@ -212,7 +184,6 @@ public:
     }
 
 private:
-    GenDb* db;
     std::vector<Own<GenFunction>> methods;
     std::vector<std::tuple<std::string /*name*/, std::string /*type*/, Visibility,
             std::optional<std::string> /* initializer value */
@@ -229,8 +200,8 @@ private:
  */
 class GenDatastructure : public Gen {
 public:
-    GenDatastructure(std::string name, std::optional<std::string> namespace_opt, GenDb* db)
-            : Gen(name), namespace_name(namespace_opt), db(db) {}
+    GenDatastructure(std::string name, std::optional<std::string> namespace_opt)
+            : Gen(name), namespace_name(namespace_opt) {}
 
     std::ostream& decl() {
         return declarationStream;
@@ -246,7 +217,6 @@ public:
 
 private:
     std::optional<std::string> namespace_name;
-    GenDb* db;
     std::stringstream declarationStream;
     std::stringstream definitionStream;
 };

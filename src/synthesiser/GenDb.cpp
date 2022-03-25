@@ -29,40 +29,6 @@ namespace fs = std::filesystem;
 
 namespace souffle::synthesiser {
 
-std::streambuf::int_type DelayableOutputStream::overflow(std::streambuf::int_type ch) {
-    if (!current_stream) {
-        pieces.emplace_back(std::nullopt, std::make_shared<std::stringstream>());
-        current_stream = pieces.back().second;
-    }
-    current_stream->put(ch);
-    return ch;
-}
-/** Return a piece of stream that will be included in the output only if the given condition is true when
- * this stream is flushed. */
-std::shared_ptr<std::ostream> DelayableOutputStream::delayed_if(const bool& cond) {
-    current_stream.reset();
-    pieces.emplace_back(&cond, std::make_shared<std::stringstream>());
-    return pieces.back().second;
-}
-
-std::shared_ptr<std::ostream> DelayableOutputStream::delayed() {
-    current_stream.reset();
-    pieces.emplace_back(std::nullopt, std::make_shared<std::stringstream>());
-    return pieces.back().second;
-}
-
-/** */
-void DelayableOutputStream::flushAll(std::ostream& os) {
-    current_stream.reset();
-    while (!pieces.empty()) {
-        auto& piece = pieces.front();
-        if ((!piece.first) || **piece.first) {
-            os << piece.second->str();
-        }
-        pieces.pop_front();
-    }
-}
-
 void Gen::addDependency(Gen& dep, bool def_only) {
     if (def_only) {
         dependencies.emplace(&dep);
@@ -143,8 +109,8 @@ void GenClass::declaration(std::ostream& o) {
         o << ": " << join(inheritance, ", ", [&](auto& out, const auto arg) { out << arg; });
     }
     o << " {\n";
-    DelayableOutputStream public_o;
-    DelayableOutputStream private_o;
+    std::stringstream public_o;
+    std::stringstream private_o;
     public_o << "public:\n";
     private_o << "private:\n";
 
@@ -161,8 +127,8 @@ void GenClass::declaration(std::ostream& o) {
         }
         o << ";\n";
     }
-    public_o.flushAll(o);
-    private_o.flushAll(o);
+    o << public_o.str();
+    o << private_o.str();
     o << "};\n";
     o << "} // namespace souffle\n";
 }
@@ -190,7 +156,7 @@ void GenClass::definition(std::ostream& o) {
 }
 
 GenClass& GenDb::getClass(std::string name) {
-    classes.push_back(mk<GenClass>(name, this));
+    classes.push_back(mk<GenClass>(name));
     GenClass& res = *classes.back();
     nameToGen[name] = &res;
     return res;
@@ -201,7 +167,7 @@ GenDatastructure& GenDb::getDatastructure(std::string name, std::optional<std::s
     if (namespace_opt) {
         fullName = *namespace_opt + "::" + name;
     }
-    datastructures.push_back(mk<GenDatastructure>(name, namespace_opt, this));
+    datastructures.push_back(mk<GenDatastructure>(name, namespace_opt));
     GenDatastructure& res = *datastructures.back();
     nameToGen[fullName] = &res;
     return res;
@@ -323,9 +289,11 @@ void GenDb::emitMultipleFilesInDir(std::string dir) {
         genHeader(hpp, cpp, *cl);
         cl->declaration(hpp);
         if (cl->isMain) {
+            cpp << "namespace functors {\n";
             cpp << "extern \"C\" {\n";
             cpp << externCStream.str() << "\n";
             cpp << "}\n";
+            cpp << "} //namespace functors\n";
         }
         cl->definition(cpp);
     }
