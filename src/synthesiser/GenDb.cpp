@@ -37,7 +37,7 @@ void GenFile::addDependency(GenFile& dep, bool def_only) {
     }
 }
 
-void GenFile::addInclude(std::string str, bool def_only) {
+void GenFile::addInclude(const std::string& str, bool def_only) {
     if (def_only) {
         includes.emplace(str);
     } else {
@@ -57,7 +57,7 @@ void GenFunction::setNextInitializer(std::string field, std::string value) {
     initializer.push_back(std::make_pair(field, value));
 }
 
-void GenFunction::declaration(std::ostream& o) {
+void GenFunction::declaration(std::ostream& o) const {
     o << retType << " " << name << "(" << join(args, ",", [&](auto& out, const auto arg) {
         out << std::get<0>(arg) << " " << std::get<1>(arg);
         std::optional<std::string> defaultValue = std::get<2>(arg);
@@ -67,7 +67,7 @@ void GenFunction::declaration(std::ostream& o) {
     }) << ");";
 }
 
-void GenFunction::definition(std::ostream& o) {
+void GenFunction::definition(std::ostream& o) const {
     o << retType << " ";
     if (cl) {
         o << cl->getName() << "::";
@@ -101,7 +101,7 @@ GenFunction& GenClass::addConstructor(Visibility v) {
     return m;
 }
 
-void GenClass::declaration(std::ostream& o) {
+void GenClass::declaration(std::ostream& o) const {
     o << "namespace souffle {\n";
 
     o << "class " << name;
@@ -133,7 +133,7 @@ void GenClass::declaration(std::ostream& o) {
     o << "} // namespace souffle\n";
 }
 
-void GenClass::definition(std::ostream& o) {
+void GenClass::definition(std::ostream& o) const {
     if (ignoreUnusedArgumentWarning) {
         o << "#ifdef _MSC_VER\n";
         o << "#pragma warning(disable: 4100)\n";
@@ -173,7 +173,7 @@ GenDatastructure& GenDb::getDatastructure(std::string name, fs::path basename, s
     return res;
 }
 
-void GenDatastructure::declaration(std::ostream& o) {
+void GenDatastructure::declaration(std::ostream& o) const {
     std::string ns = "souffle";
     if (namespace_name) {
         ns += "::" + *namespace_name;
@@ -183,7 +183,7 @@ void GenDatastructure::declaration(std::ostream& o) {
     o << "} // namespace " << ns << " \n";
 }
 
-void GenDatastructure::definition(std::ostream& o) {
+void GenDatastructure::definition(std::ostream& o) const {
     std::string ns = "souffle";
     if (namespace_name) {
         ns += "::" + *namespace_name;

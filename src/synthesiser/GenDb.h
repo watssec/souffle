@@ -43,12 +43,12 @@ public:
      * Basename of the file (without extension) where
      * that should be produced for this code.
      */
-    virtual fs::path fileBaseName() {
+    virtual fs::path fileBaseName() const {
         return basename;
     };
 
     fs::path getHeader() {
-        return fileBaseName().concat(".hpp");
+        return basename.concat(".hpp");
     }
 
     /*
@@ -61,7 +61,7 @@ public:
     /*
      * #include 'str' must be included when generating the code
      */
-    void addInclude(std::string str, bool def_only = false);
+    void addInclude(const std::string& str, bool def_only = false);
 
     /**
      * Accessors for private members
@@ -99,12 +99,12 @@ public:
     /* Emit the declaration of this construct in C++,
      * typically what we would expect from a .hpp file
      */
-    virtual void declaration(std::ostream& o) = 0;
+    virtual void declaration(std::ostream& o) const = 0;
 
     /* Emit the Implementation of this construct in C++,
      * typically what we would expect from a .cpp file
      */
-    virtual void definition(std::ostream& o) = 0;
+    virtual void definition(std::ostream& o) const = 0;
 
     std::string& getName() {
         return name;
@@ -142,9 +142,9 @@ public:
         override = true;
     };
 
-    void declaration(std::ostream& o) override;
+    void declaration(std::ostream& o) const override;
 
-    void definition(std::ostream& o) override;
+    void definition(std::ostream& o) const override;
 
     Visibility getVisibility() {
         return visibility;
@@ -178,9 +178,9 @@ public:
     void addField(
             std::string type, std::string name, Visibility, std::optional<std::string> init = std::nullopt);
 
-    void declaration(std::ostream& o) override;
+    void declaration(std::ostream& o) const override;
 
-    void definition(std::ostream& o) override;
+    void definition(std::ostream& o) const override;
 
     void inherits(std::string parent) {
         inheritance.push_back(parent);
@@ -220,8 +220,8 @@ public:
         return definitionStream;
     }
 
-    void declaration(std::ostream& o) override;
-    void definition(std::ostream& o) override;
+    void declaration(std::ostream& o) const override;
+    void definition(std::ostream& o) const override;
 
 private:
     std::optional<std::string> namespace_name;
