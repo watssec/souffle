@@ -99,7 +99,7 @@ protected:
     void generateRelationTypeStruct(GenDb& db, Own<Relation> relationType);
 
     /** Get referenced relations */
-    std::set<const ram::Relation*> getReferencedRelations(const ram::Operation& op);
+    ram::RelationSet getReferencedRelations(const ram::Operation& op);
 
     /** Generate code */
     void emitCode(std::ostream& out, const ram::Statement& stmt);

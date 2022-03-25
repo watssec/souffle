@@ -223,8 +223,8 @@ void Synthesiser::generateRelationTypeStruct(GenDb& db, Own<Relation> relationTy
 }
 
 /** Get referenced relations */
-std::set<const ram::Relation*> Synthesiser::getReferencedRelations(const Operation& op) {
-    std::set<const ram::Relation*> res;
+ram::RelationSet Synthesiser::getReferencedRelations(const Operation& op) {
+    ram::RelationSet res;
     visit(op, [&](const Node& node) {
         if (auto scan = as<RelationOperation>(node)) {
             res.insert(lookup(scan->getRelation()));
