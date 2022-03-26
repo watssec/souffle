@@ -120,6 +120,9 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 namespace souffle {
 
@@ -170,7 +173,7 @@ namespace souffle {
 /**
  * Compiles the given source file to a binary file.
  */
-void compileToBinary(const std::string& command, std::string_view sourceFilename) {
+void compileToBinary(const std::string& command, std::vector<fs::path>& sourceFilenames) {
     std::vector<std::string> argv;
 
     argv.push_back(command);
@@ -200,7 +203,9 @@ void compileToBinary(const std::string& command, std::string_view sourceFilename
         argv.push_back(tfm::format("-l%s", library));
     }
 
-    argv.push_back(std::string(sourceFilename));
+    for (fs::path srcFile: sourceFilenames) {
+        argv.push_back(srcFile.c_str());
+    }
 
 #if defined(_MSC_VER)
     const char* interpreter = "python";
@@ -210,7 +215,7 @@ void compileToBinary(const std::string& command, std::string_view sourceFilename
     auto exit = execute(interpreter, argv);
     if (!exit) throw std::invalid_argument(tfm::format("unable to execute tool <python3 %s>", command));
     if (exit != 0)
-        throw std::invalid_argument(tfm::format("failed to compile C++ source <%s>", sourceFilename));
+        throw std::invalid_argument("failed to compile C++ sources");
 }
 
 int main(int argc, char** argv) {
@@ -249,6 +254,9 @@ int main(int argc, char** argv) {
                         "default."},
                 {"compile", 'c', "", "", false,
                         "Generate C++ source code, compile to a binary executable, then run this "
+                        "executable."},
+                {"compile-many", 'C', "", "", false,
+                        "Generate C++ source code in multiple files, compile to a binary executable, then run this "
                         "executable."},
                 {"generate", 'g', "FILE", "", false,
                         "Generate C++ source code for the given Datalog program and write it to "
@@ -715,7 +723,7 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    const bool execute_mode = Global::config().has("compile");
+    const bool execute_mode = Global::config().has("compile") || Global::config().has("compile-many");
     const bool compile_mode = Global::config().has("dl-program");
     const bool generate_mode = Global::config().has("generate");
     const bool generate_many_mode = Global::config().has("generate-many");
@@ -788,24 +796,31 @@ int main(int argc, char** argv) {
             }
 
             std::string baseIdentifier = identifier(simpleName(baseFilename));
-            std::string sourceFilename = baseFilename + ".cpp";
+
+            std::string binaryFilename = baseFilename;
 
             bool withSharedLibrary;
             auto synthesisStart = std::chrono::high_resolution_clock::now();
             const bool emitToStdOut = Global::config().has("generate", "-");
-            const bool emitMultipleFiles = Global::config().has("generate-many");
+            const bool emitMultipleFiles = Global::config().has("generate-many") || Global::config().has("compile-many");
 
             synthesiser::GenDb db;
             synthesiser->generateCode(db, baseIdentifier, withSharedLibrary);
-
+            std::vector<fs::path> srcFiles;
             if (emitToStdOut)
                 db.emitSingleFile(std::cout);
             else if (emitMultipleFiles) {
-                db.emitMultipleFilesInDir(Global::config().get("generate-many"));
+                fs::path directory = Global::config().has("generate-many") ?
+                    fs::path(Global::config().get("generate-many")) :
+                    fs::temp_directory_path();
+                std::string mainClass = db.emitMultipleFilesInDir(directory, srcFiles);
+                binaryFilename = directory / mainClass;
             } else {
+                std::string sourceFilename = baseFilename + ".cpp";
                 std::ofstream os{sourceFilename};
                 db.emitSingleFile(os);
                 os.close();
+                srcFiles.push_back(fs::path(sourceFilename));
             }
             if (Global::config().has("verbose")) {
                 auto synthesisEnd = std::chrono::high_resolution_clock::now();
@@ -828,7 +843,7 @@ int main(int argc, char** argv) {
                 if (!souffle_compile) throw std::runtime_error("failed to locate souffle-compile.py");
 
                 auto t_bgn = std::chrono::high_resolution_clock::now();
-                compileToBinary(*souffle_compile, sourceFilename);
+                compileToBinary(*souffle_compile, srcFiles);
                 auto t_end = std::chrono::high_resolution_clock::now();
 
                 if (Global::config().has("verbose")) {
@@ -839,7 +854,6 @@ int main(int argc, char** argv) {
 
             // run compiled C++ program if requested.
             if (must_execute) {
-                std::string binaryFilename = baseFilename;
 #if defined(_MSC_VER)
                 binaryFilename += ".exe";
 #endif

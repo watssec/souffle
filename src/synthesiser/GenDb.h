@@ -48,7 +48,8 @@ public:
     };
 
     fs::path getHeader() {
-        return basename.concat(".hpp");
+        fs::path header = basename;
+        return header.concat(".hpp");
     }
 
     /*
@@ -240,7 +241,7 @@ public:
     GenDatastructure& getDatastructure(std::string name, fs::path basename, std::optional<std::string> namespace_opt);
 
     void emitSingleFile(std::ostream& o);
-    void emitMultipleFilesInDir(std::string dir);
+    std::string emitMultipleFilesInDir(fs::path dir, std::vector<fs::path>& toCompile);
 
     std::ostream& externC() {
         return externCStream;

@@ -142,7 +142,7 @@ function(SOUFFLE_RUN_TEST_HELPER)
 #Usually just "facts" but can be different when running multi - tests
     cmake_parse_arguments(
         PARAM
-        "COMPILED;FUNCTORS;NEGATIVE;MULTI_TEST" # Options
+        "COMPILED;COMPILED_SPLITTED;FUNCTORS;NEGATIVE;MULTI_TEST" # Options
         "TEST_NAME;CATEGORY;FACTS_DIR_NAME;EXTRA_DATA" #Single valued options
         ""
         ${ARGV}
@@ -154,6 +154,10 @@ function(SOUFFLE_RUN_TEST_HELPER)
         list(APPEND EXTRA_FLAGS "-c")
         set(EXEC_STYLE "compiled")
         set(SHORT_EXEC_STYLE "_c")
+    elseif(PARAM_COMPILED_SPLITTED)
+        list(APPEND EXTRA_FLAGS "-C")
+        set(EXEC_STYLE "compiled-splitted")
+        set(SHORT_EXEC_STYLE "_C")
     else()
         set(EXEC_STYLE "interpreted")
         set(SHORT_EXEC_STYLE "")
@@ -310,6 +314,12 @@ endfunction()
 function(SOUFFLE_POSITIVE_TEST TEST_NAME CATEGORY)
     souffle_run_test(TEST_NAME ${TEST_NAME}
                      CATEGORY ${CATEGORY})
+    if (${ARGN} MATCHES "COMPILED_SPLITTED")
+        souffle_run_test_helper(
+            TEST_NAME ${TEST_NAME}
+            CATEGORY ${CATEGORY}
+            COMPILED_SPLITTED)
+    endif()
 endfunction()
 
 # A helper to make it easier to specify the category positionally

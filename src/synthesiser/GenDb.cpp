@@ -237,7 +237,7 @@ void GenDb::emitSingleFile(std::ostream& o) {
     classes.back()->definition(o);
 }
 
-void GenDb::emitMultipleFilesInDir(std::string dir) {
+std::string GenDb::emitMultipleFilesInDir(fs::path dir, std::vector<fs::path>& toCompile) {
     fs::path rootDir = dir;
     fs::create_directories(rootDir);
 
@@ -269,18 +269,22 @@ void GenDb::emitMultipleFilesInDir(std::string dir) {
     };
 
     for (auto& ds : datastructures) {
+        toCompile.push_back(rootDir / ds->fileBaseName().concat(".cpp"));
         std::ofstream hpp{rootDir / ds->fileBaseName().concat(".hpp")};
         std::ofstream cpp{rootDir / ds->fileBaseName().concat(".cpp")};
         genHeader(hpp, cpp, *ds);
         ds->declaration(hpp);
         ds->definition(cpp);
     }
+    std::string mainClass;
     for (auto& cl : classes) {
+        toCompile.push_back(rootDir / cl->fileBaseName().concat(".cpp"));
         std::ofstream hpp{rootDir / cl->fileBaseName().concat(".hpp")};
         std::ofstream cpp{rootDir / cl->fileBaseName().concat(".cpp")};
         genHeader(hpp, cpp, *cl);
         cl->declaration(hpp);
         if (cl->isMain) {
+            mainClass = cl->getName();
             cpp << "namespace functors {\n";
             cpp << "extern \"C\" {\n";
             cpp << externCStream.str() << "\n";
@@ -289,6 +293,7 @@ void GenDb::emitMultipleFilesInDir(std::string dir) {
         }
         cl->definition(cpp);
     }
+    return mainClass;
 }
 
 }  // namespace souffle::synthesiser
