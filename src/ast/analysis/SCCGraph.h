@@ -163,8 +163,7 @@ public:
     }
 
     /** Get all internal non-output relations of a given SCC with external successors. */
-    RelationSet getInternalNonOutputRelationsWithExternalSuccessors(
-            const std::size_t scc) const {
+    RelationSet getInternalNonOutputRelationsWithExternalSuccessors(const std::size_t scc) const {
         RelationSet internNonOutsWithExternSuccs;
         for (const auto& relation : getInternalRelations(scc)) {
             if (!ioType->isOutput(relation)) {

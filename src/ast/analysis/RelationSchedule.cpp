@@ -55,8 +55,7 @@ void RelationScheduleAnalysis::run(const TranslationUnit& translationUnit) {
     precedenceGraph = &translationUnit.getAnalysis<PrecedenceGraphAnalysis>();
 
     std::size_t numSCCs = translationUnit.getAnalysis<SCCGraphAnalysis>().getNumberOfSCCs();
-    std::vector<RelationSet> relationExpirySchedule =
-            computeRelationExpirySchedule(translationUnit);
+    std::vector<RelationSet> relationExpirySchedule = computeRelationExpirySchedule(translationUnit);
 
     relationSchedule.clear();
     for (std::size_t i = 0; i < numSCCs; i++) {
@@ -100,7 +99,8 @@ std::vector<RelationSet> RelationScheduleAnalysis::computeRelationExpirySchedule
         std::set_difference(alive[orderedSCC].begin(), alive[orderedSCC].end(), alive[orderedSCC - 1].begin(),
                 alive[orderedSCC - 1].end(),
                 std::inserter(relationExpirySchedule[numSCCs - orderedSCC],
-                        relationExpirySchedule[numSCCs - orderedSCC].end()), NameComparison());
+                        relationExpirySchedule[numSCCs - orderedSCC].end()),
+                NameComparison());
     }
 
     return relationExpirySchedule;

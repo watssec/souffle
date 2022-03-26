@@ -109,6 +109,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -120,7 +121,6 @@
 #include <thread>
 #include <utility>
 #include <vector>
-#include <filesystem>
 
 namespace fs = std::filesystem;
 
@@ -203,7 +203,7 @@ void compileToBinary(const std::string& command, std::vector<fs::path>& sourceFi
         argv.push_back(tfm::format("-l%s", library));
     }
 
-    for (fs::path srcFile: sourceFilenames) {
+    for (fs::path srcFile : sourceFilenames) {
         argv.push_back(srcFile.c_str());
     }
 
@@ -214,8 +214,7 @@ void compileToBinary(const std::string& command, std::vector<fs::path>& sourceFi
 #endif
     auto exit = execute(interpreter, argv);
     if (!exit) throw std::invalid_argument(tfm::format("unable to execute tool <python3 %s>", command));
-    if (exit != 0)
-        throw std::invalid_argument("failed to compile C++ sources");
+    if (exit != 0) throw std::invalid_argument("failed to compile C++ sources");
 }
 
 int main(int argc, char** argv) {
@@ -256,7 +255,8 @@ int main(int argc, char** argv) {
                         "Generate C++ source code, compile to a binary executable, then run this "
                         "executable."},
                 {"compile-many", 'C', "", "", false,
-                        "Generate C++ source code in multiple files, compile to a binary executable, then run this "
+                        "Generate C++ source code in multiple files, compile to a binary executable, then "
+                        "run this "
                         "executable."},
                 {"generate", 'g', "FILE", "", false,
                         "Generate C++ source code for the given Datalog program and write it to "
@@ -802,7 +802,8 @@ int main(int argc, char** argv) {
             bool withSharedLibrary;
             auto synthesisStart = std::chrono::high_resolution_clock::now();
             const bool emitToStdOut = Global::config().has("generate", "-");
-            const bool emitMultipleFiles = Global::config().has("generate-many") || Global::config().has("compile-many");
+            const bool emitMultipleFiles =
+                    Global::config().has("generate-many") || Global::config().has("compile-many");
 
             synthesiser::GenDb db;
             synthesiser->generateCode(db, baseIdentifier, withSharedLibrary);
@@ -810,9 +811,9 @@ int main(int argc, char** argv) {
             if (emitToStdOut)
                 db.emitSingleFile(std::cout);
             else if (emitMultipleFiles) {
-                fs::path directory = Global::config().has("generate-many") ?
-                    fs::path(Global::config().get("generate-many")) :
-                    fs::temp_directory_path();
+                fs::path directory = Global::config().has("generate-many")
+                                             ? fs::path(Global::config().get("generate-many"))
+                                             : fs::temp_directory_path();
                 std::string mainClass = db.emitMultipleFilesInDir(directory, srcFiles);
                 binaryFilename = directory / mainClass;
             } else {

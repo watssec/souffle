@@ -79,6 +79,7 @@ public:
     std::set<GenFile*>& getDependencies() {
         return dependencies;
     }
+
 private:
     fs::path basename;
 
@@ -87,7 +88,6 @@ private:
     std::set<std::string> includes;
     std::set<GenFile*> dependencies;
 };
-
 
 /**
  * Object representing some C++ construct that should be emitted in the
@@ -238,7 +238,8 @@ private:
 class GenDb {
 public:
     GenClass& getClass(std::string name, fs::path basename);
-    GenDatastructure& getDatastructure(std::string name, fs::path basename, std::optional<std::string> namespace_opt);
+    GenDatastructure& getDatastructure(
+            std::string name, fs::path basename, std::optional<std::string> namespace_opt);
 
     void emitSingleFile(std::ostream& o);
     std::string emitMultipleFilesInDir(fs::path dir, std::vector<fs::path>& toCompile);

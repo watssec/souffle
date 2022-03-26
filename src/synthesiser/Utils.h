@@ -21,10 +21,10 @@
 
 namespace souffle::synthesiser {
 
- /** return the hexadecimal representation of the given value, 16 characters long. */
+/** return the hexadecimal representation of the given value, 16 characters long. */
 std::string toHex(const std::size_t value);
 
 /** return a unique C++ identifier for the given str string */
 std::string uniqueCppIdent(const std::string& str, std::size_t maxLength = 1024);
 
-}
+}  // namespace souffle::synthesiser

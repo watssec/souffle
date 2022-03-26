@@ -57,8 +57,7 @@ protected:
             const ast::RelationSet& scc, const ast::Relation* rel) const;
     VecOwn<ram::Statement> generateClauseVersions(
             const ast::Clause* clause, const ast::RelationSet& scc) const;
-    std::vector<ast::Atom*> getSccAtoms(
-            const ast::Clause* clause, const ast::RelationSet& scc) const;
+    std::vector<ast::Atom*> getSccAtoms(const ast::Clause* clause, const ast::RelationSet& scc) const;
 
     virtual void addAuxiliaryArity(
             const ast::Relation* relation, std::map<std::string, std::string>& directives) const;
@@ -84,8 +83,7 @@ protected:
     Own<ram::Statement> generateStratumExitSequence(const ast::RelationSet& scc) const;
 
     /** Other helper generations */
-    virtual Own<ram::Statement> generateClearExpiredRelations(
-            const ast::RelationSet& expiredRelations) const;
+    virtual Own<ram::Statement> generateClearExpiredRelations(const ast::RelationSet& expiredRelations) const;
     Own<ram::Statement> generateClearRelation(const ast::Relation* relation) const;
     virtual Own<ram::Statement> generateMergeRelations(
             const ast::Relation* rel, const std::string& destRelation, const std::string& srcRelation) const;

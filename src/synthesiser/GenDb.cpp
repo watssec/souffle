@@ -162,7 +162,8 @@ GenClass& GenDb::getClass(std::string name, fs::path basename) {
     return res;
 }
 
-GenDatastructure& GenDb::getDatastructure(std::string name, fs::path basename, std::optional<std::string> namespace_opt) {
+GenDatastructure& GenDb::getDatastructure(
+        std::string name, fs::path basename, std::optional<std::string> namespace_opt) {
     std::string fullName = name;
     if (namespace_opt) {
         fullName = *namespace_opt + "::" + name;

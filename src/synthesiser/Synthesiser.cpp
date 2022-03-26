@@ -98,8 +98,8 @@
 #include "souffle/utility/json11.h"
 #include "souffle/utility/tinyformat.h"
 #include "synthesiser/GenDb.h"
-#include "synthesiser/Utils.h"
 #include "synthesiser/Relation.h"
+#include "synthesiser/Utils.h"
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -2568,7 +2568,8 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     std::size_t subroutineNum = 0;
     std::vector<std::pair<std::string, std::string>> subroutineInits;
     for (auto& sub : prog.getSubroutines()) {
-        GenClass& gen = db.getClass(convertStratumIdent("Stratum_" + sub.first), fs::path(convertStratumIdent("Stratum_" + sub.first)));
+        GenClass& gen = db.getClass(convertStratumIdent("Stratum_" + sub.first),
+                fs::path(convertStratumIdent("Stratum_" + sub.first)));
         mainClass.addDependency(gen);
 
         auto accessedRels = accessedRelations(*sub.second);

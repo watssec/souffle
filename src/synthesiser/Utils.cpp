@@ -15,14 +15,13 @@
  ***********************************************************************/
 
 #include "synthesiser/Utils.h"
-#include <string>
-#include <sstream>
 #include <iomanip>
-
+#include <sstream>
+#include <string>
 
 namespace souffle::synthesiser {
 
- std::string toHex(const std::size_t V) {
+std::string toHex(const std::size_t V) {
     static_assert(sizeof(std::size_t) <= 64);
     std::stringstream s;
     s << std::hex << std::setw(16) << std::setfill('0') << V;
@@ -67,4 +66,4 @@ std::string uniqueCppIdent(const std::string& name, std::size_t maxLength) {
     return id;
 }
 
-}
+}  // namespace souffle::synthesiser
