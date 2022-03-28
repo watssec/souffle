@@ -132,6 +132,8 @@ public:
     GenFunction(std::string name, GenClass* cl, Visibility v)
             : Gen(name), cl(cl), visibility(v), override(false) {}
 
+    virtual ~GenFunction() = default;
+
     void setRetType(std::string ty);
     void setNextArg(std::string ty, std::string name, std::optional<std::string> defaultValue = std::nullopt);
     void setNextInitializer(std::string name, std::string value);
@@ -173,6 +175,8 @@ private:
 class GenClass : public Gen, public GenFile {
 public:
     GenClass(std::string name, fs::path basename) : Gen(name), GenFile(basename) {}
+    virtual ~GenClass() = default;
+
     GenFunction& addFunction(std::string name, Visibility);
     GenFunction& addConstructor(Visibility);
 
@@ -213,6 +217,7 @@ class GenDatastructure : public Gen, public GenFile {
 public:
     GenDatastructure(std::string name, fs::path basename, std::optional<std::string> namespace_opt)
             : Gen(name), GenFile(basename), namespace_name(namespace_opt) {}
+    virtual ~GenDatastructure() = default;
 
     std::ostream& decl() {
         return declarationStream;

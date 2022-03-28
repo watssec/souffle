@@ -24,7 +24,7 @@
 namespace souffle::ast {
 class Clause;
 class Relation;
-class NameComparison;
+struct NameComparison;
 using RelationSet = std::set<const Relation*, NameComparison>;
 class TranslationUnit;
 class Atom;

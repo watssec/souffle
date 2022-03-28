@@ -568,8 +568,6 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
         void visit_(type_identity<Call>, const Call& call, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
-            const Program& prog = synthesiser.getTranslationUnit().getProgram();
-            const auto& subs = prog.getSubroutines();
             out << "{\n";
             out << " std::vector<RamDomain> args, ret;\n";
             out << synthesiser.convertStratumIdent(call.getName()) << ".run(args, ret);\n";
