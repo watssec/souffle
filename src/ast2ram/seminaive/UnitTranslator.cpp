@@ -166,7 +166,7 @@ Own<ram::Statement> UnitTranslator::generateStratum(std::size_t scc) const {
     // Compute the current stratum
     const auto& sccRelations = context->getRelationsInSCC(scc);
     if (context->isRecursiveSCC(scc)) {
-        appendStmt(current, generateRecursiveStratum(sccRelations));
+        appendStmt(current, generateRecursiveStratum(sccRelations, scc));
     } else {
         assert(sccRelations.size() == 1 && "only one relation should exist in non-recursive stratum");
         const auto* rel = *sccRelations.begin();
@@ -175,6 +175,11 @@ Own<ram::Statement> UnitTranslator::generateStratum(std::size_t scc) const {
         // issue delete sequence for non-recursive subsumptions
         appendStmt(current, generateNonRecursiveDelete(sccRelations));
     }
+
+    // Get all non-recursive relation statements
+    auto nonRecursiveUniqueKeyStatements = context->getNonRecursiveUniqueKeyStatementsInSCC(scc);
+    auto uniqueKeySequence = mk<ram::Sequence>(std::move(nonRecursiveUniqueKeyStatements));
+    appendStmt(current, std::move(uniqueKeySequence));
 
     // Store all internal output relations to the output dir with a .csv extension
     for (const auto& relation : context->getOutputRelationsInSCC(scc)) {
@@ -552,24 +557,28 @@ Own<ram::Statement> UnitTranslator::generateStratumExitSequence(const ast::Relat
 }
 
 /** generate RAM code for recursive relations in a strongly-connected component */
-Own<ram::Statement> UnitTranslator::generateRecursiveStratum(const ast::RelationSet& scc) const {
+Own<ram::Statement> UnitTranslator::generateRecursiveStratum(
+        const ast::RelationSet& scc, std::size_t sccNumber) const {
     assert(!scc.empty() && "scc set should not be empty");
     VecOwn<ram::Statement> result;
 
     // Add in the preamble
     appendStmt(result, generateStratumPreamble(scc));
 
+    // Get all recursive relation statements
+    auto recursiveUniqueKeyStatements = context->getRecursiveUniqueKeyStatementsInSCC(sccNumber);
+    auto uniqueKeySequence = mk<ram::Sequence>(std::move(recursiveUniqueKeyStatements));
+
     // Add in the main fixpoint loop
     auto loopBody = generateStratumLoopBody(scc);
     auto exitSequence = generateStratumExitSequence(scc);
     auto updateSequence = generateStratumTableUpdates(scc);
-    auto fixpointLoop = mk<ram::Loop>(
-            mk<ram::Sequence>(std::move(loopBody), std::move(exitSequence), std::move(updateSequence)));
+    auto fixpointLoop = mk<ram::Loop>(mk<ram::Sequence>(std::move(loopBody), std::move(uniqueKeySequence),
+            std::move(exitSequence), std::move(updateSequence)));
     appendStmt(result, std::move(fixpointLoop));
 
     // Add in the postamble
     appendStmt(result, generateStratumPostamble(scc));
-
     return mk<ram::Sequence>(std::move(result));
 }
 
