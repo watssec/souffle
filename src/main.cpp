@@ -813,7 +813,7 @@ int main(int argc, char** argv) {
             else if (emitMultipleFiles) {
                 fs::path directory = Global::config().has("generate-many")
                                              ? fs::path(Global::config().get("generate-many"))
-                                             : fs::temp_directory_path();
+                                             : fs::temp_directory_path() / baseIdentifier;
                 std::string mainClass = db.emitMultipleFilesInDir(directory, srcFiles);
                 binaryFilename = directory / mainClass;
             } else {
