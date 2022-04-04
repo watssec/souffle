@@ -78,9 +78,8 @@ const analysis::PowerSet& UniqueKeysAnalysis::getSubsets(std::size_t N, std::siz
     return cache.at({N, K});
 }
 
-analysis::StratumUniqueKeys UniqueKeysAnalysis::computeRuleVersionStatements(
-        const ast::RelationSet& scc, const ast::Clause& clause,
-        std::optional<std::size_t> version, ast2ram::TranslationMode mode) {
+analysis::StratumUniqueKeys UniqueKeysAnalysis::computeRuleVersionStatements(const ast::RelationSet& scc,
+        const ast::Clause& clause, std::optional<std::size_t> version, ast2ram::TranslationMode mode) {
     auto* prog = program;
     auto* poly = polyAnalysis;
     auto sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(clause),
