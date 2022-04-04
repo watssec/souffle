@@ -198,7 +198,7 @@ void compileToBinary(const std::string& command, std::vector<fs::path>& sourceFi
     }
 
     for (fs::path srcFile : sourceFilenames) {
-        argv.push_back(srcFile.c_str());
+        argv.push_back(srcFile.string());
     }
 
 #if defined(_MSC_VER)
@@ -817,7 +817,7 @@ int main(int argc, char** argv) {
                                              ? fs::path(Global::config().get("generate-many"))
                                              : fs::temp_directory_path() / baseIdentifier;
                 std::string mainClass = db.emitMultipleFilesInDir(directory, srcFiles);
-                binaryFilename = directory / mainClass;
+                binaryFilename = (directory / fs::path(mainClass)).string();
             } else {
                 std::string sourceFilename = baseFilename + ".cpp";
                 std::ofstream os{sourceFilename};
