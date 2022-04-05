@@ -33,7 +33,6 @@
 #include "souffle/io/WriteStream.h"
 #include "souffle/utility/EvaluatorUtil.h"
 
-
 #if defined(_OPENMP)
 #include <omp.h>
 #endif
