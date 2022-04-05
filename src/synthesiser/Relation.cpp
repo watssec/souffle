@@ -92,9 +92,9 @@ std::string InfoRelation::getTypeName() {
 }
 
 /** Generate type struct of a info relation, which is empty,
- * the actual implementation is in CompiledSouffle.h */
+ * the actual implementation is in Info.h */
 void InfoRelation::generateTypeStruct(GenDb& db) {
-    db.datastructureIncludes(getTypeName(), "\"souffle/CompiledSouffle.h\"");
+    db.datastructureIncludes(getTypeName(), "\"souffle/datastructure/Info.h\"");
     return;
 }
 
@@ -111,9 +111,9 @@ std::string NullaryRelation::getTypeName() {
 }
 
 /** Generate type struct of a nullary relation, which is empty,
- * the actual implementation is in CompiledSouffle.h */
+ * the actual implementation is in Nullaries.h */
 void NullaryRelation::generateTypeStruct(GenDb& db) {
-    db.datastructureIncludes(getTypeName(), "\"souffle/CompiledSouffle.h\"");
+    db.datastructureIncludes(getTypeName(), "\"souffle/datastructure/Nullaries.h\"");
     return;
 }
 
@@ -1244,9 +1244,9 @@ std::string EqrelRelation::getTypeName() {
 }
 
 /** Generate type struct of a eqrel relation, which is empty,
- * the actual implementation is in CompiledSouffle.h */
+ * the actual implementation is in EqRel.h */
 void EqrelRelation::generateTypeStruct(GenDb& db) {
-    db.datastructureIncludes(getTypeName(), "\"souffle/CompiledSouffle.h\"");
+    db.datastructureIncludes(getTypeName(), "\"souffle/datastructure/EqRel.h\"");
     return;
 }
 
