@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <atomic>
 #include "souffle/RamTypes.h"
 #include "souffle/SouffleInterface.h"
+#include <atomic>
 
 namespace souffle {
 
