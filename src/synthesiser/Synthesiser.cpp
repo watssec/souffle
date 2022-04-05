@@ -3225,6 +3225,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     factory_hook << "} // namespace souffle\n";
 
     hook << "\n#ifndef __EMBEDDED_SOUFFLE__\n";
+    hook << "#include \"souffle/CompiledOptions.h\"\n";
 
     hook << "int main(int argc, char** argv)\n{\n";
     hook << "try{\n";

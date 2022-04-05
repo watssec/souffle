@@ -32,9 +32,7 @@
 #include "souffle/io/IOSystem.h"
 #include "souffle/io/WriteStream.h"
 #include "souffle/utility/EvaluatorUtil.h"
-#ifndef __EMBEDDED_SOUFFLE__
-#include "souffle/CompiledOptions.h"
-#endif
+
 
 #if defined(_OPENMP)
 #include <omp.h>
