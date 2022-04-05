@@ -2835,31 +2835,8 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
 
     for (const auto& f : functors) {
         const std::string& name = f.first;
-        // lambda_decl(*decl, name);
         mainClass.addField(function_ty(name), name, Visibility::Private);
     }
-
-    auto lambda_assign = [&](std::ostream& os, std::string name) {
-        auto [argsTy, retTy] = functor_signatures[name];
-        os << "if (name == \"" << name << "\") {\n";
-        os << "  " << name << " = std::any_cast<";
-        os << function_ty(name);
-        os << ">(fn);\n";
-        os << "  return true;\n";
-        os << "}\n";
-    };
-
-    GenFunction& setFunctor = mainClass.addFunction("setFunctor", Visibility::Public);
-    setFunctor.setOverride();
-    setFunctor.setRetType("bool");
-    setFunctor.setNextArg("[[maybe_unused]] std::string", "name");
-    setFunctor.setNextArg("[[maybe_unused]] std::any", "fn");
-
-    for (const auto& f : functors) {
-        const std::string& name = f.first;
-        lambda_assign(setFunctor.body(), name);
-    }
-    setFunctor.body() << "return false;\n";
 
     std::set<std::string> storeRelations;
     std::set<std::string> loadRelations;

@@ -21,7 +21,6 @@
 #include "souffle/SymbolTable.h"
 #include "souffle/utility/MiscUtil.h"
 #include <algorithm>
-#include <any>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -833,18 +832,6 @@ public:
     std::size_t getNumThreads() {
         return numThreads;
     }
-
-    /**
-     * Pass a std::function to be called when invoking user-defined functor named 'name'
-     * The std::any is casted to the appropriate std::function type, and an exception
-     * will throw if a wrong type is used.
-     * @param name The name of the functor, as used in Datalog
-     * @param fn The std::function casted to std::any type
-     * @return true if setting the new functor succeeded.
-     */
-    virtual bool setFunctor(std::string /*name*/, std::any /*fn*/) {
-        return false;
-    };
 
     /**
      * Get Relation by its name from relationMap, if relation not found, return a nullptr.
