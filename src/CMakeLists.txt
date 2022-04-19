@@ -153,6 +153,7 @@ set(SOUFFLE_SOURCES
     ram/transform/TupleId.cpp
     ram/utility/NodeMapper.cpp
     reports/DebugReport.cpp
+    smt/Translator.cpp
     synthesiser/Synthesiser.cpp
     synthesiser/Relation.cpp
 )
