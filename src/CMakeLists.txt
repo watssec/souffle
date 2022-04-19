@@ -451,6 +451,16 @@ if (SOUFFLE_USE_CURSES)
   list(APPEND SOUFFLE_COMPILED_RPATHS ${NCURSES_RPATH})
 endif()
 
+if (SOUFFLE_USE_SMT)
+  target_compile_definitions(libsouffle PUBLIC USE_SMT)
+  target_include_directories(libsouffle
+      PUBLIC ${Z3_C_INCLUDE_DIRS}
+      PUBLIC ${INTERFACE_INCLUDE_DIRECTORIES})
+  target_link_libraries(libsouffle
+      PUBLIC ${Z3_LIBRARIES}
+      PUBLIC cvc5::cvc5)
+endif()
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   # using Python3 PEP 3101 Format String:
   set(OUTNAME_FMT "-o {}")

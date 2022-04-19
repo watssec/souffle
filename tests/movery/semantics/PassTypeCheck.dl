@@ -1,0 +1,86 @@
+/*
+ * A pass to type check the input program
+ */
+
+#ifndef _PASS_TYPE_CHECK_
+#define _PASS_TYPE_CHECK_
+
+#include "Basis.dl"
+#include "DeclType.dl"
+#include "DeclExpr.dl"
+
+//
+// type checking rule
+//
+
+.decl HasType(var: Variable, type: Type)
+
+.decl IsType(var: Variable, type: Type)
+IsType(var, type) :- count : {HasType(var, _)} = 1, HasType(var, type).
+
+.decl IsTypeError(var: Variable)
+IsTypeError(var) :- HasType(var, t1), HasType(var, t2), t1 != t2.
+
+//
+// constant loading
+//
+
+HasType(r, BOOL) :- HasExpr($LoadBool(r, _)).
+
+HasType(r, NUMBER) :- HasExpr($LoadNumber(r, _)).
+
+HasType(r, BITVEC(size)) :- HasExpr($LoadBitvec(r, size, _)).
+
+//
+// tuple
+//
+
+.decl _TupleVarUnique(var: Variable, vars: LIST_OF(Variable))
+_TupleVarUnique(var, LIST_UNIT_OF(Variable)) :- IsVarDefined(var).
+_TupleVarUnique(var, LIST_CONS_OF(Variable, v_item, v_rest)) :-
+    IsVarDefined(var),
+    IsVarDefined(v_item),
+    var != v_item,
+    _TupleVarUnique(var, v_rest).
+
+.decl _MkTuple(items: LIST_OF(Variable), type: TypeTuple)
+_MkTuple(LIST_UNIT_OF(Variable), $TupleUnit()).
+_MkTuple(LIST_CONS_OF(Variable, v_item, v_rest), $TupleCons(t_item, t_rest)) :-
+    HasType(v_item, $Value(t_item)),
+    _MkTuple(v_rest, t_rest),
+    _TupleVarUnique(v_item, v_rest).
+
+HasType(r, TUPLE(type)) :- HasExpr($PackTuple(r, items)), _MkTuple(items, type).
+
+// unit tests (if enabled)
+#ifdef UNIT_TEST
+.decl PassTypeCheckUnitTest()
+
+// bool
+HasExpr($LoadBool("v_bool_1", $True())).
+
+// number
+HasExpr($LoadNumber("v_number_1", $N0())).
+
+// bitvec
+HasExpr($LoadBitvec("v_bitvec_0", 0, $H())).
+HasExpr($LoadBitvec("v_bitvec1_0", 1, $B0($H()))).
+HasExpr($LoadBitvec("v_bitvec1_1", 1, $B1($H()))).
+
+// violations
+HasExpr($LoadBool("v_mix_bool_number", $False())).
+HasExpr($LoadNumber("v_mix_bool_number", $N0())).
+
+// test procedures
+PassTypeCheckUnitTest() :-
+    IsType("v_bool_1", BOOL),
+    IsType("v_number_1", NUMBER),
+    IsType("v_bitvec_0", BITVEC(0)),
+    IsType("v_bitvec1_0", BITVEC(1)),
+    IsType("v_bitvec1_1", BITVEC(1)),
+    IsTypeError("v_mix_bool_number").
+
+.output PassTypeCheckUnitTest
+#endif
+
+#endif /* _PASS_TYPE_CHECK_ */

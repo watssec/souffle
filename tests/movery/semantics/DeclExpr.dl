@@ -1,0 +1,27 @@
+/*
+ * Declarations of all expressions in the language
+ */
+
+#ifndef _DECL_EXPR_
+#define _DECL_EXPR_
+
+#include "Basis.dl"
+
+.type Expr =
+    // constant loading
+      LoadBool {r: Variable, constant: B}
+    | LoadNumber {r: Variable, constant: N}
+    | LoadBitvec {r: Variable, size: number, constant: I}
+    // tuple
+    | PackTuple {r: Variable, items: LIST_OF(Variable)}
+
+.decl HasExpr(expr: Expr)
+
+.decl IsVarDefined(var: Variable)
+
+IsVarDefined(var) :- HasExpr($LoadBool(var, _)).
+IsVarDefined(var) :- HasExpr($LoadNumber(var, _)).
+IsVarDefined(var) :- HasExpr($LoadBitvec(var, _, _)).
+IsVarDefined(var) :- HasExpr($PackTuple(var, _)).
+
+#endif /* _DECL_EXPR_ */

@@ -1,0 +1,146 @@
+/*
+ * Declarations of all types in the language
+ */
+
+#ifndef _DECL_TYPE_
+#define _DECL_TYPE_
+
+#include "Basis.dl"
+
+//
+// primitives
+//
+
+.type TypePrimitive =
+      Bool {}
+    | Number {}
+    | Bitvec {size: number}
+
+#define _BOOL $Primitive($Bool())
+#define BOOL $Value(_BOOL)
+
+#define _NUMBER $Primitive($Number())
+#define NUMBER $Value(_NUMBER)
+
+#define _BITVEC(bits) $Primitive($Bitvec(bits))
+#define BITVEC(bits) $Value(_BITVEC(bits))
+
+//
+// collections
+//
+
+.type TypeVec = [
+    elem: TypeValue
+]
+
+.type TypeSet = [
+    elem: TypeValue
+]
+
+.type TypeMap = [
+    key: TypeValue,
+    value: TypeValue
+]
+
+.type TypeCollection =
+      Vec {t: TypeVec}
+    | Set {t: TypeSet}
+    | Map {t: TypeMap}
+
+#define _VEC(elem) $Collection($Vec([elem]))
+#define VEC(elem) $Value(_VEC(elem))
+
+#define _SET(elem) $Collection($Set([elem]))
+#define SET(elem) $Value(_SET(elem))
+
+#define _MAP(key, value) $Collection($Map([key, value]))
+#define MAP(key, value) $Value(_MAP(key, value))
+
+//
+// records
+//
+
+.type TypeTuple =
+      TupleUnit {}
+    | TupleCons {type: TypeValue, rest: TypeTuple}
+
+.type FieldName <: symbol
+.type StructName <: symbol
+
+.type StructFields =
+      FieldUnit {}
+    | FieldCons {type: TypeValue, name: FieldName, rest: StructFields}
+
+.type TypeStruct = [
+    name: StructName,
+    fields: StructFields
+]
+
+.type EnumName <: symbol
+.type UnionName <: symbol
+
+.type UnionEnums =
+      EnumUnit {}
+    | EnumCons {type: TypeValue, name: EnumName, rest: UnionEnums}
+
+.type TypeUnion = [
+    name: UnionName,
+    enums: UnionEnums
+]
+
+.type TypeRecord =
+      Tuple {t: TypeTuple}
+    | Struct {t: TypeStruct}
+    | Union {t: TypeUnion}
+
+#define _UNIT $Record($Tuple($TupleUnit()))
+#define UNIT $Value(_UNIT)
+
+#define _TUPLE(type) $Record($Tuple(type))
+#define TUPLE(type) $Value(_TUPLE(type))
+
+//
+// generic
+//
+
+.type TypeParameterName <: symbol
+
+.type TypeGeneric = [
+    name: TypeParameterName
+]
+
+//
+// value
+//
+
+.type TypeValue =
+      Primitive {t: TypePrimitive}
+    | Collection {t: TypeCollection}
+    | Record {t: TypeRecord}
+    | Generic {t: TypeGeneric}
+
+//
+// reference
+//
+
+.type TypeMutRef = [
+    base: TypeValue
+]
+
+.type TypeImmRef = [
+    base: TypeValue
+]
+
+.type TypeReference =
+      MutRef {t: TypeMutRef}
+    | ImmRef {t: TypeImmRef}
+
+//
+// overall
+//
+
+.type Type =
+      Value {t: TypeValue}
+    | Reference {t: TypeReference}
+
+#endif /* _DECL_TYPE_ */
