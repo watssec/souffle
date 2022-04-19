@@ -1,0 +1,42 @@
+/*
+ * Basis in the language
+ */
+
+#ifndef _BASIS_
+#define _BASIS_
+
+// primitives
+.type B = True {}
+        | False {}
+
+.type N = N0 {}
+        | Nx { n: N }
+
+.type I = H {}
+        | B0 {b: I}
+        | B1 {b: I}
+
+.type Z = Z0 {}
+        | Zpos {x: I}
+        | Zneg {x: I}
+
+// utilities
+#define LIST_OF(base) base##List
+#define LIST_UNIT_OF(base) $base##ListUnit()
+#define LIST_CONS_OF(base, item, rest) $base##ListCons(item, rest)
+
+#define DEF_LIST(base) \
+    .type base##List = \
+          base##ListUnit {} \
+        | base##ListCons {item: base, rest: base##List}
+
+#define LIST_0(base) $base##ListUnit()
+#define LIST_1(base, i1) $base##ListCons(i1, LIST_0(base))
+#define LIST_2(base, i1, i2) $base##ListCons(i1, LIST_1(base, i2))
+#define LIST_3(base, i1, i2, i3) $base##ListCons(i1, LIST_2(base, i2, i3))
+
+// program elements
+.type Variable <: symbol
+DEF_LIST(Variable)
+
+#endif /* _BASIS_ */

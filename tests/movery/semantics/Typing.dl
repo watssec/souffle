@@ -1,0 +1,136 @@
+/*
+ * Typing of the language
+ */
+
+#ifndef _TYPING_
+#define _TYPING_
+
+#include "Basis.dl"
+
+/*
+ * Definition of types
+ */
+
+// primitives
+.type PrimitiveType =
+      Bool {}
+    | Int {}
+    | Bitvec {size: unsigned}
+
+#define _BOOL $Primitive($Bool())
+#define BOOL $Value(_BOOL)
+
+#define _INT $Primitive($Int())
+#define INT $Value(_INT)
+
+#define _BITVEC(bits) $Primitive($Bitvec(bits))
+#define BITVEC(bits) $Value(_BITVEC(bits))
+
+// collections
+.type VectorType = [
+    element: ValueType
+]
+
+.type MapType = [
+    key: ValueType,
+    value: ValueType
+]
+
+.type CollectionType =
+      Vector {t: VectorType}
+    | Map {t: MapType}
+
+#define _VEC(elem) $Collection($Vector([elem]))
+#define VEC(elem) $Value(_VEC(elem))
+
+#define _MAP(key, value) $Collection($Map([key, value]))
+#define MAP(key, value) $Value(_MAP(key, value))
+
+// records
+.type TupleType =
+      TupleUnit {}
+    | TupleCons {type: ValueType, rest: TupleType}
+
+.type FieldName <: symbol
+.type StructName <: symbol
+
+.type StructFields =
+      FieldUnit {}
+    | FieldCons {type: ValueType, name: FieldName, rest: StructFields}
+
+.type StructType = [
+    name: StructName,
+    fields: StructFields
+]
+
+.type EnumName <: symbol
+.type UnionName <: symbol
+
+.type UnionEnums =
+      EnumUnit {type: ValueType, name: EnumName}
+    | EnumCons {type: ValueType, name: EnumName, rest: UnionEnums}
+
+.type UnionType = [
+    name: UnionName,
+    enums: UnionEnums
+]
+
+.type RecordType =
+      Tuple {t: TupleType}
+    | Struct {t: StructType}
+    | Union {t: UnionType}
+
+#define _UNIT $Record($Tuple($TupleUnit()))
+#define UNIT $Value(_UNIT)
+
+#define _TUPLE(type) $Record($Tuple(type))
+#define TUPLE(type) $Value(_TUPLE(type))
+
+// generic
+.type TypeParameterName <: symbol
+
+.type GenericType = [
+    name: TypeParameterName
+]
+
+// value
+.type ValueType =
+      Primitive {t: PrimitiveType}
+    | Collection {t: CollectionType}
+    | Record {t: RecordType}
+    | Generic {t: GenericType}
+
+// reference
+.type MutRefType = [
+    base: ValueType
+]
+
+.type ImmRefType = [
+    base: ValueType
+]
+
+.type ReferenceType =
+      MutRef {t: MutRefType}
+    | ImmRef {t: ImmRefType}
+
+// overall
+.type Type =
+      Value {t: ValueType}
+    | Reference {t: ReferenceType}
+
+/*
+ * Type checking rules
+ */
+
+.decl HasType(var: Variable, type: Type)
+
+.decl _HasMoreThanOneType(var: Variable)
+_HasMoreThanOneType(var) :- HasType(var, t1), HasType(var, t2), t1 != t2.
+
+.decl IsType(var: Variable, type: Type)
+IsType(var, type) :- HasType(var, type), !_HasMoreThanOneType(var).
+
+.decl TypingChecked(var: Variable)
+TypingChecked(var) :- IsType(var, _).
+
+#endif /* _TYPING_ */
