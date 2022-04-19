@@ -153,10 +153,14 @@ set(SOUFFLE_SOURCES
     ram/transform/TupleId.cpp
     ram/utility/NodeMapper.cpp
     reports/DebugReport.cpp
-    smt/Translator.cpp
     synthesiser/Synthesiser.cpp
     synthesiser/Relation.cpp
 )
+
+if (SOUFFLE_USE_SMT)
+  list(APPEND SOUFFLE_SOURCES
+      smt/Translator.cpp)
+endif()
 
 # --------------------------------------------------
 # Flex/Bison
@@ -450,6 +454,16 @@ if (SOUFFLE_USE_CURSES)
     get_filename_component(NCURSES_RPATH ${CURSES_NCURSES_LIBRARY} DIRECTORY)
   endif ()
   list(APPEND SOUFFLE_COMPILED_RPATHS ${NCURSES_RPATH})
+endif()
+
+if (SOUFFLE_USE_SMT)
+  target_compile_definitions(libsouffle PUBLIC USE_SMT)
+  target_include_directories(libsouffle
+      PUBLIC ${Z3_C_INCLUDE_DIRS}
+      PUBLIC ${INTERFACE_INCLUDE_DIRECTORIES})
+  target_link_libraries(libsouffle
+      PUBLIC ${Z3_LIBRARIES}
+      PUBLIC cvc5::cvc5)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

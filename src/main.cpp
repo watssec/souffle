@@ -90,7 +90,9 @@
 #include "ram/transform/TupleId.h"
 #include "reports/DebugReport.h"
 #include "reports/ErrorReport.h"
+#ifdef USE_SMT
 #include "smt/Translator.h"
+#endif
 #include "souffle/RamTypes.h"
 #ifndef _MSC_VER
 #include "souffle/profile/Tui.h"
@@ -296,12 +298,14 @@ int main(int argc, char** argv) {
                         "\ttransformed-ast\n"
                         "\ttransformed-ram\n"
                         "\ttype-analysis"},
+#ifdef USE_SMT
                 {"smt", '\0', "SMT", "", true,
                         "Model the program with SMT facilities.\n"
                         "Available SMT facilities include:\n"
                         "\tMUZ\n"
                         "\tZ3\n"
                         "\tCVC\n"},
+#endif
                 {"parse-errors", '\5', "", "", false, "Show parsing errors, if any, then exit."},
                 {"help", 'h', "", "", false, "Display this help message."},
                 {"legacy", '\6', "", "", false, "Enable legacy support."},
@@ -671,6 +675,7 @@ int main(int argc, char** argv) {
     // bail if we've nothing else left to show
     if (Global::config().has("show") && !hasShowOpt("initial-ram", "transformed-ram")) return 0;
 
+#ifdef USE_SMT
     // ------- modeling with SMT -------------
     const bool smt_model = Global::config().has("smt");
     if (smt_model) {
@@ -678,6 +683,7 @@ int main(int argc, char** argv) {
         translator.convert(*astTranslationUnit);
         return 0;
     }
+#endif
 
     // ------- execution -------------
     /* translate AST to RAM */

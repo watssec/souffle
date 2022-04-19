@@ -1,5 +1,4 @@
 #include "smt/Translator.h"
-
 #include "ast/Program.h"
 
 #include <ostream>
