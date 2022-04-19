@@ -296,7 +296,7 @@ int main(int argc, char** argv) {
                         "\ttransformed-ast\n"
                         "\ttransformed-ram\n"
                         "\ttype-analysis"},
-                {"smt-model", '\0', "SMT", "", true,
+                {"smt", '\0', "SMT", "", true,
                         "Model the program with SMT facilities.\n"
                         "Available SMT facilities include:\n"
                         "\tMUZ\n"
@@ -671,7 +671,7 @@ int main(int argc, char** argv) {
     // bail if we've nothing else left to show
     if (Global::config().has("show") && !hasShowOpt("initial-ram", "transformed-ram")) return 0;
 
-    // ------- smt model -------------
+    // ------- modeling with SMT -------------
     const bool smt_model = Global::config().has("smt");
     if (smt_model) {
         smt::Translator translator;

@@ -10,7 +10,7 @@ function(MOVERY_TEST CATEGORY NAME)
     add_test(NAME movery_${CATEGORY}_${NAME}
             COMMAND
             $<TARGET_FILE:souffle>
-            "--smt-model=MUZ"
+            "--smt=MUZ"
             ${CMAKE_CURRENT_SOURCE_DIR}/${CATEGORY}/${NAME}.dl)
 endfunction()
 
