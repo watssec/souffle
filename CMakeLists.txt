@@ -85,6 +85,7 @@ option(SOUFFLE_SWIG_JAVA "Enable/Disable Java SWIG" OFF)
 option(SOUFFLE_USE_ZLIB "Enable/Disable use of libz file compression" ON)
 option(SOUFFLE_USE_SQLITE "Enable/Disable use sqlite IO" ON)
 option(SOUFFLE_USE_OPENMP "Enable/Disable use of openmp if available" ON)
+option(SOUFFLE_USE_SMT "Enable/Disable use of SMT solver facilities" ON)
 option(SOUFFLE_SANITISE_MEMORY "Enable/Disable memory sanitiser" OFF)
 option(SOUFFLE_SANITISE_THREAD "Enable/Disable thread sanitiser" OFF)
 # SOUFFLE_NDEBUG = ON means -DNDEBUG on the compiler command line = no cassert
@@ -254,6 +255,14 @@ find_package(Threads REQUIRED)
 # --------------------------------------------------
 if (SOUFFLE_USE_OPENMP)
   find_package(OpenMP)
+endif()
+
+# --------------------------------------------------
+# SMT
+# --------------------------------------------------
+if (SOUFFLE_USE_SMT)
+    find_package(Z3)
+    find_package(cvc5)
 endif()
 
 # --------------------------------------------------
