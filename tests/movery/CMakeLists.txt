@@ -11,6 +11,7 @@ function(MOVERY_TEST CATEGORY NAME)
             COMMAND
             $<TARGET_FILE:souffle>
             "--smt=MUZ"
+            "--macro=UNIT_TEST"
             ${CMAKE_CURRENT_SOURCE_DIR}/${CATEGORY}/${NAME}.dl)
 endfunction()
 
