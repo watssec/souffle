@@ -63,10 +63,14 @@ protected:
     /// Create primitive type: number
     virtual SORT create_type_number() = 0;
 
+    /// Create primitive type: unsigned
+    virtual SORT create_type_unsigned() = 0;
+
     /// Create an uninterpreted type
     ///
-    /// By convention, any type that is a direct subset type of symbol is an uninterpreted type
-    /// i.e., .type T <: symbol
+    /// By convention, any type that is a subset type of symbol is an uninterpreted type
+    /// i.e., .type T <: symbol, or .type P <: T. Both P and T are uninterpreted.
+    ///
     /// TODO: parse source code annotation
     virtual SORT create_uninterpreted_type(const ast::QualifiedName& name) = 0;
 
@@ -75,6 +79,7 @@ public:
     void convert(const ast::TranslationUnit& unit) {
         // prepare primitive types
         types.register_new_type(ast::QualifiedName("number"), create_type_number());
+        types.register_new_type(ast::QualifiedName("unsigned"), create_type_unsigned());
 
         // register user-defined types
         auto& program = unit.getProgram();
@@ -106,6 +111,10 @@ protected:
 protected:
     Z3_sort create_type_number() override {
         return Z3_mk_int_sort(ctx);
+    }
+
+    Z3_sort create_type_unsigned() override {
+        return Z3_mk_bv_sort(ctx, RAM_DOMAIN_SIZE);
     }
 
     Z3_sort create_uninterpreted_type(const ast::QualifiedName& name) override {
@@ -155,6 +164,10 @@ protected:
 protected:
     cvc5::Sort create_type_number() override {
         return solver.getIntegerSort();
+    }
+
+    cvc5::Sort create_type_unsigned() override {
+        return solver.mkBitVectorSort(RAM_DOMAIN_SIZE);
     }
 
     cvc5::Sort create_uninterpreted_type(const ast::QualifiedName& name) override {
