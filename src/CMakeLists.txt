@@ -159,9 +159,7 @@ set(SOUFFLE_SOURCES
 
 if (SOUFFLE_USE_SMT)
   list(APPEND SOUFFLE_SOURCES
-      smt/Translator.cpp
-      smt/z3/TranslatorMUZ.cpp
-      smt/z3/TranslatorZ3.cpp)
+      smt/Translator.cpp)
 endif()
 
 # --------------------------------------------------

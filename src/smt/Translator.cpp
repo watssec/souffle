@@ -2,27 +2,44 @@
 #include "ast/Program.h"
 #include "ast/TranslationUnit.h"
 
-#include <ostream>
-
 namespace souffle::smt {
 
-void Translator::convert(const ast::TranslationUnit& translationUnit) {
-    auto& program = translationUnit.getProgram();
+void Translator::convert(const ast::TranslationUnit& unit) {
+    auto& program = unit.getProgram();
 
-    std::cout << "[" << program.getTypes().size() << " types]" << std::endl;
-    for (auto type : program.getTypes()) {
+    // register types
+    for (const auto& type : program.getTypes()) {
+        // TODO: implement it
         std::cout << *type << std::endl;
     }
-
-    std::cout << "[" << program.getRelations().size() << " relations]" << std::endl;
-    for (auto rel : program.getRelations()) {
-        std::cout << *rel << std::endl;
-    }
-
-    std::cout << "[" << program.getClauses().size() << " clauses]" << std::endl;
-    for (auto clause : program.getClauses()) {
-        std::cout << *clause << std::endl;
-    }
 }
+
+TranslatorZ3::TranslatorZ3(Z3_config cfg) : Translator() {
+    ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+}
+
+TranslatorZ3::~TranslatorZ3() {
+    Z3_del_context(ctx);
+    ctx = nullptr;
+}
+
+namespace {
+Z3_config config_for_z3_muz() {
+    auto cfg = Z3_mk_config();
+    return cfg;
+}
+}  // namespace
+
+TranslatorZ3MuZ::TranslatorZ3MuZ() : TranslatorZ3(config_for_z3_muz()) {}
+
+namespace {
+Z3_config config_for_z3_rec() {
+    auto cfg = Z3_mk_config();
+    return cfg;
+}
+}  // namespace
+
+TranslatorZ3Rec::TranslatorZ3Rec() : TranslatorZ3(config_for_z3_rec()) {}
 
 }  // namespace souffle::smt

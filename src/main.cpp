@@ -91,8 +91,7 @@
 #include "reports/DebugReport.h"
 #include "reports/ErrorReport.h"
 #ifdef USE_SMT
-#include "smt/z3/TranslatorMUZ.h"
-#include "smt/z3/TranslatorZ3.h"
+#include "smt/Translator.h"
 #endif
 #include "souffle/RamTypes.h"
 #ifndef _MSC_VER
@@ -682,10 +681,10 @@ int main(int argc, char** argv) {
     if (smt_model) {
         for (auto& item : Global::config().getMany("smt")) {
             if (item == "MUZ") {
-                smt::z3::TranslatorMUZ translator;
+                smt::TranslatorZ3MuZ translator;
                 translator.convert(*astTranslationUnit);
             } else if (item == "Z3") {
-                smt::z3::TranslatorZ3 translator;
+                smt::TranslatorZ3Rec translator;
                 translator.convert(*astTranslationUnit);
             } else {
                 throw std::runtime_error("Unknown SMT engine: " + item);
