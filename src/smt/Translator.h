@@ -12,6 +12,40 @@
 
 namespace souffle::smt {
 
+template <typename SORT>
+class TypeRegistry {
+public:
+    using type_id = size_t;
+    using sort_id = size_t;
+
+protected:
+    /// Hosts SMT sorts that represent types
+    std::vector<SORT> sorts;
+
+    /// A mapping from type names to type ids
+    std::map<ast::QualifiedName, type_id> names;
+
+    /// A hierarchical view among the types (direct subtypes)
+    std::map<type_id, std::vector<type_id>> hierarchy;
+
+    /// A mapping from type ids to sort ids
+    std::map<type_id, sort_id> mapping;
+
+public:
+    /// Registering a new type
+    void register_new_type(ast::QualifiedName name, SORT sort) {
+        auto new_type_id = names.size();
+        if (!names.emplace(name, new_type_id).second) {
+            throw std::runtime_error("Type already registered: " + name.toString());
+        }
+        assert(hierarchy.emplace(new_type_id, std::initializer_list<type_id>{}).second);
+
+        auto new_sort_id = sorts.size();
+        sorts.push_back(sort);
+        assert(mapping.emplace(new_type_id, new_sort_id).second);
+    }
+};
+
 /**
  * A base class for AST to SMT conversion
  *
@@ -20,29 +54,27 @@ namespace souffle::smt {
 template <typename SORT>
 class Translator {
 protected:
-    /// Types, including primitives and user-defined
-    std::map<ast::QualifiedName, SORT> types;
+    TypeRegistry<SORT> types;
 
 protected:
     Translator() = default;
 
 protected:
-    /// Checked registration of types
-    void register_type(ast::QualifiedName name, SORT sort) {
-        if (!types.emplace(name, sort).second) {
-            throw std::runtime_error("Type already registered: " + name.toString());
-        }
-    }
-
-protected:
     /// Create primitive type: number
     virtual SORT create_type_number() = 0;
+
+    /// Create an uninterpreted type
+    ///
+    /// By convention, any type that is a direct subset type of symbol is an uninterpreted type
+    /// i.e., .type T <: symbol
+    /// TODO: parse source code annotation
+    virtual SORT create_uninterpreted_type(const ast::QualifiedName& name) = 0;
 
 public:
     /// Convert the translation unit into an SMT context
     void convert(const ast::TranslationUnit& unit) {
         // prepare primitive types
-        register_type(ast::QualifiedName("number"), create_type_number());
+        types.register_new_type(ast::QualifiedName("number"), create_type_number());
 
         // register user-defined types
         auto& program = unit.getProgram();
@@ -74,6 +106,10 @@ protected:
 protected:
     Z3_sort create_type_number() override {
         return Z3_mk_int_sort(ctx);
+    }
+
+    Z3_sort create_uninterpreted_type(const ast::QualifiedName& name) override {
+        return Z3_mk_uninterpreted_sort(ctx, Z3_mk_string_symbol(ctx, name.toString().c_str()));
     }
 };
 
@@ -119,6 +155,10 @@ protected:
 protected:
     cvc5::Sort create_type_number() override {
         return solver.getIntegerSort();
+    }
+
+    cvc5::Sort create_uninterpreted_type(const ast::QualifiedName& name) override {
+        return solver.mkUninterpretedSort(name.toString());
     }
 };
 
