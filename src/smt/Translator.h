@@ -10,6 +10,7 @@
 #include "ast/QualifiedName.h"
 #include "ast/TranslationUnit.h"
 #include "ast/analysis/typesystem/Type.h"
+#include "ast/analysis/typesystem/TypeEnvironment.h"
 
 namespace souffle::smt {
 
@@ -84,14 +85,17 @@ public:
 
         // collect information
         const auto& program = unit.getProgram();
-        const auto& typing = unit.template getAnalysis<ast::analysis::TypeAnalysis>();
+        const auto& type_env =
+                unit.getAnalysis<ast::analysis::TypeEnvironmentAnalysis>().getTypeEnvironment();
+        const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
         // TODO: consume typing info
-        std::cout << typing << std::endl;
+        std::cout << type_analysis << std::endl;
 
         // register user-defined types
-        for (const auto type : program.getTypes()) {
+        for (const auto ast_type : program.getTypes()) {
+            const auto& type = type_env.getType(*ast_type);
             // TODO: implement it
-            std::cout << *type << std::endl;
+            std::cout << type << std::endl;
         }
     }
 };
