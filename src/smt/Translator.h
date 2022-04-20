@@ -5,8 +5,8 @@
 namespace souffle::smt {
 
 class Translator {
-public:
-    void convert(const ast::TranslationUnit& translationUnit);
+protected:
+    virtual void convert(const ast::TranslationUnit& translationUnit) = 0;
 };
 
 }  // namespace souffle::smt
