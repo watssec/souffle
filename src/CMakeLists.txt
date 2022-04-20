@@ -157,11 +157,6 @@ set(SOUFFLE_SOURCES
     synthesiser/Relation.cpp
 )
 
-if (SOUFFLE_USE_SMT)
-  list(APPEND SOUFFLE_SOURCES
-      smt/Translator.cpp)
-endif()
-
 # --------------------------------------------------
 # Flex/Bison
 # --------------------------------------------------
