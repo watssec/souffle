@@ -6,13 +6,19 @@
 
 include(SouffleTests)
 
+function(MOVERY_TEST_WITH_SMT CATEGORY NAME SMT)
+  add_test(NAME movery_${CATEGORY}_${NAME}_${SMT}
+      COMMAND
+      $<TARGET_FILE:souffle>
+      "--smt=${SMT}"
+      "--macro=UNIT_TEST"
+      ${CMAKE_CURRENT_SOURCE_DIR}/${CATEGORY}/${NAME}.dl)
+endfunction()
+
 function(MOVERY_TEST CATEGORY NAME)
-    add_test(NAME movery_${CATEGORY}_${NAME}
-            COMMAND
-            $<TARGET_FILE:souffle>
-            "--smt=MUZ"
-            "--macro=UNIT_TEST"
-            ${CMAKE_CURRENT_SOURCE_DIR}/${CATEGORY}/${NAME}.dl)
+  movery_test_with_smt(${CATEGORY} ${NAME} "MUZ")
+  movery_test_with_smt(${CATEGORY} ${NAME} "Z3")
+  movery_test_with_smt(${CATEGORY} ${NAME} "CVC")
 endfunction()
 
 movery_test(semantics Language)

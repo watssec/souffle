@@ -12,7 +12,7 @@ namespace souffle::smt {
  */
 class Translator {
 protected:
-    Translator() = default; /* disables construction */
+    Translator() = default;
 
 public:
     void convert(const ast::TranslationUnit& unit);
@@ -36,7 +36,6 @@ protected:
 class TranslatorZ3MuZ : public TranslatorZ3 {
 public:
     TranslatorZ3MuZ();
-    ~TranslatorZ3MuZ() = default;
 };
 
 /**
@@ -45,7 +44,25 @@ public:
 class TranslatorZ3Rec : public TranslatorZ3 {
 public:
     TranslatorZ3Rec();
-    ~TranslatorZ3Rec() = default;
+};
+
+/**
+ * An abstract AST to SMT translator based on CVC
+ */
+class TranslatorCVC : public Translator {
+protected:
+    cvc5::Solver solver;
+
+protected:
+    TranslatorCVC() = default;
+};
+
+/**
+ * A concrete AST to SMT translator based on CVC recursive function
+ */
+class TranslatorCVCRec : public TranslatorCVC {
+public:
+    TranslatorCVCRec() = default;
 };
 
 }  // namespace souffle::smt

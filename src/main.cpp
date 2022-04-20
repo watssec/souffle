@@ -686,6 +686,9 @@ int main(int argc, char** argv) {
             } else if (item == "Z3") {
                 smt::TranslatorZ3Rec translator;
                 translator.convert(*astTranslationUnit);
+            } else if (item == "CVC") {
+                smt::TranslatorCVCRec translator;
+                translator.convert(*astTranslationUnit);
             } else {
                 throw std::runtime_error("Unknown SMT engine: " + item);
             }
