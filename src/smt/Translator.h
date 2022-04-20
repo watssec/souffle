@@ -9,6 +9,7 @@
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
 #include "ast/TranslationUnit.h"
+#include "ast/analysis/typesystem/Type.h"
 
 namespace souffle::smt {
 
@@ -81,9 +82,14 @@ public:
         types.register_new_type(ast::QualifiedName("number"), create_type_number());
         types.register_new_type(ast::QualifiedName("unsigned"), create_type_unsigned());
 
+        // collect information
+        const auto& program = unit.getProgram();
+        const auto& typing = unit.template getAnalysis<ast::analysis::TypeAnalysis>();
+        // TODO: consume typing info
+        std::cout << typing << std::endl;
+
         // register user-defined types
-        auto& program = unit.getProgram();
-        for (const auto& type : program.getTypes()) {
+        for (const auto type : program.getTypes()) {
             // TODO: implement it
             std::cout << *type << std::endl;
         }
