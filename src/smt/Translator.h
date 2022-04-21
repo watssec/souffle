@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <map>
 #include <stdexcept>
 
@@ -105,6 +106,39 @@ public:
                 create_uninterpreted_type(type_subset->getName());
             } else if (auto type_alias = dynamic_cast<const ast::analysis::AliasType*>(type)) {
                 create_alias_type(type_alias->getName(), type_alias->getAliasType().getName());
+            } else if (auto type_record = dynamic_cast<const ast::analysis::RecordType*>(type)) {
+                auto ast_record = dynamic_cast<const ast::RecordType*>(ast_type);
+                assert(ast_record != nullptr);
+
+                const auto& type_fields = type_record->getFields();
+                const auto& ast_fields = ast_record->getFields();
+                assert(type_fields.size() == ast_fields.size());
+
+                for (unsigned i = 0; i < type_fields.size(); i++) {
+                    assert(type_fields[i]->getName() == ast_fields[i]->getTypeName());
+                }
+                // TODO: implement
+            } else if (auto type_adt = dynamic_cast<const ast::analysis::AlgebraicDataType*>(type)) {
+                auto ast_adt = dynamic_cast<const ast::AlgebraicDataType*>(ast_type);
+                assert(ast_adt != nullptr);
+
+                const auto& type_branches = type_adt->getBranches();
+                const auto& ast_branches = ast_adt->getBranches();
+                assert(type_branches.size() == ast_branches.size());
+
+                for (const auto& type_branch : type_branches) {
+                    auto iter = std::find_if(
+                            ast_branches.cbegin(), ast_branches.cend(), [type_branch](const auto ast_branch) {
+                                return ast_branch->getBranchName() == type_branch.name;
+                            });
+                    assert(iter != ast_branches.cend());
+                    const auto& ast_branch = *iter;
+
+                    const auto& type_fields = type_branch.types;
+                    const auto& ast_fields = ast_branch->getFields();
+                    assert(type_fields.size() == ast_fields.size());
+                }
+                // TODO: implement
             }
         }
     }
