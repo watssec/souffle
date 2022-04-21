@@ -25,10 +25,11 @@
 #include <map>
 #include <stdexcept>
 #include <tuple>
+#include <variant>
 #include <vector>
 
-#include <cvc5/cvc5.h>
-#include <z3.h>
+#include "smt/AdapterCVC.h"
+#include "smt/AdapterZ3.h"
 
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
@@ -41,54 +42,46 @@ namespace souffle::smt {
 /**
  * A base class for AST to SMT conversion
  */
-template <typename SORT>
+template <typename CONTEXT, typename SORT_NUMBER, typename SORT_UNSIGNED, typename SORT_UNINTERPRETED,
+        typename SORT_RECORD>
 class Translator {
-protected:
-    std::map<ast::QualifiedName, SORT> types;
+private:
+    using SORT_DEFINED = std::variant<SORT_UNINTERPRETED, SORT_RECORD>;
 
 protected:
-    Translator() = default;
+    // context
+    CONTEXT ctx;
+
+    // types
+    SORT_NUMBER type_number;
+    SORT_UNSIGNED type_unsigned;
+    std::map<ast::QualifiedName, SORT_DEFINED> type_defined;
 
 protected:
-    /// Create primitive type: number
-    virtual SORT create_type_number() = 0;
-
-    /// Create primitive type: unsigned
-    virtual SORT create_type_unsigned() = 0;
-
-    /// Create an uninterpreted type
-    virtual SORT create_uninterpreted_type(const ast::QualifiedName& name) = 0;
-
-    /// Create a struct type
-    virtual SORT create_struct_type(const ast::QualifiedName& name,
-            const std::vector<std::tuple<const ast::QualifiedName&, const SORT&>> fields) = 0;
+    Translator() : ctx(), type_number(ctx), type_unsigned(ctx) {}
 
 protected:
-    /// Checked registration of a new type
-    void register_new_type(ast::QualifiedName name, SORT type) {
-        if (!types.emplace(name, type).second) {
-            throw std::runtime_error("Duplication registration of type (new): " + name.toString());
+    /// Checked registration of a new uninterpreted type
+    template <typename T>
+    void register_type(ast::QualifiedName name, T type) {
+        if (!type_defined.emplace(name, type).second) {
+            throw std::runtime_error("Duplicated registration of type: " + name.toString());
         }
     }
 
     /// Create a type alias
-    void create_alias_type(ast::QualifiedName name, const ast::QualifiedName& alias) {
-        const auto it = types.find(alias);
-        if (it == types.end()) {
-            throw std::runtime_error("Alias type not registered: " + alias.toString());
-        }
-        if (!types.emplace(name, it->second).second) {
-            throw std::runtime_error("Duplication registration of type (alias): " + name.toString());
+    void create_type_alias(ast::QualifiedName name, const ast::QualifiedName& alias) {
+        const auto it = type_defined.find(alias);
+        if (it != type_defined.end()) {
+            if (!type_defined.emplace(name, it->second).second) {
+                throw std::runtime_error("Duplicated aliasing of type: " + name.toString());
+            }
         }
     }
 
 public:
     /// Convert the translation unit into an SMT context
     void convert(const ast::TranslationUnit& unit) {
-        // prepare primitive types
-        register_new_type(ast::QualifiedName("number"), create_type_number());
-        register_new_type(ast::QualifiedName("unsigned"), create_type_unsigned());
-
         // collect information
         const auto& program = unit.getProgram();
         const auto& type_env =
@@ -112,9 +105,9 @@ public:
                     throw std::runtime_error("Only the `symbol` type can be subset typed: " +
                                              type_subset->getName().toString());
                 }
-                create_uninterpreted_type(type_subset->getName());
+                register_type(type_subset->getName(), SORT_UNINTERPRETED(ctx, type_subset->getName()));
             } else if (auto type_alias = dynamic_cast<const ast::analysis::AliasType*>(type)) {
-                create_alias_type(type_alias->getName(), type_alias->getAliasType().getName());
+                create_type_alias(type_alias->getName(), type_alias->getAliasType().getName());
             } else if (auto type_record = dynamic_cast<const ast::analysis::RecordType*>(type)) {
                 auto ast_record = dynamic_cast<const ast::RecordType*>(ast_type);
                 assert(ast_record != nullptr);
@@ -150,100 +143,36 @@ public:
                     }
                 }
                 // TODO: implement
+            } else {
+                throw std::runtime_error("Unknown user-defined type: " + type->getName().toString());
             }
         }
     }
 };
 
 /**
- * An abstract AST to SMT translator based on Z3
- */
-class TranslatorZ3 : public Translator<Z3_sort> {
-protected:
-    Z3_context ctx;
-
-protected:
-    explicit TranslatorZ3(Z3_config cfg) {
-        ctx = Z3_mk_context(cfg);
-        Z3_del_config(cfg);
-    }
-
-    ~TranslatorZ3() {
-        Z3_del_context(ctx);
-        ctx = nullptr;
-    }
-
-protected:
-    Z3_sort create_type_number() override {
-        return Z3_mk_int_sort(ctx);
-    }
-
-    Z3_sort create_type_unsigned() override {
-        return Z3_mk_bv_sort(ctx, RAM_DOMAIN_SIZE);
-    }
-
-    Z3_sort create_uninterpreted_type(const ast::QualifiedName& name) override {
-        return Z3_mk_uninterpreted_sort(ctx, Z3_mk_string_symbol(ctx, name.toString().c_str()));
-    }
-};
-
-// implementation details, hidden in an unnamed namespace
-namespace {
-inline Z3_config config_for_z3_muz() {
-    auto cfg = Z3_mk_config();
-    return cfg;
-}
-
-inline Z3_config config_for_z3_rec() {
-    auto cfg = Z3_mk_config();
-    return cfg;
-}
-}  // namespace
-
-/**
  * A concrete AST to SMT translator based on Z3 MuZ facility
  */
-class TranslatorZ3MuZ : public TranslatorZ3 {
+class TranslatorZ3MuZ
+        : public Translator<ContextZ3MuZ, SortNumberZ3, SortUnsignedZ3, SortUninterpretedZ3, SortRecordZ3> {
 public:
-    TranslatorZ3MuZ() : TranslatorZ3(config_for_z3_muz()) {}
+    TranslatorZ3MuZ() = default;
 };
 
 /**
  * A concrete AST to SMT translator based on Z3 recursive function
  */
-class TranslatorZ3Rec : public TranslatorZ3 {
+class TranslatorZ3Rec
+        : public Translator<ContextZ3Rec, SortNumberZ3, SortUnsignedZ3, SortUninterpretedZ3, SortRecordZ3> {
 public:
-    TranslatorZ3Rec() : TranslatorZ3(config_for_z3_rec()) {}
-};
-
-/**
- * An abstract AST to SMT translator based on CVC
- */
-class TranslatorCVC : public Translator<cvc5::Sort> {
-protected:
-    cvc5::Solver solver;
-
-protected:
-    TranslatorCVC() = default;
-
-protected:
-    cvc5::Sort create_type_number() override {
-        return solver.getIntegerSort();
-    }
-
-    cvc5::Sort create_type_unsigned() override {
-        return solver.mkBitVectorSort(RAM_DOMAIN_SIZE);
-    }
-
-    cvc5::Sort create_uninterpreted_type(const ast::QualifiedName& name) override {
-        return solver.mkUninterpretedSort(name.toString());
-    }
+    TranslatorZ3Rec() = default;
 };
 
 /**
  * A concrete AST to SMT translator based on CVC recursive function
  */
-class TranslatorCVCRec : public TranslatorCVC {
+class TranslatorCVCRec : public Translator<ContextCVC5Rec, SortNumberCVC5, SortUnsignedCVC5,
+                                 SortUninterpretedCVC5, SortRecordCVC5> {
 public:
     TranslatorCVCRec() = default;
 };
