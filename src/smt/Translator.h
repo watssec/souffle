@@ -1,3 +1,21 @@
+/************************************************************************
+ *
+ * @file Translator.h
+ *
+ * Everything about the SMT solver.
+ *
+ * [More restrictive typing]
+ *
+ * 1) Only two primitive types are modeled: `number` and `unsigned`.
+ *
+ * 2) The SMT representation adheres a more restrictive typing rule than Souffle
+ * - any type that is a *direct* subset type of `symbol` is an uninterpreted sort
+ * - subtyping in any other form is prohibited, i.e., no subtyping of any type other than `symbol`
+ * - union type is strictly prohibited
+ * In general, these additional typing rules kills any possibility of creating a hierarchy of types.
+ *
+ ***********************************************************************/
+
 #pragma once
 
 #include <map>
@@ -14,49 +32,13 @@
 
 namespace souffle::smt {
 
-template <typename SORT>
-class TypeRegistry {
-public:
-    using type_id = size_t;
-    using sort_id = size_t;
-
-protected:
-    /// Hosts SMT sorts that represent types
-    std::vector<SORT> sorts;
-
-    /// A mapping from type names to type ids
-    std::map<ast::QualifiedName, type_id> names;
-
-    /// A hierarchical view among the types (direct subtypes)
-    std::map<type_id, std::vector<type_id>> hierarchy;
-
-    /// A mapping from type ids to sort ids
-    std::map<type_id, sort_id> mapping;
-
-public:
-    /// Registering a new type
-    void register_new_type(ast::QualifiedName name, SORT sort) {
-        auto new_type_id = names.size();
-        if (!names.emplace(name, new_type_id).second) {
-            throw std::runtime_error("Type already registered: " + name.toString());
-        }
-        assert(hierarchy.emplace(new_type_id, std::initializer_list<type_id>{}).second);
-
-        auto new_sort_id = sorts.size();
-        sorts.push_back(sort);
-        assert(mapping.emplace(new_type_id, new_sort_id).second);
-    }
-};
-
 /**
  * A base class for AST to SMT conversion
- *
- * @tparam SORT: the `type` representation in SMT solver
  */
 template <typename SORT>
 class Translator {
 protected:
-    TypeRegistry<SORT> types;
+    std::map<ast::QualifiedName, SORT> types;
 
 protected:
     Translator() = default;
@@ -69,19 +51,33 @@ protected:
     virtual SORT create_type_unsigned() = 0;
 
     /// Create an uninterpreted type
-    ///
-    /// By convention, any type that is a subset type of symbol is an uninterpreted type
-    /// i.e., .type T <: symbol, or .type P <: T. Both P and T are uninterpreted.
-    ///
-    /// TODO: parse source code annotation
     virtual SORT create_uninterpreted_type(const ast::QualifiedName& name) = 0;
+
+protected:
+    /// Checked registration of a new type
+    void register_new_type(ast::QualifiedName name, SORT type) {
+        if (!types.emplace(name, type).second) {
+            throw std::runtime_error("Duplication registration of type (new): " + name.toString());
+        }
+    }
+
+    /// Create a type alias
+    void create_alias_type(ast::QualifiedName name, const ast::QualifiedName& alias) {
+        const auto it = types.find(alias);
+        if (it == types.end()) {
+            throw std::runtime_error("Alias type not registered: " + alias.toString());
+        }
+        if (!types.emplace(name, it->second).second) {
+            throw std::runtime_error("Duplication registration of type (alias): " + name.toString());
+        }
+    }
 
 public:
     /// Convert the translation unit into an SMT context
     void convert(const ast::TranslationUnit& unit) {
         // prepare primitive types
-        types.register_new_type(ast::QualifiedName("number"), create_type_number());
-        types.register_new_type(ast::QualifiedName("unsigned"), create_type_unsigned());
+        register_new_type(ast::QualifiedName("number"), create_type_number());
+        register_new_type(ast::QualifiedName("unsigned"), create_type_unsigned());
 
         // collect information
         const auto& program = unit.getProgram();
@@ -93,7 +89,15 @@ public:
 
         // register user-defined types
         for (const auto ast_type : program.getTypes()) {
-            const auto& type = type_env.getType(*ast_type);
+            auto type = &type_env.getType(*ast_type);
+            if (auto type_alias = dynamic_cast<const ast::analysis::AliasType*>(type)) {
+                create_alias_type(type_alias->getName(), type_alias->getAliasType().getName());
+            } else if (auto type_subset = dynamic_cast<const ast::analysis::SubsetType*>(type)) {
+                if (type_subset->getBaseType().getName() != "symbol") {
+                    throw std::runtime_error("Only the `symbol` type can be subset typed");
+                }
+                create_uninterpreted_type(type_subset->getName());
+            }
             // TODO: implement it
             std::cout << type << std::endl;
         }
