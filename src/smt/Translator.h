@@ -207,7 +207,7 @@ public:
                     for (const auto field_type : type_branch.types) {
                         // add an edge for the ADT if we haven't registered the type somewhere
                         if (retrieve_type_or_null(field_type->getName()) == nullptr) {
-                            type_graph.addEdge(type_record, field_type);
+                            type_graph.addEdge(type_adt, field_type);
                         }
                     }
                 }
