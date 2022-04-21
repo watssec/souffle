@@ -156,7 +156,6 @@ public:
                 const auto& ast_fields = ast_record->getFields();
                 assert(type_fields.size() == ast_fields.size());
 
-                std::vector<std::tuple<const ast::QualifiedName&, const typename CTX::SORT_BASE&>> fields;
                 for (unsigned i = 0; i < type_fields.size(); i++) {
                     const auto* field_type = type_fields[i];
                     assert(field_type->getName() == ast_fields[i]->getTypeName());
@@ -191,6 +190,29 @@ public:
                 }
             } else {
                 throw std::runtime_error("Unknown user-defined type: " + type->getName().toString());
+            }
+        }
+
+        // add edges for the ADTs
+        for (const auto node : type_graph.allNodes()) {
+            if (auto type_record = dynamic_cast<const ast::analysis::RecordType*>(node)) {
+                for (const auto field_type : type_record->getFields()) {
+                    // add an edge for the ADT if we haven't registered the type somewhere
+                    if (retrieve_type_or_null(field_type->getName()) == nullptr) {
+                        type_graph.addEdge(type_record, field_type);
+                    }
+                }
+            } else if (auto type_adt = dynamic_cast<const ast::analysis::AlgebraicDataType*>(node)) {
+                for (const auto& type_branch : type_adt->getBranches()) {
+                    for (const auto field_type : type_branch.types) {
+                        // add an edge for the ADT if we haven't registered the type somewhere
+                        if (retrieve_type_or_null(field_type->getName()) == nullptr) {
+                            type_graph.addEdge(type_record, field_type);
+                        }
+                    }
+                }
+            } else {
+                assert(false);
             }
         }
     }

@@ -35,6 +35,14 @@ public:
         assert(it_dst != graph.end());
         graph[src].insert(dst);
     }
+
+    std::vector<const T*> allNodes() {
+        std::vector<const T*> result;
+        for (const auto [key, _] : graph) {
+            result.push_back(key);
+        }
+        return result;
+    }
 };
 
 }  // namespace souffle::smt
