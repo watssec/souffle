@@ -59,6 +59,10 @@ protected:
     /// Create an uninterpreted type
     virtual SORT create_uninterpreted_type(const ast::QualifiedName& name) = 0;
 
+    /// Create a struct type
+    virtual SORT create_struct_type(const ast::QualifiedName& name,
+            const std::vector<std::tuple<const ast::QualifiedName&, const SORT&>> fields) = 0;
+
 protected:
     /// Checked registration of a new type
     void register_new_type(ast::QualifiedName name, SORT type) {
