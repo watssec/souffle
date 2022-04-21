@@ -14,6 +14,9 @@
  * - union type is strictly prohibited
  * In general, these additional typing rules kills any possibility of creating a hierarchy of types.
  *
+ * 3) `Record` types cannot be recursive or mutually recursive.
+ *    This also invalidates the use of the `nil` constructor to create a record.
+ *
  ***********************************************************************/
 
 #pragma once
@@ -21,6 +24,8 @@
 #include <algorithm>
 #include <map>
 #include <stdexcept>
+#include <tuple>
+#include <vector>
 
 #include <cvc5/cvc5.h>
 #include <z3.h>
@@ -113,7 +118,6 @@ public:
                 const auto& type_fields = type_record->getFields();
                 const auto& ast_fields = ast_record->getFields();
                 assert(type_fields.size() == ast_fields.size());
-
                 for (unsigned i = 0; i < type_fields.size(); i++) {
                     assert(type_fields[i]->getName() == ast_fields[i]->getTypeName());
                 }
@@ -137,6 +141,9 @@ public:
                     const auto& type_fields = type_branch.types;
                     const auto& ast_fields = ast_branch->getFields();
                     assert(type_fields.size() == ast_fields.size());
+                    for (unsigned i = 0; i < type_fields.size(); i++) {
+                        assert(type_fields[i]->getName() == ast_fields[i]->getTypeName());
+                    }
                 }
                 // TODO: implement
             }
