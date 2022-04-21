@@ -34,6 +34,7 @@
 
 #include "smt/AdapterCVC.h"
 #include "smt/AdapterZ3.h"
+#include "smt/Utils.h"
 
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
@@ -110,7 +111,8 @@ public:
         // TODO: use it
         // const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
 
-        // register user-defined types
+        // register user-defined ident types while also put ADT types into type_graph
+        Graph<ast::analysis::Type> type_graph;
         for (const auto ast_type : program.getTypes()) {
             auto type = &type_env.getType(*ast_type);
 
@@ -145,24 +147,24 @@ public:
             if (auto type_record = dynamic_cast<const ast::analysis::RecordType*>(type)) {
                 auto ast_record = dynamic_cast<const ast::RecordType*>(ast_type);
                 assert(ast_record != nullptr);
+                type_graph.addNode(type_record);
 
+                // check information about the fields
                 const auto& type_fields = type_record->getFields();
                 const auto& ast_fields = ast_record->getFields();
                 assert(type_fields.size() == ast_fields.size());
 
-                // collect information about the field
                 std::vector<std::tuple<const ast::QualifiedName&, const typename CTX::SORT_BASE&>> fields;
                 for (unsigned i = 0; i < type_fields.size(); i++) {
-                    assert(type_fields[i]->getName() == ast_fields[i]->getTypeName());
-                    // const auto& field_name = ast_fields[i]->getName();
-                    // const auto& field_type = retrieve_type(type_fields[i]->getName());
-                    // fields.push_back(std::make_tuple(field_name, field_type));
+                    const auto* field_type = type_fields[i];
+                    assert(field_type->getName() == ast_fields[i]->getTypeName());
                 }
-                // TODO: implement
             } else if (auto type_adt = dynamic_cast<const ast::analysis::AlgebraicDataType*>(type)) {
                 auto ast_adt = dynamic_cast<const ast::AlgebraicDataType*>(ast_type);
                 assert(ast_adt != nullptr);
+                type_graph.addNode(type_adt);
 
+                // check information about the branches
                 const auto& type_branches = type_adt->getBranches();
                 const auto& ast_branches = ast_adt->getBranches();
                 assert(type_branches.size() == ast_branches.size());
@@ -175,14 +177,16 @@ public:
                     assert(iter != ast_branches.cend());
                     const auto& ast_branch = *iter;
 
+                    // check information about the fields
                     const auto& type_fields = type_branch.types;
                     const auto& ast_fields = ast_branch->getFields();
                     assert(type_fields.size() == ast_fields.size());
+
                     for (unsigned i = 0; i < type_fields.size(); i++) {
-                        assert(type_fields[i]->getName() == ast_fields[i]->getTypeName());
+                        const auto* field_type = type_fields[i];
+                        assert(field_type->getName() == ast_fields[i]->getTypeName());
                     }
                 }
-                // TODO: implement
             } else {
                 throw std::runtime_error("Unknown user-defined type: " + type->getName().toString());
             }

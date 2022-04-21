@@ -13,6 +13,8 @@
 
 #include <cvc5/cvc5.h>
 
+#include "smt/Adapter.h"
+
 namespace souffle::smt {
 
 class SortCVC5;

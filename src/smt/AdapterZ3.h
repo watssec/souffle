@@ -13,6 +13,8 @@
 
 #include <z3.h>
 
+#include "smt/Adapter.h"
+
 namespace souffle::smt {
 
 class SortZ3;
