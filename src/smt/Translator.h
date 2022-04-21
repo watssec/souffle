@@ -83,14 +83,19 @@ public:
         const auto& program = unit.getProgram();
         const auto& type_env =
                 unit.getAnalysis<ast::analysis::TypeEnvironmentAnalysis>().getTypeEnvironment();
-        const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
-        // TODO: consume typing info
-        std::cout << type_analysis << std::endl;
+        // TODO: use it
+        // const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
 
         // register user-defined types
         for (const auto ast_type : program.getTypes()) {
             auto type = &type_env.getType(*ast_type);
-            if (auto type_union = dynamic_cast<const ast::analysis::UnionType*>(type)) {
+            if (auto type_const = dynamic_cast<const ast::analysis::ConstantType*>(type)) {
+                throw std::runtime_error(
+                        "Constant type should never be user-defined: " + type_const->getName().toString());
+            } else if (auto type_primitive = dynamic_cast<const ast::analysis::PrimitiveType*>(type)) {
+                throw std::runtime_error("Primitive type should never be user-defined: " +
+                                         type_primitive->getName().toString());
+            } else if (auto type_union = dynamic_cast<const ast::analysis::UnionType*>(type)) {
                 throw std::runtime_error("Union type is not permitted: " + type_union->getName().toString());
             } else if (auto type_subset = dynamic_cast<const ast::analysis::SubsetType*>(type)) {
                 if (type_subset->getBaseType().getName() != "symbol") {
@@ -101,8 +106,6 @@ public:
             } else if (auto type_alias = dynamic_cast<const ast::analysis::AliasType*>(type)) {
                 create_alias_type(type_alias->getName(), type_alias->getAliasType().getName());
             }
-            // TODO: implement it
-            std::cout << type << std::endl;
         }
     }
 };
