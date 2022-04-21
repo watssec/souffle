@@ -28,6 +28,7 @@
 #include <map>
 #include <stdexcept>
 #include <tuple>
+#include <type_traits>
 #include <variant>
 #include <vector>
 
@@ -47,9 +48,6 @@ namespace souffle::smt {
  */
 template <typename CTX>
 class Translator {
-private:
-    using SORT_DEFINED = std::variant<typename CTX::SORT_UNINTERPRETED, typename CTX::SORT_RECORD>;
-
 protected:
     // context
     CTX ctx;
@@ -57,37 +55,49 @@ protected:
     // types
     typename CTX::SORT_NUMBER type_number;
     typename CTX::SORT_UNSIGNED type_unsigned;
-    std::map<ast::QualifiedName, SORT_DEFINED> type_defined;
+    std::map<ast::QualifiedName, typename CTX::SORT_IDENT> type_idents;
+    std::map<ast::QualifiedName, typename CTX::SORT_RECORD> type_records;
 
 protected:
     Translator() : ctx(), type_number(ctx), type_unsigned(ctx) {}
 
-protected:
-    /// Checked registration of a new type
-    template <typename T>
-    void register_type(ast::QualifiedName name, T type) {
-        if (!type_defined.emplace(name, type).second) {
-            throw std::runtime_error("Duplicated registration of type: " + name.toString());
-        }
-    }
-
-    /// Retrieve a type, primitive or user-defined
-    const typename CTX::SORT_BASE& retrieve_type(const ast::QualifiedName& name) const {
+private:
+    /// Retrieve a type, primitive or user-defined, or nullptr if non-exist
+    const typename CTX::SORT_BASE* retrieve_type_or_null(const ast::QualifiedName& name) const {
+        // primitives
         if (name == "number") {
-            return type_number;
+            return &type_number;
         }
         if (name == "unsigned") {
-            return type_unsigned;
+            return &type_unsigned;
         }
-        const auto it = type_defined.find(name);
-        if (it == type_defined.end()) {
-            throw std::runtime_error("Unknown type: " + name.toString());
+
+        // user-defined
+        const auto it_ident = type_idents.find(name);
+        if (it_ident != type_idents.end()) {
+            return &it_ident->second;
         }
-        return std::visit(
-                [](auto&& arg) -> const typename CTX::SORT_BASE& {
-                    return static_cast<const typename CTX::SORT_BASE&>(arg);
-                },
-                it->second);
+        const auto it_record = type_records.find(name);
+        if (it_record != type_records.end()) {
+            return &it_record->second;
+        }
+
+        // unable to find
+        return nullptr;
+    }
+
+protected:
+    /// Retrieve a type, primitive or user-defined. Panic if nonexistent.
+    const typename CTX::SORT_BASE& retrieve_type(const ast::QualifiedName& name) const {
+        return *retrieve_type_or_null(name);
+    }
+
+    /// Checked registration of a new ident type
+    void register_type_ident(ast::QualifiedName name) {
+        assert(retrieve_type_or_null(name) == nullptr);
+        auto sort = typename CTX::SORT_IDENT(ctx, name);
+        const auto [_, inserted] = type_idents.emplace(name, sort);
+        assert(inserted);
     }
 
 public:
@@ -120,15 +130,14 @@ public:
                 throw std::runtime_error("Type alias is not permitted: " + type_alias->getName().toString());
             }
 
-            // uninterpreted type
+            // ident type (uninterpreted type)
             if (auto type_subset = dynamic_cast<const ast::analysis::SubsetType*>(type)) {
                 if (type_subset->getBaseType().getName() != "symbol") {
                     throw std::runtime_error("Only the `symbol` type can be subset typed: " +
                                              type_subset->getName().toString());
                 }
-                // mark a direct subset type of `symbol` uninterpreted type
-                register_type(type_subset->getName(),
-                        typename CTX::SORT_UNINTERPRETED(ctx, type_subset->getName()));
+                // mark a direct subset type of `symbol` an ident type (i.e., uninterpreted type)
+                register_type_ident(type_subset->getName());
                 continue;
             }
 

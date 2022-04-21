@@ -18,7 +18,7 @@ namespace souffle::smt {
 class SortZ3;
 class SortNumberZ3;
 class SortUnsignedZ3;
-class SortUninterpretedZ3;
+class SortIdentZ3;
 class SortRecordZ3;
 
 /**
@@ -28,7 +28,7 @@ class ContextZ3 {
     friend SortZ3;
     friend SortNumberZ3;
     friend SortUnsignedZ3;
-    friend SortUninterpretedZ3;
+    friend SortIdentZ3;
     friend SortRecordZ3;
 
 protected:
@@ -64,7 +64,7 @@ public:
     using SORT_BASE = SortZ3;
     using SORT_NUMBER = SortNumberZ3;
     using SORT_UNSIGNED = SortUnsignedZ3;
-    using SORT_UNINTERPRETED = SortUninterpretedZ3;
+    using SORT_IDENT = SortIdentZ3;
     using SORT_RECORD = SortRecordZ3;
 };
 
@@ -85,7 +85,7 @@ public:
     using SORT_BASE = SortZ3;
     using SORT_NUMBER = SortNumberZ3;
     using SORT_UNSIGNED = SortUnsignedZ3;
-    using SORT_UNINTERPRETED = SortUninterpretedZ3;
+    using SORT_IDENT = SortIdentZ3;
     using SORT_RECORD = SortRecordZ3;
 };
 
@@ -95,7 +95,7 @@ public:
 class SortZ3 {
     friend SortNumberZ3;
     friend SortUnsignedZ3;
-    friend SortUninterpretedZ3;
+    friend SortIdentZ3;
     friend SortRecordZ3;
 
 protected:
@@ -119,9 +119,9 @@ public:
     }
 };
 
-class SortUninterpretedZ3 : public SortZ3 {
+class SortIdentZ3 : public SortZ3 {
 public:
-    SortUninterpretedZ3(ContextZ3& ctx, const ast::QualifiedName& name) {
+    SortIdentZ3(ContextZ3& ctx, const ast::QualifiedName& name) {
         sort = Z3_mk_uninterpreted_sort(ctx.ctx, Z3_mk_string_symbol(ctx.ctx, name.toString().c_str()));
     }
 };
