@@ -12,6 +12,7 @@
  * - any type that is a *direct* subset type of `symbol` is an uninterpreted sort
  * - subtyping in any other form is prohibited, i.e., no subtyping of any type other than `symbol`
  * - union type is strictly prohibited
+ * - type alias is strictly prohibited
  * In general, these additional typing rules kills any possibility of creating a hierarchy of types.
  *
  * 3) `Record` types cannot be recursive or mutually recursive.
@@ -42,26 +43,25 @@ namespace souffle::smt {
 /**
  * A base class for AST to SMT conversion
  */
-template <typename CONTEXT, typename SORT_NUMBER, typename SORT_UNSIGNED, typename SORT_UNINTERPRETED,
-        typename SORT_RECORD>
+template <typename CTX>
 class Translator {
 private:
-    using SORT_DEFINED = std::variant<SORT_UNINTERPRETED, SORT_RECORD>;
+    using SORT_DEFINED = std::variant<typename CTX::SORT_UNINTERPRETED, typename CTX::SORT_RECORD>;
 
 protected:
     // context
-    CONTEXT ctx;
+    CTX ctx;
 
     // types
-    SORT_NUMBER type_number;
-    SORT_UNSIGNED type_unsigned;
+    typename CTX::SORT_NUMBER type_number;
+    typename CTX::SORT_UNSIGNED type_unsigned;
     std::map<ast::QualifiedName, SORT_DEFINED> type_defined;
 
 protected:
     Translator() : ctx(), type_number(ctx), type_unsigned(ctx) {}
 
 protected:
-    /// Checked registration of a new uninterpreted type
+    /// Checked registration of a new type
     template <typename T>
     void register_type(ast::QualifiedName name, T type) {
         if (!type_defined.emplace(name, type).second) {
@@ -69,14 +69,23 @@ protected:
         }
     }
 
-    /// Create a type alias
-    void create_type_alias(ast::QualifiedName name, const ast::QualifiedName& alias) {
-        const auto it = type_defined.find(alias);
-        if (it != type_defined.end()) {
-            if (!type_defined.emplace(name, it->second).second) {
-                throw std::runtime_error("Duplicated aliasing of type: " + name.toString());
-            }
+    /// Retrieve a type, primitive or user-defined
+    const typename CTX::SORT_BASE& retrieve_type(const ast::QualifiedName& name) const {
+        if (name == "number") {
+            return type_number;
         }
+        if (name == "unsigned") {
+            return type_unsigned;
+        }
+        const auto it = type_defined.find(name);
+        if (it == type_defined.end()) {
+            throw std::runtime_error("Unknown type: " + name.toString());
+        }
+        return std::visit(
+                [](auto&& arg) -> const typename CTX::SORT_BASE& {
+                    return static_cast<const typename CTX::SORT_BASE&>(arg);
+                },
+                it->second);
     }
 
 public:
@@ -100,14 +109,16 @@ public:
                                          type_primitive->getName().toString());
             } else if (auto type_union = dynamic_cast<const ast::analysis::UnionType*>(type)) {
                 throw std::runtime_error("Union type is not permitted: " + type_union->getName().toString());
+            } else if (auto type_alias = dynamic_cast<const ast::analysis::AliasType*>(type)) {
+                throw std::runtime_error("Type alias is not permitted: " + type_alias->getName().toString());
             } else if (auto type_subset = dynamic_cast<const ast::analysis::SubsetType*>(type)) {
                 if (type_subset->getBaseType().getName() != "symbol") {
                     throw std::runtime_error("Only the `symbol` type can be subset typed: " +
                                              type_subset->getName().toString());
                 }
-                register_type(type_subset->getName(), SORT_UNINTERPRETED(ctx, type_subset->getName()));
-            } else if (auto type_alias = dynamic_cast<const ast::analysis::AliasType*>(type)) {
-                create_type_alias(type_alias->getName(), type_alias->getAliasType().getName());
+                // mark a direct subset type of `symbol` uninterpreted type
+                register_type(type_subset->getName(),
+                        typename CTX::SORT_UNINTERPRETED(ctx, type_subset->getName()));
             } else if (auto type_record = dynamic_cast<const ast::analysis::RecordType*>(type)) {
                 auto ast_record = dynamic_cast<const ast::RecordType*>(ast_type);
                 assert(ast_record != nullptr);
@@ -115,8 +126,14 @@ public:
                 const auto& type_fields = type_record->getFields();
                 const auto& ast_fields = ast_record->getFields();
                 assert(type_fields.size() == ast_fields.size());
+
+                // collect information about the field
+                std::vector<std::tuple<const ast::QualifiedName&, const typename CTX::SORT_BASE&>> fields;
                 for (unsigned i = 0; i < type_fields.size(); i++) {
                     assert(type_fields[i]->getName() == ast_fields[i]->getTypeName());
+                    const auto& field_name = ast_fields[i]->getName();
+                    const auto& field_type = retrieve_type(type_fields[i]->getName());
+                    fields.push_back(std::make_tuple(field_name, field_type));
                 }
                 // TODO: implement
             } else if (auto type_adt = dynamic_cast<const ast::analysis::AlgebraicDataType*>(type)) {
@@ -153,8 +170,7 @@ public:
 /**
  * A concrete AST to SMT translator based on Z3 MuZ facility
  */
-class TranslatorZ3MuZ
-        : public Translator<ContextZ3MuZ, SortNumberZ3, SortUnsignedZ3, SortUninterpretedZ3, SortRecordZ3> {
+class TranslatorZ3MuZ : public Translator<ContextZ3MuZ> {
 public:
     TranslatorZ3MuZ() = default;
 };
@@ -162,8 +178,7 @@ public:
 /**
  * A concrete AST to SMT translator based on Z3 recursive function
  */
-class TranslatorZ3Rec
-        : public Translator<ContextZ3Rec, SortNumberZ3, SortUnsignedZ3, SortUninterpretedZ3, SortRecordZ3> {
+class TranslatorZ3Rec : public Translator<ContextZ3Rec> {
 public:
     TranslatorZ3Rec() = default;
 };
@@ -171,8 +186,7 @@ public:
 /**
  * A concrete AST to SMT translator based on CVC recursive function
  */
-class TranslatorCVCRec : public Translator<ContextCVC5Rec, SortNumberCVC5, SortUnsignedCVC5,
-                                 SortUninterpretedCVC5, SortRecordCVC5> {
+class TranslatorCVCRec : public Translator<ContextCVC5Rec> {
 public:
     TranslatorCVCRec() = default;
 };

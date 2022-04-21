@@ -59,6 +59,13 @@ private:
         auto cfg = Z3_mk_config();
         return cfg;
     }
+
+public:
+    using SORT_BASE = SortZ3;
+    using SORT_NUMBER = SortNumberZ3;
+    using SORT_UNSIGNED = SortUnsignedZ3;
+    using SORT_UNINTERPRETED = SortUninterpretedZ3;
+    using SORT_RECORD = SortRecordZ3;
 };
 
 /**
@@ -73,6 +80,13 @@ private:
         auto cfg = Z3_mk_config();
         return cfg;
     }
+
+public:
+    using SORT_BASE = SortZ3;
+    using SORT_NUMBER = SortNumberZ3;
+    using SORT_UNSIGNED = SortUnsignedZ3;
+    using SORT_UNINTERPRETED = SortUninterpretedZ3;
+    using SORT_RECORD = SortRecordZ3;
 };
 
 /**

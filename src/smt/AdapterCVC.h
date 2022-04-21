@@ -47,6 +47,13 @@ public:
 class ContextCVC5Rec : public ContextCVC5 {
 public:
     ContextCVC5Rec() = default;
+
+public:
+    using SORT_BASE = SortCVC5;
+    using SORT_NUMBER = SortNumberCVC5;
+    using SORT_UNSIGNED = SortUnsignedCVC5;
+    using SORT_UNINTERPRETED = SortUninterpretedCVC5;
+    using SORT_RECORD = SortRecordCVC5;
 };
 
 /**
