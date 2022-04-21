@@ -90,13 +90,16 @@ public:
         // register user-defined types
         for (const auto ast_type : program.getTypes()) {
             auto type = &type_env.getType(*ast_type);
-            if (auto type_alias = dynamic_cast<const ast::analysis::AliasType*>(type)) {
-                create_alias_type(type_alias->getName(), type_alias->getAliasType().getName());
+            if (auto type_union = dynamic_cast<const ast::analysis::UnionType*>(type)) {
+                throw std::runtime_error("Union type is not permitted: " + type_union->getName().toString());
             } else if (auto type_subset = dynamic_cast<const ast::analysis::SubsetType*>(type)) {
                 if (type_subset->getBaseType().getName() != "symbol") {
-                    throw std::runtime_error("Only the `symbol` type can be subset typed");
+                    throw std::runtime_error("Only the `symbol` type can be subset typed: " +
+                                             type_subset->getName().toString());
                 }
                 create_uninterpreted_type(type_subset->getName());
+            } else if (auto type_alias = dynamic_cast<const ast::analysis::AliasType*>(type)) {
+                create_alias_type(type_alias->getName(), type_alias->getAliasType().getName());
             }
             // TODO: implement it
             std::cout << type << std::endl;
