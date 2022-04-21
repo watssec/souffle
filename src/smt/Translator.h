@@ -15,8 +15,10 @@
  * - type alias is strictly prohibited
  * In general, these additional typing rules kills any possibility of creating a hierarchy of types.
  *
- * 3) `Record` types cannot be recursive or mutually recursive.
- *    This also invalidates the use of the `nil` constructor to create a record.
+ * 3) `Record` types cannot use the `nil` constructor.
+ *    i.e., a `Record` type is essentially an `ADT` with a default constructor.
+ *
+ * 4) `ADT` types (including `Record` types) can be mutually recursive.
  *
  ***********************************************************************/
 
@@ -101,17 +103,25 @@ public:
         // register user-defined types
         for (const auto ast_type : program.getTypes()) {
             auto type = &type_env.getType(*ast_type);
+
+            // filter out invalid cases
             if (auto type_const = dynamic_cast<const ast::analysis::ConstantType*>(type)) {
                 throw std::runtime_error(
                         "Constant type should never be user-defined: " + type_const->getName().toString());
-            } else if (auto type_primitive = dynamic_cast<const ast::analysis::PrimitiveType*>(type)) {
+            }
+            if (auto type_primitive = dynamic_cast<const ast::analysis::PrimitiveType*>(type)) {
                 throw std::runtime_error("Primitive type should never be user-defined: " +
                                          type_primitive->getName().toString());
-            } else if (auto type_union = dynamic_cast<const ast::analysis::UnionType*>(type)) {
+            }
+            if (auto type_union = dynamic_cast<const ast::analysis::UnionType*>(type)) {
                 throw std::runtime_error("Union type is not permitted: " + type_union->getName().toString());
-            } else if (auto type_alias = dynamic_cast<const ast::analysis::AliasType*>(type)) {
+            }
+            if (auto type_alias = dynamic_cast<const ast::analysis::AliasType*>(type)) {
                 throw std::runtime_error("Type alias is not permitted: " + type_alias->getName().toString());
-            } else if (auto type_subset = dynamic_cast<const ast::analysis::SubsetType*>(type)) {
+            }
+
+            // uninterpreted type
+            if (auto type_subset = dynamic_cast<const ast::analysis::SubsetType*>(type)) {
                 if (type_subset->getBaseType().getName() != "symbol") {
                     throw std::runtime_error("Only the `symbol` type can be subset typed: " +
                                              type_subset->getName().toString());
@@ -119,7 +129,11 @@ public:
                 // mark a direct subset type of `symbol` uninterpreted type
                 register_type(type_subset->getName(),
                         typename CTX::SORT_UNINTERPRETED(ctx, type_subset->getName()));
-            } else if (auto type_record = dynamic_cast<const ast::analysis::RecordType*>(type)) {
+                continue;
+            }
+
+            // algebraic data types
+            if (auto type_record = dynamic_cast<const ast::analysis::RecordType*>(type)) {
                 auto ast_record = dynamic_cast<const ast::RecordType*>(ast_type);
                 assert(ast_record != nullptr);
 
@@ -131,9 +145,9 @@ public:
                 std::vector<std::tuple<const ast::QualifiedName&, const typename CTX::SORT_BASE&>> fields;
                 for (unsigned i = 0; i < type_fields.size(); i++) {
                     assert(type_fields[i]->getName() == ast_fields[i]->getTypeName());
-                    const auto& field_name = ast_fields[i]->getName();
-                    const auto& field_type = retrieve_type(type_fields[i]->getName());
-                    fields.push_back(std::make_tuple(field_name, field_type));
+                    // const auto& field_name = ast_fields[i]->getName();
+                    // const auto& field_type = retrieve_type(type_fields[i]->getName());
+                    // fields.push_back(std::make_tuple(field_name, field_type));
                 }
                 // TODO: implement
             } else if (auto type_adt = dynamic_cast<const ast::analysis::AlgebraicDataType*>(type)) {
