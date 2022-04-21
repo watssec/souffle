@@ -115,6 +115,8 @@ public:
         Graph<ast::analysis::Type> type_graph;
         for (const auto ast_type : program.getTypes()) {
             auto type = &type_env.getType(*ast_type);
+            assert(type != nullptr);
+            assert(type->getName() == ast_type->getQualifiedName());
 
             // filter out invalid cases
             if (auto type_const = dynamic_cast<const ast::analysis::ConstantType*>(type)) {
