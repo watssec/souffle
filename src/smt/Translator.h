@@ -101,6 +101,14 @@ protected:
         assert(inserted);
     }
 
+    /// Checked registration of a new record type
+    /// TODO: check
+    void register_type_record(ast::QualifiedName name, typename CTX::SORT_RECORD sort) {
+        assert(retrieve_type_or_null(name) == nullptr);
+        const auto [_, inserted] = type_records.emplace(name, sort);
+        assert(inserted);
+    }
+
 public:
     /// Convert the translation unit into an SMT context
     void convert(const ast::TranslationUnit& unit) {
@@ -111,8 +119,10 @@ public:
         // TODO: use it
         // const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
 
-        // register user-defined ident types while also put ADT types into type_graph
         Graph<ast::analysis::Type> type_graph;
+        std::map<const ast::analysis::Type*, const ast::Type*> ast_mapping;
+
+        // register user-defined ident types while also put ADT types into type_graph
         for (const auto ast_type : program.getTypes()) {
             auto type = &type_env.getType(*ast_type);
             assert(type != nullptr);
@@ -149,7 +159,9 @@ public:
             if (auto type_record = dynamic_cast<const ast::analysis::RecordType*>(type)) {
                 auto ast_record = dynamic_cast<const ast::RecordType*>(ast_type);
                 assert(ast_record != nullptr);
+
                 type_graph.addNode(type_record);
+                ast_mapping[type_record] = ast_record;
 
                 // check information about the fields
                 const auto& type_fields = type_record->getFields();
@@ -163,7 +175,9 @@ public:
             } else if (auto type_adt = dynamic_cast<const ast::analysis::AlgebraicDataType*>(type)) {
                 auto ast_adt = dynamic_cast<const ast::AlgebraicDataType*>(ast_type);
                 assert(ast_adt != nullptr);
+
                 type_graph.addNode(type_adt);
+                ast_mapping[type_adt] = ast_adt;
 
                 // check information about the branches
                 const auto& type_branches = type_adt->getBranches();
@@ -194,7 +208,7 @@ public:
         }
 
         // add edges for the ADTs
-        for (const auto node : type_graph.allNodes()) {
+        for (const auto [node, _] : ast_mapping) {
             if (auto type_record = dynamic_cast<const ast::analysis::RecordType*>(node)) {
                 for (const auto field_type : type_record->getFields()) {
                     // add an edge for the ADT if we haven't registered the type somewhere
@@ -224,6 +238,94 @@ public:
             // - SCC has a single type that represents a plain record (non-recursive)
             // - SCC has a single type and is a self-inductive ADT
             // - SCC contains multiple types that are co-inductive ADTs
+
+            // collect the ordering
+            std::map<const ast::analysis::Type*, size_t> indices;
+            for (auto ty : scc) {
+                auto ty_idx = indices.size();
+                indices[ty] = ty_idx;
+            }
+
+            // construct the ADT group
+            std::vector<ADT<typename CTX::SORT_BASE>> decls;
+            for (auto ty : scc) {
+                if (auto type_record = dynamic_cast<const ast::analysis::RecordType*>(ty)) {
+                    auto ast_record = dynamic_cast<const ast::RecordType*>(ast_mapping[type_record]);
+
+                    // collect fields
+                    const auto& type_fields = type_record->getFields();
+                    const auto& ast_fields = ast_record->getFields();
+
+                    std::vector<ADTField<typename CTX::SORT_BASE>> field_decls;
+                    for (unsigned i = 0; i < type_fields.size(); i++) {
+                        const auto* field_type = type_fields[i];
+                        auto existing_type = retrieve_type_or_null(field_type->getName());
+                        if (existing_type == nullptr) {
+                            auto it = indices.find(field_type);
+                            assert(it != indices.end());
+                            field_decls.emplace_back(ast_fields[i]->getName(), it->second);
+                        } else {
+                            field_decls.emplace_back(ast_fields[i]->getName(), existing_type);
+                        }
+                    }
+
+                    // construct the default branch and the ADT
+                    ADTBranch<typename CTX::SORT_BASE> default_branch("", move(field_decls));
+                    ADT<typename CTX::SORT_BASE> adt_decl(ty->getName(), {default_branch});
+                    // TODO: wrong
+                    decls.push_back(adt_decl);
+                } else if (auto type_adt = dynamic_cast<const ast::analysis::AlgebraicDataType*>(ty)) {
+                    auto ast_adt = dynamic_cast<const ast::AlgebraicDataType*>(ast_mapping[type_adt]);
+
+                    // collect branches
+                    const auto& type_branches = type_adt->getBranches();
+                    const auto& ast_branches = ast_adt->getBranches();
+
+                    std::vector<ADTBranch<typename CTX::SORT_BASE>> branch_decls;
+                    for (const auto& type_branch : type_branches) {
+                        auto iter = std::find_if(ast_branches.cbegin(), ast_branches.cend(),
+                                [type_branch](const auto ast_branch) {
+                                    return ast_branch->getBranchName() == type_branch.name;
+                                });
+                        const auto& ast_branch = *iter;
+
+                        // collect fields
+                        const auto& type_fields = type_branch.types;
+                        const auto& ast_fields = ast_branch->getFields();
+
+                        std::vector<ADTField<typename CTX::SORT_BASE>> field_decls;
+                        for (unsigned i = 0; i < type_fields.size(); i++) {
+                            const auto* field_type = type_fields[i];
+                            auto existing_type = retrieve_type_or_null(field_type->getName());
+                            if (existing_type == nullptr) {
+                                auto it = indices.find(field_type);
+                                assert(it != indices.end());
+                                field_decls.emplace_back(ast_fields[i]->getName(), it->second);
+                            } else {
+                                field_decls.emplace_back(ast_fields[i]->getName(), existing_type);
+                            }
+                        }
+
+                        // construct the branch decl
+                        branch_decls.emplace_back(type_branch.name, move(field_decls));
+                    }
+
+                    // construct the ADT
+                    ADT<typename CTX::SORT_BASE> adt_decl(ty->getName(), move(branch_decls));
+                    // TODO: wrong
+                    decls.push_back(adt_decl);
+                } else {
+                    assert(false);
+                }
+            }
+
+            auto constructed = CTX::SORT_RECORD::batchCreate(decls);
+            // TODO: wrong
+            unsigned i = 0;
+            for (auto ty : scc) {
+                register_type_record(ty->getName(), constructed[i]);
+                i++;
+            }
         }
     }
 };

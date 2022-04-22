@@ -134,25 +134,10 @@ protected:
     std::vector<Z3_func_decl> getters;
 
 public:
-    SortRecordZ3(ContextZ3& ctx, const ast::QualifiedName& name,
-            const std::vector<std::tuple<const ast::QualifiedName&, const SortZ3&>>& fields) {
-        Z3_symbol field_names[fields.size()];
-        Z3_sort field_sorts[fields.size()];
-        Z3_func_decl field_getters[fields.size()];
-
-        for (unsigned i = 0; i < fields.size(); i++) {
-            const auto& [field_name, field_sort] = fields[i];
-            field_names[i] = Z3_mk_string_symbol(ctx.ctx, field_name.toString().c_str());
-            field_sorts[i] = field_sort.sort;
-        }
-
-        Z3_symbol tuple_name = Z3_mk_string_symbol(ctx.ctx, name.toString().c_str());
-        sort = Z3_mk_tuple_sort(
-                ctx.ctx, tuple_name, fields.size(), field_names, field_sorts, &ctor, field_getters);
-        for (unsigned i = 0; i < fields.size(); i++) {
-            getters.push_back(field_getters[i]);
-        }
-    }
+    static std::vector<SortRecordZ3> batchCreate(const std::vector<ADT<SortZ3>>& decls) {
+        // TODO: implement
+        return std::vector<SortRecordZ3>(decls.size());
+    };
 };
 
 }  // namespace souffle::smt

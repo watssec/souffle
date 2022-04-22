@@ -100,20 +100,10 @@ protected:
     cvc5::Datatype record;
 
 public:
-    SortRecordCVC5(ContextCVC5& ctx, const ast::QualifiedName& name,
-            const std::vector<std::tuple<const ast::QualifiedName&, const SortCVC5&>>& fields) {
-        auto ctor_decl = ctx.solver.mkDatatypeConstructorDecl("");
-        for (const auto& [field_name, field_sort] : fields) {
-            ctor_decl.addSelector(field_name.toString(), field_sort.sort);
-        }
-
-        auto sort_decl = ctx.solver.mkDatatypeDecl(name.toString());
-        sort_decl.addConstructor(ctor_decl);
-        sort = ctx.solver.mkDatatypeSort(sort_decl);
-
-        assert(sort.isDatatype());
-        record = sort.getDatatype();
-    }
+    static std::vector<SortRecordCVC5> batchCreate(const std::vector<ADT<SortCVC5>>& decls) {
+        // TODO: implement
+        return std::vector<SortRecordCVC5>(decls.size());
+    };
 };
 
 }  // namespace souffle::smt

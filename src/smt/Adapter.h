@@ -9,6 +9,7 @@
 #pragma once
 
 #include <variant>
+#include <vector>
 
 #include "ast/QualifiedName.h"
 
@@ -20,12 +21,12 @@ namespace souffle::smt {
 template <typename SORT>
 struct ADTField {
 public:
-    const ast::QualifiedName& name;
-    const std::variant<const SORT&, size_t> type;
+    const std::string& name;
+    const std::variant<const SORT*, size_t> type;
 
 public:
-    ADTField(const ast::QualifiedName& _name, const SORT& _type) : name(_name), type(_type) {}
-    ADTField(const ast::QualifiedName& _name, size_t _type) : name(_name), type(_type) {}
+    ADTField(const std::string& _name, const SORT* _type) : name(_name), type(_type) {}
+    ADTField(const std::string& _name, size_t _type) : name(_name), type(_type) {}
 };
 
 /**
@@ -38,7 +39,7 @@ public:
     const std::vector<ADTField<SORT>> fields;
 
 public:
-    ADTBranch(const ast::QualifiedName& _name, std::initializer_list<ADTField<SORT>> _fields)
+    ADTBranch(const ast::QualifiedName& _name, std::vector<ADTField<SORT>>&& _fields)
             : name(_name), fields(_fields) {}
 };
 
@@ -52,20 +53,8 @@ public:
     const std::vector<ADTBranch<SORT>> branches;
 
 public:
-    ADT(const ast::QualifiedName& _name, std::initializer_list<ADTBranch<SORT>> _branches)
+    ADT(const ast::QualifiedName& _name, std::vector<ADTBranch<SORT>>&& _branches)
             : name(_name), branches(_branches) {}
-};
-
-/**
- * Declaration of a group of mutually recursive ADTs
- */
-template <typename SORT>
-struct ADTGroup {
-public:
-    const std::vector<ADT<SORT>> adts;
-
-public:
-    explicit ADTGroup(std::initializer_list<ADTBranch<SORT>> _adts) : adts(_adts) {}
 };
 
 }  // namespace souffle::smt
