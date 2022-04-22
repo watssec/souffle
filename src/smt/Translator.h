@@ -218,23 +218,12 @@ public:
 
         // derive the SCCs and iterate over them in topological order
         for (const auto& scc : type_graph.deriveSCC()) {
-            // case 1 - SCC has a single element
-            if (scc.size() == 1) {
-                auto scc_type = *scc.begin();
+            assert(!scc.empty());
 
-                // case 1.1: a plain record
-                if (type_graph.getEdgesByNode(scc_type).empty()) {
-                }
-
-                // case 1.2: a recursive ADT
-                else {
-                }
-            }
-
-            // case 2 - SCC represents a set of mutually recursive ADTs
-            else {
-                assert(!scc.empty());
-            }
+            // only three cases possible given an SCC
+            // - SCC has a single type that represents a plain record (non-recursive)
+            // - SCC has a single type and is a self-inductive ADT
+            // - SCC contains multiple types that are co-inductive ADTs
         }
     }
 };
