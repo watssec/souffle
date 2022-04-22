@@ -138,7 +138,7 @@ public:  // Graph construction
     }
 
 public:  // SCC
-    std::list<std::set<const T*>> deriveSCC() {
+    std::list<std::set<const T*>> deriveSCC() const {
         algorithm::tarjan::graph<const T*> g;
         std::map<const T*, algorithm::tarjan::vertex<const T*>*> v;
         for (const auto [key, _] : graph) {
