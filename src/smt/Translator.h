@@ -215,6 +215,15 @@ public:
                 assert(false);
             }
         }
+
+        // derive the SCC
+        for (const auto& scc : type_graph.deriveSCC()) {
+            std::cout << "<!>" << std::endl;
+            for (auto t : scc) {
+                std::cout << t->getName() << ", ";
+            }
+            std::cout << std::endl;
+        }
     }
 };
 

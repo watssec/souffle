@@ -34,18 +34,18 @@ class vertex : private noncopyable {
 
 public:
     explicit vertex(const T& t) : data_(t) {}
+
+public:
     void add_neighbour(vertex* v) {
         neighbours_.push_back(v);
     }
-    void add_neighbours(const std::initializer_list<vertex*>& vs) {
-        neighbours_.insert(neighbours_.end(), vs);
-    }
+
     const T& get_data() {
         return data_;
     }
 
 private:
-    T data_;
+    const T data_;
     int index_ = -1;
     int lowlink_ = -1;
     bool on_stack_ = false;
@@ -137,15 +137,38 @@ public:  // Graph construction
         graph[src].insert(dst);
     }
 
-    std::vector<const T*> allNodes() {
-        std::vector<const T*> result;
+    std::set<const T*> allNodes() {
+        std::set<const T*> result;
         for (const auto [key, _] : graph) {
-            result.push_back(key);
+            result.insert(key);
         }
         return result;
     }
 
-public:  // SCC details
+public:  // SCC
+    std::list<std::set<const T*>> deriveSCC() {
+        algorithm::tarjan::graph<const T*> g;
+        std::map<const T*, algorithm::tarjan::vertex<const T*>*> v;
+        for (const auto [key, _] : graph) {
+            v[key] = g.add_vertex(key);
+        }
+        for (const auto [key, neighbors] : graph) {
+            for (const auto n : neighbors) {
+                v[key]->add_neighbour(v[n]);
+            }
+        }
+
+        std::list<std::set<const T*>> result;
+        algorithm::tarjan::runner<const T*> tarjan;
+        for (auto&& component : tarjan.run(g)) {
+            std::set<const T*> scc;
+            for (auto node : component) {
+                scc.insert(node->get_data());
+            }
+            result.push_back(scc);
+        }
+        return result;
+    }
 };
 
 }  // namespace souffle::smt
