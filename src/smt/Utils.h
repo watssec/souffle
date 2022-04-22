@@ -137,12 +137,18 @@ public:  // Graph construction
         graph[src].insert(dst);
     }
 
-    std::set<const T*> allNodes() {
+    std::set<const T*> allNodes() const {
         std::set<const T*> result;
         for (const auto [key, _] : graph) {
             result.insert(key);
         }
         return result;
+    }
+
+    const std::set<const T*>& getEdgesByNode(const T* key) const {
+        const auto it = graph.find(key);
+        assert(it != graph.end());
+        return it->second;
     }
 
 public:  // SCC

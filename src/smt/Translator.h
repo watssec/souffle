@@ -216,13 +216,25 @@ public:
             }
         }
 
-        // derive the SCC
+        // derive the SCCs and iterate over them in topological order
         for (const auto& scc : type_graph.deriveSCC()) {
-            std::cout << "<!>" << std::endl;
-            for (auto t : scc) {
-                std::cout << t->getName() << ", ";
+            // case 1 - SCC has a single element
+            if (scc.size() == 1) {
+                auto scc_type = *scc.begin();
+
+                // case 1.1: a plain record
+                if (type_graph.getEdgesByNode(scc_type).empty()) {
+                }
+
+                // case 1.2: a recursive ADT
+                else {
+                }
             }
-            std::cout << std::endl;
+
+            // case 2 - SCC represents a set of mutually recursive ADTs
+            else {
+                assert(!scc.empty());
+            }
         }
     }
 };
