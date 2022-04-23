@@ -8,10 +8,9 @@
 
 #pragma once
 
+#include <utility>
 #include <variant>
 #include <vector>
-
-#include "ast/QualifiedName.h"
 
 namespace souffle::smt {
 
@@ -21,12 +20,12 @@ namespace souffle::smt {
 template <typename SORT>
 struct ADTField {
 public:
-    const std::string& name;
+    const std::string name;
     const std::variant<const SORT*, size_t> type;
 
 public:
-    ADTField(const std::string& _name, const SORT* _type) : name(_name), type(_type) {}
-    ADTField(const std::string& _name, size_t _type) : name(_name), type(_type) {}
+    ADTField(std::string _name, const SORT* _type) : name(std::move(_name)), type(_type) {}
+    ADTField(std::string _name, size_t _type) : name(std::move(_name)), type(_type) {}
 };
 
 /**
@@ -35,12 +34,12 @@ public:
 template <typename SORT>
 struct ADTBranch {
 public:
-    const ast::QualifiedName& name;
+    const std::string name;
     const std::vector<ADTField<SORT>> fields;
 
 public:
-    ADTBranch(const ast::QualifiedName& _name, std::vector<ADTField<SORT>>&& _fields)
-            : name(_name), fields(_fields) {}
+    ADTBranch(std::string _name, std::vector<ADTField<SORT>>&& _fields)
+            : name(std::move(_name)), fields(_fields) {}
 };
 
 /**
@@ -49,12 +48,12 @@ public:
 template <typename SORT>
 struct ADT {
 public:
-    const ast::QualifiedName& name;
+    const std::string name;
     const std::vector<ADTBranch<SORT>> branches;
 
 public:
-    ADT(const ast::QualifiedName& _name, std::vector<ADTBranch<SORT>>&& _branches)
-            : name(_name), branches(_branches) {}
+    ADT(std::string _name, std::vector<ADTBranch<SORT>>&& _branches)
+            : name(std::move(_name)), branches(_branches) {}
 };
 
 }  // namespace souffle::smt

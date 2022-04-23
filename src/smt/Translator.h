@@ -146,7 +146,7 @@ protected:
 
                 // construct the default branch and the ADT
                 ADTBranch<typename CTX::SORT_BASE> default_branch("", move(field_decls));
-                ADT<typename CTX::SORT_BASE> adt_decl(type_record->getName(), {default_branch});
+                ADT<typename CTX::SORT_BASE> adt_decl(type_record->getName().toString(), {default_branch});
                 decls.push_back(adt_decl);
             } else if (auto type_adt = dynamic_cast<const ast::analysis::AlgebraicDataType*>(type_item)) {
                 auto ast_adt = dynamic_cast<const ast::AlgebraicDataType*>(ast_item);
@@ -181,11 +181,11 @@ protected:
                     }
 
                     // construct the branch decl
-                    branch_decls.emplace_back(type_branch.name, move(field_decls));
+                    branch_decls.emplace_back(type_branch.name.toString(), move(field_decls));
                 }
 
                 // construct the ADT
-                ADT<typename CTX::SORT_BASE> adt_decl(type_adt->getName(), move(branch_decls));
+                ADT<typename CTX::SORT_BASE> adt_decl(type_adt->getName().toString(), move(branch_decls));
                 decls.push_back(adt_decl);
             } else {
                 assert(false);

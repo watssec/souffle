@@ -155,7 +155,7 @@ public:
         for (unsigned k = 0; k < decl_size; k++) {
             const auto& decl = decls[k];
 
-            decl_names[k] = Z3_mk_string_symbol(ctx.ctx, decl.name.toString().c_str());
+            decl_names[k] = Z3_mk_string_symbol(ctx.ctx, decl.name.c_str());
             auto branch_size = decl.branches.size();
             Z3_constructor branch_ctors[branch_size];
             for (unsigned j = 0; j < branch_size; j++) {
@@ -179,10 +179,9 @@ public:
                 }
 
                 // build the constructor
-                auto branch_name = branch.name.toString();
                 auto branch_ctor =
-                        Z3_mk_constructor(ctx.ctx, Z3_mk_string_symbol(ctx.ctx, branch_name.c_str()),
-                                Z3_mk_string_symbol(ctx.ctx, ("is_" + branch_name).c_str()), field_size,
+                        Z3_mk_constructor(ctx.ctx, Z3_mk_string_symbol(ctx.ctx, branch.name.c_str()),
+                                Z3_mk_string_symbol(ctx.ctx, ("is_" + branch.name).c_str()), field_size,
                                 field_names, field_sorts, field_sort_refs);
                 branch_ctors[j] = branch_ctor;
                 freelist.push_back(branch_ctor);
