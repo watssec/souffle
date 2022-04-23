@@ -107,7 +107,7 @@ protected:
         // only three cases possible given an SCC
         // - SCC has a single type that represents a plain record (non-recursive)
         // - SCC has a single type and is a self-inductive ADT
-        // - SCC contains multiple types that are co-inductive ADTs
+        // - SCC contains multiple types that are mutually recursive ADTs
 
         // finalize the ordering among the ADTs
         std::map<const ast::analysis::Type*, size_t> indices;
@@ -295,7 +295,7 @@ protected:
         }
     }
 
-    /// The ADTs can be co-inductive, build a dependency graph to capture their relationship
+    /// The ADTs can be mutually recursive, build a dependency graph to capture their dependencies
     Graph<ast::analysis::Type> build_adt_dep_graph() {
         Graph<ast::analysis::Type> dep_graph;
 
@@ -349,10 +349,8 @@ public:
         const auto& program = unit.getProgram();
         const auto& type_env =
                 unit.getAnalysis<ast::analysis::TypeEnvironmentAnalysis>().getTypeEnvironment();
-        // TODO: use it
-        // const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
 
-        // register types, including the co-inductive ADTs
+        // register types, including the mutually recursive ADTs
         type_check(program, type_env);
         const auto adt_dep_graph = build_adt_dep_graph();
         for (const auto& scc : adt_dep_graph.deriveSCC()) {
@@ -360,6 +358,9 @@ public:
             assert(!scc.empty());
             register_type_records(scc);
         }
+
+        // TODO: use it
+        // const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
     }
 };
 
