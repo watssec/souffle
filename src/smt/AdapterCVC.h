@@ -100,7 +100,7 @@ protected:
     cvc5::Datatype record;
 
 protected:
-    SortRecordCVC5(cvc5::Datatype record_) : record(record_) {}
+    SortRecordCVC5() = default;
 
 public:
     static std::vector<SortRecordCVC5> mkCoInductiveSorts(
@@ -133,7 +133,11 @@ public:
         std::vector<SortRecordCVC5> result;
         for (const auto& sort : sorts) {
             assert(sort.isDatatype());
-            result.push_back(SortRecordCVC5(sort.getDatatype()));
+
+            SortRecordCVC5 item;
+            item.sort = sort;
+            item.record = sort.getDatatype();
+            result.push_back(item);
         }
         return result;
     }
