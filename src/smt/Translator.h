@@ -225,7 +225,7 @@ protected:
     void register_relation(
             ast::QualifiedName name, const std::vector<const typename CTX::SORT_BASE*>& domain) {
         assert(retrieve_relation_or_null(name) == nullptr);
-        auto relation = typename CTX::RELATION(ctx, name, domain);
+        auto relation = typename CTX::RELATION(ctx, name.toString(), domain);
         const auto [_, inserted] = relations.emplace(name, relation);
         assert(inserted);
     }
@@ -389,7 +389,19 @@ public:
 
         // register relations
         for (const auto rel : program.getRelations()) {
-            std::cout << *rel << std::endl;
+            if (!rel->getFunctionalDependencies().empty()) {
+                // the "choice" features is not supported yet
+                throw std::runtime_error(
+                        "Functional constraints not supported: " + rel->getQualifiedName().toString());
+            }
+
+            // collect domains
+            std::vector<const typename CTX::SORT_BASE*> domain;
+            for (const auto attr : rel->getAttributes()) {
+                auto type = retrieve_type(attr->getTypeName());
+                domain.push_back(&type);
+            }
+            register_relation(rel->getQualifiedName(), domain);
         }
 
         // TODO: use it
