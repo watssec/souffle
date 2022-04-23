@@ -60,6 +60,9 @@ protected:
     std::map<ast::QualifiedName, typename CTX::SORT_IDENT> type_idents;
     std::map<ast::QualifiedName, typename CTX::SORT_RECORD> type_records;
 
+    // relations
+    std::map<ast::QualifiedName, typename CTX::RELATION> relations;
+
 protected:
     Translator() : ctx(), type_number(ctx), type_unsigned(ctx) {}
 
@@ -200,6 +203,31 @@ protected:
             const auto [_, inserted] = type_records.emplace(name, constructed[i]);
             assert(inserted);
         }
+    }
+
+private:
+    /// Retrieve a relation or nullptr if non-exist
+    const typename CTX::RELATION* retrieve_relation_or_null(const ast::QualifiedName& name) const {
+        const auto it_ident = relations.find(name);
+        if (it_ident != relations.end()) {
+            return &it_ident->second;
+        }
+        return nullptr;
+    }
+
+protected:
+    /// Retrieve a relation. Panic if nonexistent.
+    const typename CTX::RELATION& retrieve_relation(const ast::QualifiedName& name) const {
+        return *retrieve_relation_or_null(name);
+    }
+
+    /// Register a relation to the registry
+    void register_relation(
+            ast::QualifiedName name, const std::vector<const typename CTX::SORT_BASE*>& domain) {
+        assert(retrieve_relation_or_null(name) == nullptr);
+        auto relation = typename CTX::RELATION(ctx, name, domain);
+        const auto [_, inserted] = relations.emplace(name, relation);
+        assert(inserted);
     }
 
 protected:
@@ -359,11 +387,13 @@ public:
             register_type_records(scc);
         }
 
-        // TODO: use it
-        // const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
+        // register relations
         for (const auto rel : program.getRelations()) {
             std::cout << *rel << std::endl;
         }
+
+        // TODO: use it
+        // const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
     }
 };
 
