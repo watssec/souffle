@@ -197,12 +197,34 @@ public:
 
         // create the types
         std::vector<SortRecordZ3> result;
+        unsigned c = 0;
         for (unsigned k = 0; k < decl_size; k++) {
+            const auto& decl = decls[k];
+
             SortRecordZ3 sort;
-            sort.sort = decl_sorts[0];
-            // TODO: query ctors
+            sort.sort = decl_sorts[k];
+
+            for (const auto& branch : decl.branches) {
+                const auto& fields = branch.fields;
+                auto holder = freelist[c++];
+
+                // query the constructor
+                Z3_func_decl fun_ctor;
+                Z3_func_decl fun_test;
+                Z3_func_decl fun_getters[fields.size()];
+                Z3_query_constructor(ctx.ctx, holder, fields.size(), &fun_ctor, &fun_test, fun_getters);
+
+                // construct and embed the variant
+                SortRecordZ3Variant variant;
+                variant.ctor = fun_ctor;
+                variant.test = fun_test;
+                variant.getters.assign(fun_getters, fun_getters + fields.size());
+                sort.variants.emplace(branch.name, variant);
+            }
+
             result.push_back(sort);
         }
+        assert(c == freelist.size());
 
         // clean-up the resources
         for (auto item : freelist) {
