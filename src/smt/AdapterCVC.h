@@ -99,13 +99,44 @@ class SortRecordCVC5 : public SortCVC5 {
 protected:
     cvc5::Datatype record;
 
+protected:
+    SortRecordCVC5(cvc5::Datatype record_) : record(record_) {}
+
 public:
     static std::vector<SortRecordCVC5> mkCoInductiveSorts(
             ContextCVC5& ctx, const std::vector<ADT<SortCVC5>>& decls) {
-        assert(ctx.solver.mkTrue().getId() == 0);
-        // TODO: implement
-        return std::vector<SortRecordCVC5>(decls.size());
-    };
+        // prepare the declarations
+        std::vector<cvc5::DatatypeDecl> holders;
+        for (const auto& decl : decls) {
+            auto decl_holder = ctx.solver.mkDatatypeDecl(decl.name, false);
+            for (const auto& branch : decl.branches) {
+                auto branch_holder = ctx.solver.mkDatatypeConstructorDecl(branch.name);
+                for (const auto& field : branch.fields) {
+                    if (std::holds_alternative<size_t>(field.type)) {
+                        const auto& target = decls[std::get<size_t>(field.type)];
+                        if (target.name == decl.name) {
+                            branch_holder.addSelectorSelf(field.name);
+                        } else {
+                            branch_holder.addSelectorUnresolved(field.name, target.name);
+                        }
+                    } else {
+                        branch_holder.addSelector(field.name, std::get<const SortCVC5*>(field.type)->sort);
+                    }
+                }
+                decl_holder.addConstructor(branch_holder);
+            }
+            holders.push_back(decl_holder);
+        }
+
+        // done with the preparation, now do the construction
+        auto sorts = ctx.solver.mkDatatypeSorts(holders);
+        std::vector<SortRecordCVC5> result;
+        for (const auto& sort : sorts) {
+            assert(sort.isDatatype());
+            result.push_back(SortRecordCVC5(sort.getDatatype()));
+        }
+        return result;
+    }
 };
 
 }  // namespace souffle::smt
