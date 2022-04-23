@@ -9,6 +9,7 @@
 #pragma once
 
 #include <tuple>
+#include <variant>
 #include <vector>
 
 #include <z3.h>
@@ -54,6 +55,13 @@ public:
  */
 class ContextZ3MuZ : public ContextZ3 {
 public:
+    using SORT_BASE = SortZ3;
+    using SORT_NUMBER = SortNumberZ3;
+    using SORT_UNSIGNED = SortUnsignedZ3;
+    using SORT_IDENT = SortIdentZ3;
+    using SORT_RECORD = SortRecordZ3;
+
+public:
     ContextZ3MuZ() : ContextZ3(mkConfig()) {}
 
 private:
@@ -61,19 +69,19 @@ private:
         auto cfg = Z3_mk_config();
         return cfg;
     }
-
-public:
-    using SORT_BASE = SortZ3;
-    using SORT_NUMBER = SortNumberZ3;
-    using SORT_UNSIGNED = SortUnsignedZ3;
-    using SORT_IDENT = SortIdentZ3;
-    using SORT_RECORD = SortRecordZ3;
 };
 
 /**
  * A context for SMT based on Z3 recursive functions
  */
 class ContextZ3Rec : public ContextZ3 {
+public:
+    using SORT_BASE = SortZ3;
+    using SORT_NUMBER = SortNumberZ3;
+    using SORT_UNSIGNED = SortUnsignedZ3;
+    using SORT_IDENT = SortIdentZ3;
+    using SORT_RECORD = SortRecordZ3;
+
 public:
     ContextZ3Rec() : ContextZ3(mkConfig()) {}
 
@@ -82,13 +90,6 @@ private:
         auto cfg = Z3_mk_config();
         return cfg;
     }
-
-public:
-    using SORT_BASE = SortZ3;
-    using SORT_NUMBER = SortNumberZ3;
-    using SORT_UNSIGNED = SortUnsignedZ3;
-    using SORT_IDENT = SortIdentZ3;
-    using SORT_RECORD = SortRecordZ3;
 };
 
 /**
@@ -129,14 +130,90 @@ public:
 };
 
 class SortRecordZ3 : public SortZ3 {
+public:
+    struct SortRecordZ3Variant {
+        Z3_func_decl ctor;
+        Z3_func_decl test;
+        std::vector<Z3_func_decl> getters;
+    };
+
 protected:
-    Z3_func_decl ctor;
-    std::vector<Z3_func_decl> getters;
+    std::map<std::string, SortRecordZ3Variant> variants;
+
+protected:
+    SortRecordZ3() = default;
 
 public:
-    static std::vector<SortRecordZ3> batchCreate(const std::vector<ADT<SortZ3>>& decls) {
-        // TODO: implement
-        return std::vector<SortRecordZ3>(decls.size());
+    static std::vector<SortRecordZ3> mkCoInductiveSorts(
+            ContextZ3& ctx, const std::vector<ADT<SortZ3>>& decls) {
+        // holds all constructors to be re-claimed
+        std::vector<Z3_constructor> freelist;
+
+        auto decl_size = decls.size();
+        Z3_symbol decl_names[decl_size];
+        Z3_constructor_list decl_lists[decl_size];
+        for (unsigned k = 0; k < decl_size; k++) {
+            const auto& decl = decls[k];
+
+            decl_names[k] = Z3_mk_string_symbol(ctx.ctx, decl.name.toString().c_str());
+            auto branch_size = decl.branches.size();
+            Z3_constructor branch_ctors[branch_size];
+            for (unsigned j = 0; j < branch_size; j++) {
+                const auto& branch = decl.branches[j];
+
+                auto field_size = branch.fields.size();
+                Z3_symbol field_names[field_size];
+                Z3_sort_opt field_sorts[field_size];
+                unsigned field_sort_refs[field_size];
+                for (unsigned i = 0; i < field_size; i++) {
+                    const auto& field = branch.fields[i];
+
+                    field_names[i] = Z3_mk_string_symbol(ctx.ctx, field.name.c_str());
+                    if (std::holds_alternative<size_t>(field.type)) {
+                        field_sorts[i] = nullptr;
+                        field_sort_refs[i] = std::get<size_t>(field.type);
+                    } else {
+                        field_sorts[i] = std::get<const SortZ3*>(field.type)->sort;
+                        field_sort_refs[i] = 0;
+                    }
+                }
+
+                // build the constructor
+                auto branch_name = branch.name.toString();
+                auto branch_ctor =
+                        Z3_mk_constructor(ctx.ctx, Z3_mk_string_symbol(ctx.ctx, branch_name.c_str()),
+                                Z3_mk_string_symbol(ctx.ctx, ("is_" + branch_name).c_str()), field_size,
+                                field_names, field_sorts, field_sort_refs);
+                branch_ctors[j] = branch_ctor;
+                freelist.push_back(branch_ctor);
+            }
+
+            // add to list
+            decl_lists[k] = Z3_mk_constructor_list(ctx.ctx, branch_size, branch_ctors);
+        }
+
+        // done with the preparation, now do the construction
+        Z3_sort decl_sorts[decl_size];
+        Z3_mk_datatypes(ctx.ctx, decl_size, decl_names, decl_sorts, decl_lists);
+
+        // create the types
+        std::vector<SortRecordZ3> result;
+        for (unsigned k = 0; k < decl_size; k++) {
+            SortRecordZ3 sort;
+            sort.sort = decl_sorts[0];
+            // TODO: query ctors
+            result.push_back(sort);
+        }
+
+        // clean-up the resources
+        for (auto item : freelist) {
+            Z3_del_constructor(ctx.ctx, item);
+        }
+        for (unsigned k = 0; k < decl_size; k++) {
+            Z3_del_constructor_list(ctx.ctx, decl_lists[k]);
+        }
+
+        return result;
     };
 };
 

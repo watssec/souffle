@@ -193,7 +193,7 @@ protected:
         }
 
         // build the ADT sorts
-        auto constructed = CTX::SORT_RECORD::batchCreate(decls);
+        auto constructed = CTX::SORT_RECORD::mkCoInductiveSorts(ctx, decls);
         assert(constructed.size() == ordered.size());
         for (unsigned i = 0; i < ordered.size(); i++) {
             const auto& name = std::get<0>(ordered[i])->getName();
