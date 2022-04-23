@@ -22,6 +22,8 @@ class SortNumberCVC5;
 class SortUnsignedCVC5;
 class SortIdentCVC5;
 class SortRecordCVC5;
+class RelationCVC5;
+class RelationCVC5Rec;
 
 /**
  * A base class to host the context for all CVC5-based solvers
@@ -32,11 +34,13 @@ class ContextCVC5 {
     friend SortUnsignedCVC5;
     friend SortIdentCVC5;
     friend SortRecordCVC5;
+    friend RelationCVC5;
+    friend RelationCVC5Rec;
 
 protected:
     cvc5::Solver solver;
 
-protected:  // disables instantiation
+protected:
     explicit ContextCVC5() = default;
 
 public:
@@ -47,12 +51,15 @@ public:
  * A context for SMT based on CVC5 recursive functions
  */
 class ContextCVC5Rec : public ContextCVC5 {
+    friend RelationCVC5Rec;
+
 public:
     using SORT_BASE = SortCVC5;
     using SORT_NUMBER = SortNumberCVC5;
     using SORT_UNSIGNED = SortUnsignedCVC5;
     using SORT_IDENT = SortIdentCVC5;
     using SORT_RECORD = SortRecordCVC5;
+    using RELATION = RelationCVC5Rec;
 
 public:
     ContextCVC5Rec() = default;
@@ -66,11 +73,12 @@ class SortCVC5 {
     friend SortUnsignedCVC5;
     friend SortIdentCVC5;
     friend SortRecordCVC5;
+    friend RelationCVC5;
 
 protected:
     cvc5::Sort sort;
 
-protected:  // disables instantiation
+protected:
     SortCVC5() = default;
 };
 
@@ -141,6 +149,29 @@ public:
         }
         return result;
     }
+};
+
+/**
+ * A base class for all relations in CVC5
+ */
+class RelationCVC5 {
+protected:
+    cvc5::Term fun;
+
+protected:
+    RelationCVC5(ContextCVC5& ctx, const std::string& name, const std::vector<const SortCVC5*>& domain) {
+        std::vector<cvc5::Sort> domain_sorts;
+        for (const auto i : domain) {
+            domain_sorts.emplace_back(i->sort);
+        }
+        fun = ctx.solver.declareFun(name, domain_sorts, ctx.solver.getBooleanSort());
+    }
+};
+
+class RelationCVC5Rec : public RelationCVC5 {
+public:
+    RelationCVC5Rec(ContextCVC5Rec& ctx, const std::string& name, const std::vector<const SortCVC5*>& domain)
+            : RelationCVC5(ctx, name, domain) {}
 };
 
 }  // namespace souffle::smt

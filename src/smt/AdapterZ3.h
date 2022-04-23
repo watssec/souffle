@@ -23,6 +23,9 @@ class SortNumberZ3;
 class SortUnsignedZ3;
 class SortIdentZ3;
 class SortRecordZ3;
+class RelationZ3;
+class RelationZ3MuZ;
+class RelationZ3Rec;
 
 /**
  * A base class to host the context for all Z3-based solvers
@@ -33,11 +36,14 @@ class ContextZ3 {
     friend SortUnsignedZ3;
     friend SortIdentZ3;
     friend SortRecordZ3;
+    friend RelationZ3;
+    friend RelationZ3MuZ;
+    friend RelationZ3Rec;
 
 protected:
     Z3_context ctx;
 
-protected:  // disables instantiation
+protected:
     explicit ContextZ3(Z3_config cfg) {
         ctx = Z3_mk_context(cfg);
         Z3_del_config(cfg);
@@ -54,15 +60,27 @@ public:
  * A context for SMT based on Z3 MuZ facilities
  */
 class ContextZ3MuZ : public ContextZ3 {
+    friend RelationZ3MuZ;
+
 public:
     using SORT_BASE = SortZ3;
     using SORT_NUMBER = SortNumberZ3;
     using SORT_UNSIGNED = SortUnsignedZ3;
     using SORT_IDENT = SortIdentZ3;
     using SORT_RECORD = SortRecordZ3;
+    using RELATION = RelationZ3MuZ;
+
+protected:
+    Z3_fixedpoint fp;
 
 public:
-    ContextZ3MuZ() : ContextZ3(mkConfig()) {}
+    ContextZ3MuZ() : ContextZ3(mkConfig()) {
+        fp = Z3_mk_fixedpoint(ctx);
+        Z3_fixedpoint_inc_ref(ctx, fp);
+    }
+    ~ContextZ3MuZ() {
+        Z3_fixedpoint_dec_ref(ctx, fp);
+    }
 
 private:
     static inline Z3_config mkConfig() {
@@ -75,23 +93,26 @@ private:
  * A context for SMT based on Z3 recursive functions
  */
 class ContextZ3Rec : public ContextZ3 {
+    friend RelationZ3Rec;
+
 public:
     using SORT_BASE = SortZ3;
     using SORT_NUMBER = SortNumberZ3;
     using SORT_UNSIGNED = SortUnsignedZ3;
     using SORT_IDENT = SortIdentZ3;
     using SORT_RECORD = SortRecordZ3;
+    using RELATION = RelationZ3Rec;
 
 protected:
-    Z3_fixedpoint fp;
+    Z3_solver solver;
 
 public:
     ContextZ3Rec() : ContextZ3(mkConfig()) {
-        fp = Z3_mk_fixedpoint(ctx);
-        Z3_fixedpoint_inc_ref(ctx, fp);
+        solver = Z3_mk_solver(ctx);
+        Z3_solver_inc_ref(ctx, solver);
     }
     ~ContextZ3Rec() {
-        Z3_fixedpoint_dec_ref(ctx, fp);
+        Z3_solver_dec_ref(ctx, solver);
     }
 
 private:
@@ -109,11 +130,12 @@ class SortZ3 {
     friend SortUnsignedZ3;
     friend SortIdentZ3;
     friend SortRecordZ3;
+    friend RelationZ3;
 
 protected:
     Z3_sort sort;
 
-protected:  // disables instantiation
+protected:
     SortZ3() = default;
 };
 
@@ -245,6 +267,38 @@ public:
 
         return result;
     };
+};
+
+/**
+ * A base class for all relations in Z3
+ */
+class RelationZ3 {
+protected:
+    Z3_func_decl fun;
+
+protected:
+    RelationZ3(ContextZ3& ctx, const std::string& name, const std::vector<const SortZ3*>& domain) {
+        Z3_sort domain_sorts[domain.size()];
+        for (unsigned i = 0; i < domain.size(); i++) {
+            domain_sorts[i] = domain[i]->sort;
+        }
+        fun = Z3_mk_func_decl(ctx.ctx, Z3_mk_string_symbol(ctx.ctx, name.c_str()), domain.size(),
+                domain_sorts, Z3_mk_bool_sort(ctx.ctx));
+    }
+};
+
+class RelationZ3MuZ : public RelationZ3 {
+public:
+    RelationZ3MuZ(ContextZ3MuZ& ctx, const std::string& name, const std::vector<const SortZ3*>& domain)
+            : RelationZ3(ctx, name, domain) {
+        Z3_fixedpoint_register_relation(ctx.ctx, ctx.fp, fun);
+    }
+};
+
+class RelationZ3Rec : public RelationZ3 {
+public:
+    RelationZ3Rec(ContextZ3Rec& ctx, const std::string& name, const std::vector<const SortZ3*>& domain)
+            : RelationZ3(ctx, name, domain) {}
 };
 
 }  // namespace souffle::smt
