@@ -93,8 +93,10 @@ private:
 
 protected:
     /// Retrieve a type, primitive or user-defined. Panic if nonexistent.
-    const typename CTX::SORT_BASE& retrieve_type(const ast::QualifiedName& name) const {
-        return *retrieve_type_or_null(name);
+    const typename CTX::SORT_BASE* retrieve_type(const ast::QualifiedName& name) const {
+        auto result = retrieve_type_or_null(name);
+        assert(result != nullptr);
+        return result;
     }
 
     /// Checked registration of a new ident type
@@ -217,8 +219,10 @@ private:
 
 protected:
     /// Retrieve a relation. Panic if nonexistent.
-    const typename CTX::RELATION& retrieve_relation(const ast::QualifiedName& name) const {
-        return *retrieve_relation_or_null(name);
+    const typename CTX::RELATION* retrieve_relation(const ast::QualifiedName& name) const {
+        auto result = retrieve_relation_or_null(name);
+        assert(result != nullptr);
+        return result;
     }
 
     /// Register a relation to the registry
@@ -399,7 +403,7 @@ public:
             std::vector<const typename CTX::SORT_BASE*> domain;
             for (const auto attr : rel->getAttributes()) {
                 auto type = retrieve_type(attr->getTypeName());
-                domain.push_back(&type);
+                domain.push_back(type);
             }
             register_relation(rel->getQualifiedName(), domain);
         }
