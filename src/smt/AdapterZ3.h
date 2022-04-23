@@ -82,8 +82,17 @@ public:
     using SORT_IDENT = SortIdentZ3;
     using SORT_RECORD = SortRecordZ3;
 
+protected:
+    Z3_fixedpoint fp;
+
 public:
-    ContextZ3Rec() : ContextZ3(mkConfig()) {}
+    ContextZ3Rec() : ContextZ3(mkConfig()) {
+        fp = Z3_mk_fixedpoint(ctx);
+        Z3_fixedpoint_inc_ref(ctx, fp);
+    }
+    ~ContextZ3Rec() {
+        Z3_fixedpoint_dec_ref(ctx, fp);
+    }
 
 private:
     static inline Z3_config mkConfig() {

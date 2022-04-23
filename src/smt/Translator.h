@@ -361,6 +361,9 @@ public:
 
         // TODO: use it
         // const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
+        for (const auto rel : program.getRelations()) {
+            std::cout << *rel << std::endl;
+        }
     }
 };
 
