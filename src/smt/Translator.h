@@ -375,7 +375,7 @@ protected:
     }
 
 private:
-    void clause_check_argument(const ast::Argument* arg, const ast::analysis::TypeAnalysis& typing) {
+    void analyze_clause_argument(const ast::Argument* arg, const ast::analysis::TypeAnalysis& typing) {
         // rule: each argument must have a finite set of types, i.e., not the universal type
         auto typeset = typing.getTypes(arg);
         assert(!typeset.empty() && !typeset.isAll());
@@ -409,7 +409,7 @@ private:
 
         // variables
         if (dynamic_cast<const ast::Variable*>(arg) || dynamic_cast<const ast::UnnamedVariable*>(arg)) {
-            // rule: all types appearing in variables should appear in the type registry as well
+            // rule: all inferred types for variables should appear in the type registry as well
             for (auto it = typeset.begin(); it != typeset.end(); it++) {
                 assert(retrieve_type_or_null(it->getName()) != nullptr);
             }
@@ -419,7 +419,7 @@ private:
         // terms
         if (const auto arg_term = dynamic_cast<const ast::Term*>(arg)) {
             for (const auto sub_arg : arg_term->getArguments()) {
-                clause_check_argument(sub_arg, typing);
+                analyze_clause_argument(sub_arg, typing);
             }
 
             // (intrinsic) functors
@@ -451,34 +451,41 @@ private:
         throw std::runtime_error("Unknown argument type");
     }
 
-    void clause_check_atom(const ast::Atom* atom, const ast::analysis::TypeAnalysis& typing) {
+    void analyze_clause_atom(const ast::Atom* atom, const ast::analysis::TypeAnalysis& typing) {
         assert(retrieve_relation_or_null(atom->getQualifiedName()) != nullptr);
         for (auto arg : atom->getArguments()) {
-            clause_check_argument(arg, typing);
+            analyze_clause_argument(arg, typing);
         }
     }
 
 protected:
-    /// Sanity checks for each clause
-    void clause_check(const ast::Clause* clause, const ast::analysis::TypeAnalysis& typing) {
-        clause_check_atom(clause->getHead(), typing);
+    /// Analyze one clause, perform sanity checks while collecting information
+    void analyze_clause(const ast::Clause* clause, const ast::analysis::TypeAnalysis& typing) {
+        analyze_clause_atom(clause->getHead(), typing);
         for (const auto literal : clause->getBodyLiterals()) {
             if (dynamic_cast<const ast::FunctionalConstraint*>(literal)) {
                 throw std::runtime_error("Functional constraints not supported yet");
             }
 
             if (dynamic_cast<const ast::BooleanConstraint*>(literal)) {
-                // do nothing
-            } else if (auto literal_bin = dynamic_cast<const ast::BinaryConstraint*>(literal)) {
-                clause_check_argument(literal_bin->getLHS(), typing);
-                clause_check_argument(literal_bin->getRHS(), typing);
-            } else if (auto literal_atom = dynamic_cast<const ast::Atom*>(literal)) {
-                clause_check_atom(literal_atom, typing);
-            } else if (auto literal_negation = dynamic_cast<const ast::Negation*>(literal)) {
-                clause_check_atom(literal_negation->getAtom(), typing);
-            } else {
-                throw std::runtime_error("Unknown literal type");
+                continue;
             }
+            if (auto literal_bin = dynamic_cast<const ast::BinaryConstraint*>(literal)) {
+                analyze_clause_argument(literal_bin->getLHS(), typing);
+                analyze_clause_argument(literal_bin->getRHS(), typing);
+                continue;
+            }
+            if (auto literal_atom = dynamic_cast<const ast::Atom*>(literal)) {
+                analyze_clause_atom(literal_atom, typing);
+                continue;
+            }
+            if (auto literal_negation = dynamic_cast<const ast::Negation*>(literal)) {
+                analyze_clause_atom(literal_negation->getAtom(), typing);
+                continue;
+            }
+
+            // we should have covered all literal types
+            throw std::runtime_error("Unknown literal type");
         }
     }
 
@@ -519,7 +526,7 @@ public:
         // add rules
         const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
         for (const auto rule : program.getClauses()) {
-            clause_check(rule, type_analysis);
+            analyze_clause(rule, type_analysis);
         }
     }
 };
