@@ -49,6 +49,17 @@ namespace souffle::smt {
  */
 template <typename CTX>
 class Translator {
+private:
+    class ClauseBuilder {
+        const std::map<std::string, const typename CTX::SORT_BASE*> named_vars;
+        const std::map<const ast::UnnamedVariable*, const typename CTX::SORT_BASE*> unnamed_vars;
+
+    public:
+        ClauseBuilder(std::map<std::string, const typename CTX::SORT_BASE*> named_vars_,
+                std::map<const ast::UnnamedVariable*, const typename CTX::SORT_BASE*> unnamed_vars_)
+                : named_vars(std::move(named_vars_)), unnamed_vars(std::move(unnamed_vars_)) {}
+    };
+
 protected:
     // context
     CTX ctx;
@@ -375,6 +386,15 @@ protected:
     }
 
 private:
+    std::vector<const typename CTX::SORT_BASE*> typeset_to_sorts(
+            const ast::analysis::TypeSet& typeset) const {
+        std::vector<const typename CTX::SORT_BASE*> sorts;
+        for (const auto& ty : typeset) {
+            sorts.push_back(retrieve_type(ty.getName()));
+        }
+        return sorts;
+    }
+
     void analyze_clause_argument(const ast::Argument* arg, const ast::analysis::TypeAnalysis& typing,
             std::map<std::string, ast::analysis::TypeSet>& named_vars,
             std::map<const ast::UnnamedVariable*, ast::analysis::TypeSet>& unnamed_vars) {
@@ -484,7 +504,8 @@ private:
 
 protected:
     /// Analyze one clause, perform sanity checks while collecting information
-    void analyze_clause(const ast::Clause* clause, const ast::analysis::TypeAnalysis& typing) {
+    std::vector<ClauseBuilder> analyze_clause(
+            const ast::Clause* clause, const ast::analysis::TypeAnalysis& typing) {
         // information holder
         std::map<std::string, ast::analysis::TypeSet> named_vars;
         std::map<const ast::UnnamedVariable*, ast::analysis::TypeSet> unnamed_vars;
@@ -516,6 +537,28 @@ protected:
             // we should have covered all literal types
             throw std::runtime_error("Unknown literal type");
         }
+
+        // build a set of clause builders based on types assigned to each variable
+        std::map<std::string, std::vector<const typename CTX::SORT_BASE*>> sorts_for_named_vars;
+        for (const auto& [key, val] : named_vars) {
+            sorts_for_named_vars.emplace(key, typeset_to_sorts(val));
+        }
+        auto combo_named = cartesian_distribute(sorts_for_named_vars);
+
+        std::map<const ast::UnnamedVariable*, std::vector<const typename CTX::SORT_BASE*>>
+                sorts_for_unnamed_vars;
+        for (const auto& [key, val] : unnamed_vars) {
+            sorts_for_unnamed_vars.emplace(key, typeset_to_sorts(val));
+        }
+        auto combo_unnamed = cartesian_distribute(sorts_for_unnamed_vars);
+
+        std::vector<ClauseBuilder> builders;
+        for (auto item_named : combo_named) {
+            for (auto item_unnamed : combo_unnamed) {
+                builders.emplace_back(item_named, item_unnamed);
+            }
+        }
+        return builders;
     }
 
 public:

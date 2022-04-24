@@ -163,4 +163,41 @@ public:  // SCC
     }
 };
 
+template <typename T>
+std::vector<std::vector<T>> cartesian_product(const std::vector<std::vector<T>>& v) {
+    std::vector<std::vector<T>> s = {{}};
+    for (const auto& u : v) {
+        std::vector<std::vector<T>> r;
+        for (const auto& x : s) {
+            for (const auto y : u) {
+                r.push_back(x);
+                r.back().push_back(y);
+            }
+        }
+        s = move(r);
+    }
+    return s;
+}
+
+template <typename K, typename V>
+std::vector<std::map<K, V>> cartesian_distribute(const std::map<K, std::vector<V>>& table) {
+    std::vector<K> vec_keys;
+    std::vector<std::vector<V>> vec_vals;
+    for (const auto& [key, val] : table) {
+        vec_vals.emplace_back(val);
+        vec_keys.emplace_back(key);
+    }
+
+    std::vector<std::map<K, V>> result;
+    for (auto item : cartesian_product(vec_vals)) {
+        assert(vec_keys.size() == item.size());
+        std::map<K, V> instance;
+        for (unsigned i = 0; i < vec_keys.size(); i++) {
+            instance.emplace(vec_keys[i], item[i]);
+        }
+        result.push_back(instance);
+    }
+    return result;
+}
+
 }  // namespace souffle::smt
