@@ -598,7 +598,11 @@ public:
         // add rules
         const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
         for (const auto rule : program.getClauses()) {
-            analyze_clause(rule, type_analysis);
+            auto builders = analyze_clause(rule, type_analysis);
+            assert(!builders.empty());
+            if (builders.size() > 1) {
+                std::cout << *rule << std::endl;
+            }
         }
     }
 };
