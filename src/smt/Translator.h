@@ -377,7 +377,7 @@ protected:
 private:
     void analyze_clause_argument(const ast::Argument* arg, const ast::analysis::TypeAnalysis& typing,
             std::map<std::string, ast::analysis::TypeSet>& named_vars,
-            std::map<size_t, ast::analysis::TypeSet>& unnamed_vars) {
+            std::map<const ast::UnnamedVariable*, ast::analysis::TypeSet>& unnamed_vars) {
         // rule: each argument must have a finite set of types, i.e., not the universal type
         auto typeset = typing.getTypes(arg);
         assert(!typeset.empty() && !typeset.isAll());
@@ -426,15 +426,15 @@ private:
             return;
         }
 
-        if (dynamic_cast<const ast::UnnamedVariable*>(arg)) {
+        if (const auto arg_ignored = dynamic_cast<const ast::UnnamedVariable*>(arg)) {
             // rule: all inferred types for variables should appear in the type registry as well
             for (auto it = typeset.begin(); it != typeset.end(); it++) {
                 assert(retrieve_type_or_null(it->getName()) != nullptr);
             }
 
             // save it to variable registry
-            size_t counter = unnamed_vars.size();
-            unnamed_vars.emplace(counter, typeset);
+            auto const [_, inserted] = unnamed_vars.emplace(arg_ignored, typeset);
+            assert(inserted);
             return;
         }
 
@@ -475,7 +475,7 @@ private:
 
     void analyze_clause_atom(const ast::Atom* atom, const ast::analysis::TypeAnalysis& typing,
             std::map<std::string, ast::analysis::TypeSet>& named_vars,
-            std::map<size_t, ast::analysis::TypeSet>& unnamed_vars) {
+            std::map<const ast::UnnamedVariable*, ast::analysis::TypeSet>& unnamed_vars) {
         assert(retrieve_relation_or_null(atom->getQualifiedName()) != nullptr);
         for (auto arg : atom->getArguments()) {
             analyze_clause_argument(arg, typing, named_vars, unnamed_vars);
@@ -487,7 +487,7 @@ protected:
     void analyze_clause(const ast::Clause* clause, const ast::analysis::TypeAnalysis& typing) {
         // information holder
         std::map<std::string, ast::analysis::TypeSet> named_vars;
-        std::map<size_t, ast::analysis::TypeSet> unnamed_vars;
+        std::map<const ast::UnnamedVariable*, ast::analysis::TypeSet> unnamed_vars;
 
         // collect information
         analyze_clause_atom(clause->getHead(), typing, named_vars, unnamed_vars);
