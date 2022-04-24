@@ -375,11 +375,16 @@ protected:
     }
 
 private:
+    void clause_check_argument(const ast::Argument* arg, const ast::analysis::TypeAnalysis& typing) {
+        // rule: each argument must have a finite set of types, i.e., not the universal type
+        auto typeset = typing.getTypes(arg);
+        assert(!typeset.empty() && !typeset.isAll());
+    }
+
     void clause_check_atom(const ast::Atom* atom, const ast::analysis::TypeAnalysis& typing) {
         assert(retrieve_relation_or_null(atom->getQualifiedName()) != nullptr);
         for (auto arg : atom->getArguments()) {
-            auto typeset = typing.getTypes(arg);
-            assert(!typeset.empty() && !typeset.isAll());
+            clause_check_argument(arg, typing);
         }
     }
 
@@ -387,6 +392,22 @@ protected:
     /// Sanity checks for each clause
     void clause_check(const ast::Clause* clause, const ast::analysis::TypeAnalysis& typing) {
         clause_check_atom(clause->getHead(), typing);
+        for (const auto literal : clause->getBodyLiterals()) {
+            if (dynamic_cast<const ast::FunctionalConstraint*>(literal)) {
+                throw std::runtime_error("Functional constraints not supported yet");
+            } else if (dynamic_cast<const ast::BooleanConstraint*>(literal)) {
+                // do nothing
+            } else if (auto literal_bin = dynamic_cast<const ast::BinaryConstraint*>(literal)) {
+                clause_check_argument(literal_bin->getLHS(), typing);
+                clause_check_argument(literal_bin->getRHS(), typing);
+            } else if (auto literal_atom = dynamic_cast<const ast::Atom*>(literal)) {
+                clause_check_atom(literal_atom, typing);
+            } else if (auto literal_negation = dynamic_cast<const ast::Negation*>(literal)) {
+                clause_check_atom(literal_negation->getAtom(), typing);
+            } else {
+                throw std::runtime_error("Unknown literal type");
+            }
+        }
     }
 
 public:
