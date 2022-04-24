@@ -379,6 +379,76 @@ private:
         // rule: each argument must have a finite set of types, i.e., not the universal type
         auto typeset = typing.getTypes(arg);
         assert(!typeset.empty() && !typeset.isAll());
+
+        // filter out unsupported cases
+        if (dynamic_cast<const ast::TypeCast*>(arg)) {
+            throw std::runtime_error("Type casts are not supported yet");
+        }
+        if (dynamic_cast<const ast::Aggregator*>(arg)) {
+            throw std::runtime_error("Aggregators are not supported yet");
+        }
+        if (dynamic_cast<const ast::Counter*>(arg)) {
+            throw std::runtime_error("Counters are not supported yet");
+        }
+        if (dynamic_cast<const ast::UserDefinedFunctor*>(arg)) {
+            throw std::runtime_error("User-defined functors are not supported yet");
+        }
+
+        // filter out prohibited cases
+        if (dynamic_cast<const ast::NilConstant*>(arg)) {
+            throw std::runtime_error("Nil constant (for record construction) is prohibited");
+        }
+
+        // constants
+        if (const auto arg_const_num = dynamic_cast<const ast::NumericConstant*>(arg)) {
+            return;
+        }
+        if (const auto arg_const_str = dynamic_cast<const ast::StringConstant*>(arg)) {
+            return;
+        }
+
+        // variables
+        if (dynamic_cast<const ast::Variable*>(arg) || dynamic_cast<const ast::UnnamedVariable*>(arg)) {
+            // rule: all types appearing in variables should appear in the type registry as well
+            for (auto it = typeset.begin(); it != typeset.end(); it++) {
+                assert(retrieve_type_or_null(it->getName()) != nullptr);
+            }
+            return;
+        }
+
+        // terms
+        if (const auto arg_term = dynamic_cast<const ast::Term*>(arg)) {
+            for (const auto sub_arg : arg_term->getArguments()) {
+                clause_check_argument(sub_arg, typing);
+            }
+
+            // (intrinsic) functors
+            if (const auto arg_functor = dynamic_cast<const ast::IntrinsicFunctor*>(arg)) {
+                return;
+            }
+
+            // record ctor
+            if (const auto arg_record = dynamic_cast<const ast::RecordInit*>(arg)) {
+                // rule: the constructed type should appear in the type registry as well
+                assert(typeset.size() == 1);
+                assert(retrieve_type_or_null(typeset.begin()->getName()) != nullptr);
+                return;
+            }
+
+            // branch ctor
+            if (const auto arg_branch = dynamic_cast<const ast::BranchInit*>(arg)) {
+                // rule: the constructed type should appear in the type registry as well
+                assert(typeset.size() == 1);
+                assert(retrieve_type_or_null(typeset.begin()->getName()) != nullptr);
+                return;
+            }
+
+            // catch all
+            throw std::runtime_error("Unknown term type");
+        }
+
+        // catch all
+        throw std::runtime_error("Unknown argument type");
     }
 
     void clause_check_atom(const ast::Atom* atom, const ast::analysis::TypeAnalysis& typing) {
@@ -395,7 +465,9 @@ protected:
         for (const auto literal : clause->getBodyLiterals()) {
             if (dynamic_cast<const ast::FunctionalConstraint*>(literal)) {
                 throw std::runtime_error("Functional constraints not supported yet");
-            } else if (dynamic_cast<const ast::BooleanConstraint*>(literal)) {
+            }
+
+            if (dynamic_cast<const ast::BooleanConstraint*>(literal)) {
                 // do nothing
             } else if (auto literal_bin = dynamic_cast<const ast::BinaryConstraint*>(literal)) {
                 clause_check_argument(literal_bin->getLHS(), typing);
