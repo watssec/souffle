@@ -375,7 +375,9 @@ protected:
     }
 
 private:
-    void analyze_clause_argument(const ast::Argument* arg, const ast::analysis::TypeAnalysis& typing) {
+    void analyze_clause_argument(const ast::Argument* arg, const ast::analysis::TypeAnalysis& typing,
+            std::map<std::string, ast::analysis::TypeSet>& named_vars,
+            std::map<size_t, ast::analysis::TypeSet>& unnamed_vars) {
         // rule: each argument must have a finite set of types, i.e., not the universal type
         auto typeset = typing.getTypes(arg);
         assert(!typeset.empty() && !typeset.isAll());
@@ -408,18 +410,38 @@ private:
         }
 
         // variables
-        if (dynamic_cast<const ast::Variable*>(arg) || dynamic_cast<const ast::UnnamedVariable*>(arg)) {
+        if (const auto arg_var = dynamic_cast<const ast::Variable*>(arg)) {
             // rule: all inferred types for variables should appear in the type registry as well
             for (auto it = typeset.begin(); it != typeset.end(); it++) {
                 assert(retrieve_type_or_null(it->getName()) != nullptr);
             }
+
+            // save it to variable registry if we haven't seen it yet
+            auto it = named_vars.find(arg_var->getName());
+            if (it == named_vars.end()) {
+                named_vars.emplace(arg_var->getName(), typeset);
+            } else {
+                assert(it->second == typeset);
+            }
+            return;
+        }
+
+        if (dynamic_cast<const ast::UnnamedVariable*>(arg)) {
+            // rule: all inferred types for variables should appear in the type registry as well
+            for (auto it = typeset.begin(); it != typeset.end(); it++) {
+                assert(retrieve_type_or_null(it->getName()) != nullptr);
+            }
+
+            // save it to variable registry
+            size_t counter = unnamed_vars.size();
+            unnamed_vars.emplace(counter, typeset);
             return;
         }
 
         // terms
         if (const auto arg_term = dynamic_cast<const ast::Term*>(arg)) {
             for (const auto sub_arg : arg_term->getArguments()) {
-                analyze_clause_argument(sub_arg, typing);
+                analyze_clause_argument(sub_arg, typing, named_vars, unnamed_vars);
             }
 
             // (intrinsic) functors
@@ -451,17 +473,24 @@ private:
         throw std::runtime_error("Unknown argument type");
     }
 
-    void analyze_clause_atom(const ast::Atom* atom, const ast::analysis::TypeAnalysis& typing) {
+    void analyze_clause_atom(const ast::Atom* atom, const ast::analysis::TypeAnalysis& typing,
+            std::map<std::string, ast::analysis::TypeSet>& named_vars,
+            std::map<size_t, ast::analysis::TypeSet>& unnamed_vars) {
         assert(retrieve_relation_or_null(atom->getQualifiedName()) != nullptr);
         for (auto arg : atom->getArguments()) {
-            analyze_clause_argument(arg, typing);
+            analyze_clause_argument(arg, typing, named_vars, unnamed_vars);
         }
     }
 
 protected:
     /// Analyze one clause, perform sanity checks while collecting information
     void analyze_clause(const ast::Clause* clause, const ast::analysis::TypeAnalysis& typing) {
-        analyze_clause_atom(clause->getHead(), typing);
+        // information holder
+        std::map<std::string, ast::analysis::TypeSet> named_vars;
+        std::map<size_t, ast::analysis::TypeSet> unnamed_vars;
+
+        // collect information
+        analyze_clause_atom(clause->getHead(), typing, named_vars, unnamed_vars);
         for (const auto literal : clause->getBodyLiterals()) {
             if (dynamic_cast<const ast::FunctionalConstraint*>(literal)) {
                 throw std::runtime_error("Functional constraints not supported yet");
@@ -471,16 +500,16 @@ protected:
                 continue;
             }
             if (auto literal_bin = dynamic_cast<const ast::BinaryConstraint*>(literal)) {
-                analyze_clause_argument(literal_bin->getLHS(), typing);
-                analyze_clause_argument(literal_bin->getRHS(), typing);
+                analyze_clause_argument(literal_bin->getLHS(), typing, named_vars, unnamed_vars);
+                analyze_clause_argument(literal_bin->getRHS(), typing, named_vars, unnamed_vars);
                 continue;
             }
             if (auto literal_atom = dynamic_cast<const ast::Atom*>(literal)) {
-                analyze_clause_atom(literal_atom, typing);
+                analyze_clause_atom(literal_atom, typing, named_vars, unnamed_vars);
                 continue;
             }
             if (auto literal_negation = dynamic_cast<const ast::Negation*>(literal)) {
-                analyze_clause_atom(literal_negation->getAtom(), typing);
+                analyze_clause_atom(literal_negation->getAtom(), typing, named_vars, unnamed_vars);
                 continue;
             }
 
