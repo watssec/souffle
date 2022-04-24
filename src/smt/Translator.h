@@ -374,6 +374,21 @@ protected:
         return dep_graph;
     }
 
+private:
+    void clause_check_atom(const ast::Atom* atom, const ast::analysis::TypeAnalysis& typing) {
+        assert(retrieve_relation_or_null(atom->getQualifiedName()) != nullptr);
+        for (auto arg : atom->getArguments()) {
+            auto typeset = typing.getTypes(arg);
+            assert(!typeset.empty() && !typeset.isAll());
+        }
+    }
+
+protected:
+    /// Sanity checks for each clause
+    void clause_check(const ast::Clause* clause, const ast::analysis::TypeAnalysis& typing) {
+        clause_check_atom(clause->getHead(), typing);
+    }
+
 public:
     /// Convert the translation unit into an SMT context
     void convert(const ast::TranslationUnit& unit) {
@@ -408,8 +423,11 @@ public:
             register_relation(rel->getQualifiedName(), domain);
         }
 
-        // TODO: use it
-        // const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
+        // add rules
+        const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
+        for (const auto rule : program.getClauses()) {
+            clause_check(rule, type_analysis);
+        }
     }
 };
 
