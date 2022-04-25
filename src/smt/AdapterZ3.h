@@ -301,4 +301,30 @@ public:
             : RelationZ3(ctx, name, domain) {}
 };
 
+/**
+ * A base class for all terms in Z3
+ */
+class TermZ3 {
+    friend ContextZ3;
+    friend ContextZ3MuZ;
+    friend ContextZ3Rec;
+
+protected:
+    Z3_ast term;
+
+protected:
+    TermZ3(Z3_ast term_) : term(term_) {}
+};
+
+class TermVarZ3 : public TermZ3 {
+protected:
+    TermVarZ3(Z3_ast term_) : TermZ3(term_) {}
+};
+
+class RuleZ3 {
+protected:
+    TermZ3 head;
+    std::vector<TermZ3> body;
+};
+
 }  // namespace souffle::smt
