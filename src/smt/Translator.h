@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <map>
 #include <stdexcept>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <variant>
@@ -65,14 +66,14 @@ protected:
     CTX ctx;
 
     // types
-    std::map<ast::QualifiedName, std::tuple<const ast::analysis::Type*, const ast::Type*>> adt_registry;
+    std::map<std::string, std::tuple<const ast::analysis::Type*, const ast::Type*>> adt_registry;
     typename CTX::SORT_NUMBER type_number;
     typename CTX::SORT_UNSIGNED type_unsigned;
-    std::map<ast::QualifiedName, typename CTX::SORT_IDENT> type_idents;
-    std::map<ast::QualifiedName, typename CTX::SORT_RECORD> type_records;
+    std::map<std::string, typename CTX::SORT_IDENT> type_idents;
+    std::map<std::string, typename CTX::SORT_RECORD> type_records;
 
     // relations
-    std::map<ast::QualifiedName, typename CTX::RELATION> relations;
+    std::map<std::string, typename CTX::RELATION> relations;
 
 protected:
     Translator() : ctx(), type_number(ctx), type_unsigned(ctx) {}
@@ -80,20 +81,22 @@ protected:
 private:
     /// Retrieve a type, primitive or user-defined, or nullptr if non-exist
     const typename CTX::SORT_BASE* retrieve_type_or_null(const ast::QualifiedName& name) const {
+        const auto repr = name.toString();
+
         // primitives
-        if (name == "number") {
+        if (repr == "number") {
             return &type_number;
         }
-        if (name == "unsigned") {
+        if (repr == "unsigned") {
             return &type_unsigned;
         }
 
         // user-defined
-        const auto it_ident = type_idents.find(name);
+        const auto it_ident = type_idents.find(repr);
         if (it_ident != type_idents.end()) {
             return &it_ident->second;
         }
-        const auto it_record = type_records.find(name);
+        const auto it_record = type_records.find(repr);
         if (it_record != type_records.end()) {
             return &it_record->second;
         }
@@ -113,8 +116,10 @@ protected:
     /// Checked registration of a new ident type
     void register_type_ident(ast::QualifiedName name) {
         assert(retrieve_type_or_null(name) == nullptr);
-        auto sort = typename CTX::SORT_IDENT(ctx, name);
-        const auto [_, inserted] = type_idents.emplace(name, sort);
+
+        auto repr = name.toString();
+        auto sort = typename CTX::SORT_IDENT(ctx, repr);
+        const auto [_, inserted] = type_idents.emplace(std::move(repr), sort);
         assert(inserted);
     }
 
@@ -129,7 +134,7 @@ protected:
         std::map<const ast::analysis::Type*, size_t> indices;
         std::vector<std::tuple<const ast::analysis::Type*, const ast::Type*>> ordered;
         for (auto type : scc) {
-            auto it = adt_registry.find(type->getName());
+            auto it = adt_registry.find(type->getName().toString());
             assert(it != adt_registry.end());
 
             auto ty_idx = ordered.size();
@@ -213,7 +218,7 @@ protected:
         assert(constructed.size() == ordered.size());
         for (unsigned i = 0; i < ordered.size(); i++) {
             const auto& name = std::get<0>(ordered[i])->getName();
-            const auto [_, inserted] = type_records.emplace(name, constructed[i]);
+            const auto [_, inserted] = type_records.emplace(name.toString(), constructed[i]);
             assert(inserted);
         }
     }
@@ -221,9 +226,9 @@ protected:
 private:
     /// Retrieve a relation or nullptr if non-exist
     const typename CTX::RELATION* retrieve_relation_or_null(const ast::QualifiedName& name) const {
-        const auto it_ident = relations.find(name);
-        if (it_ident != relations.end()) {
-            return &it_ident->second;
+        const auto it = relations.find(name.toString());
+        if (it != relations.end()) {
+            return &it->second;
         }
         return nullptr;
     }
@@ -240,8 +245,10 @@ protected:
     void register_relation(
             ast::QualifiedName name, const std::vector<const typename CTX::SORT_BASE*>& domain) {
         assert(retrieve_relation_or_null(name) == nullptr);
-        auto relation = typename CTX::RELATION(ctx, name.toString(), domain);
-        const auto [_, inserted] = relations.emplace(name, relation);
+
+        auto repr = name.toString();
+        auto relation = typename CTX::RELATION(ctx, repr, domain);
+        const auto [_, inserted] = relations.emplace(std::move(repr), relation);
         assert(inserted);
     }
 
@@ -299,7 +306,7 @@ protected:
 
                 // add its information to registry
                 auto r = adt_registry.emplace(
-                        type_record->getName(), std::make_tuple(type_record, ast_record));
+                        type_record->getName().toString(), std::make_tuple(type_record, ast_record));
                 assert(r.second);
             } else if (auto type_adt = dynamic_cast<const ast::analysis::AlgebraicDataType*>(&type)) {
                 auto ast_adt = dynamic_cast<const ast::AlgebraicDataType*>(ast_type);
@@ -330,7 +337,8 @@ protected:
                 }
 
                 // add its information to registry
-                auto r = adt_registry.emplace(type_adt->getName(), std::make_tuple(type_adt, ast_adt));
+                auto r = adt_registry.emplace(
+                        type_adt->getName().toString(), std::make_tuple(type_adt, ast_adt));
                 assert(r.second);
             } else {
                 throw std::runtime_error("Unknown user-defined type: " + type.getName().toString());
@@ -361,7 +369,7 @@ protected:
                 for (const auto field_type : type_record->getFields()) {
                     // add an edge for the ADT if we haven't registered the type somewhere
                     if (retrieve_type_or_null(field_type->getName()) == nullptr) {
-                        auto it = adt_registry.find(field_type->getName());
+                        auto it = adt_registry.find(field_type->getName().toString());
                         assert(it != adt_registry.end());
                         dep_graph.addEdge(type_record, std::get<0>(it->second));
                     }
@@ -371,7 +379,7 @@ protected:
                     for (const auto field_type : type_branch.types) {
                         // add an edge for the ADT if we haven't registered the type somewhere
                         if (retrieve_type_or_null(field_type->getName()) == nullptr) {
-                            auto it = adt_registry.find(field_type->getName());
+                            auto it = adt_registry.find(field_type->getName().toString());
                             assert(it != adt_registry.end());
                             dep_graph.addEdge(type_adt, std::get<0>(it->second));
                         }
