@@ -172,7 +172,7 @@ namespace souffle {
 /**
  * Compiles the given source file to a binary file.
  */
-void compileToBinary(const std::string& command, std::vector<fs::path>& sourceFilenames) {
+void compileToBinary(const std::string& command, std::vector<fs::path>& sourceFilenames, fs::path binary) {
     std::vector<std::string> argv;
 
     argv.push_back(command);
@@ -200,6 +200,9 @@ void compileToBinary(const std::string& command, std::vector<fs::path>& sourceFi
     for (fs::path srcFile : sourceFilenames) {
         argv.push_back(srcFile.string());
     }
+
+    argv.push_back("-o");
+    argv.push_back(binary.string());
 
 #if defined(_MSC_VER)
     const char* interpreter = "python";
@@ -846,7 +849,8 @@ int main(int argc, char** argv) {
                 if (!souffle_compile) throw std::runtime_error("failed to locate souffle-compile.py");
 
                 auto t_bgn = std::chrono::high_resolution_clock::now();
-                compileToBinary(*souffle_compile, srcFiles);
+                fs::path output(binaryFilename);
+                compileToBinary(*souffle_compile, srcFiles, output);
                 auto t_end = std::chrono::high_resolution_clock::now();
 
                 if (Global::config().has("verbose")) {

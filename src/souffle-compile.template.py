@@ -75,17 +75,17 @@ parser.add_argument('-g', action='store_true', dest='debug', help="Debug build t
 parser.add_argument('-s', metavar='LANG', dest='swiglang', choices=["java", "python"], help="use SWIG interface to generate into LANG language")
 parser.add_argument('-v', action='store_true', dest='verbose', help="Verbose output")
 parser.add_argument('source', nargs='+', metavar='SOURCE', type=lambda p: pathlib.Path(p).absolute(), help="C++ source files")
+parser.add_argument('-o', metavar='BINARY', dest='output', type=lambda p: pathlib.Path(p).absolute(), help="Binary file name")
 
 args = parser.parse_args()
 
-stemname = args.source[0].stem
-dirname = args.source[0].parent
+if not args.output:
+    raise RuntimeError("Missing output file name in souffle-compile")
 
 for f in args.source:
     if not os.path.isfile(f):
         raise RuntimeError("Cannot open source file: '{}'".format(f))
-    if len(f.stem) < len(stemname):
-        stemname = f.stem
+
 
 # Check if the input file has a valid extension
 for f in args.source:
@@ -150,7 +150,7 @@ if args.swiglang:
         cmd.append('"{}"'.format(conf['compiler']))
         cmd.append("-shared")
         cmd.append("SwigInterface_wrap.o")
-        cmd.append("{}{}".format(stemname, ".o"))
+        cmd.append(str(args.output) + ".o")
         cmd.append("-o")
         cmd.append(swig_outname)
         cmd.append(conf['definitions'])
@@ -181,7 +181,7 @@ if args.swiglang:
         # move generated files to same directory as cpp file
         os.sys.exit(0)
 else:
-    exepath = pathlib.Path(dirname.joinpath("{}{}".format(stemname, exeext)))
+    exepath = args.output
 
     cmd = []
     cmd.append('"{}"'.format(conf['compiler']))
