@@ -181,7 +181,7 @@ if args.swiglang:
         # move generated files to same directory as cpp file
         os.sys.exit(0)
 else:
-    exepath = args.output
+    exepath = pathlib.Path("{}{}".format(args.output, exeext))
 
     cmd = []
     cmd.append('"{}"'.format(conf['compiler']))
