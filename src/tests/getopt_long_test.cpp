@@ -37,7 +37,7 @@ TEST(GetOptLong, Short) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, 'z');
     EXPECT_EQ(optarg, nullptr);
@@ -88,7 +88,7 @@ TEST(GetOptLong, SimplePermutation) {
     const char* optstr = "xy";
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, 'x');
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
@@ -120,7 +120,7 @@ TEST(GetOptLong, ComplexPermutation) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, 'x');
     EXPECT_NE(optarg, nullptr);
@@ -148,7 +148,7 @@ TEST(GetOptLong, Short2) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, 'n');
     EXPECT_EQ(optarg, nullptr);
@@ -195,7 +195,7 @@ TEST(GetOptLong, Empty) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, -1);
 
@@ -218,7 +218,7 @@ TEST(GetOptLong, NonOpts) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
 
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, 'n');
@@ -246,7 +246,7 @@ TEST(GetOptLong, MissingArg) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
 
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, '?');
@@ -263,7 +263,7 @@ TEST(GetOptLong, MissingArg2) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
 
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, ':');
@@ -280,7 +280,7 @@ TEST(GetOptLong, MissingArg3) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
 
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, '?');
@@ -297,7 +297,7 @@ TEST(GetOptLong, MissingArg4) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
 
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, '?');
@@ -316,7 +316,7 @@ TEST(GetOptLong, MissingArg5) {
     longopts[1].name = "long";
     longopts[1].val = 1;
 
-    char c;
+    int c;
 
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, '?');
@@ -339,7 +339,7 @@ TEST(GetOptLong, DashArg) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
 
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, 't');
@@ -363,7 +363,7 @@ TEST(GetOptLong, NonOptionDash) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
 
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, 'n');
@@ -386,7 +386,7 @@ TEST(GetOptLong, DashDashEndScan) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
 
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, 'n');
@@ -410,7 +410,7 @@ TEST(GetOptLong, NotAnOption) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
 
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, '?');
@@ -427,7 +427,7 @@ TEST(GetOptLong, NotAnOption2) {
     struct option longopts[1];
     memset(longopts, 0, sizeof(struct option));
 
-    char c;
+    int c;
 
     c = getopt_long(argc, argv, optstr, longopts, nullptr);
     EXPECT_EQ(c, '?');
@@ -453,7 +453,7 @@ TEST(GetOptLong, LongOptions) {
             {"version", no_argument, &version_flag, 'v'}, {"generate", optional_argument, nullptr, 'g'},
             {"show", required_argument, &show_flag, 0x4}, {nullptr, 0, nullptr, 0}};
 
-    char c;
+    int c;
     int longindex;
 
     c = getopt_long(argc, argv, optstr, longopts, &longindex);

@@ -393,7 +393,7 @@ execute_process(COMMAND bash "${CMAKE_SOURCE_DIR}/sh/check_os.sh"
                 RESULT_VARIABLE CHECK_OS_RESULT
                 OUTPUT_VARIABLE CHECK_OS_OUTPUT)
 
-SET(CPACK_PACKAGE_CONTACT "Patrick H.")
+SET(CPACK_PACKAGE_CONTACT "Bernhard Scholz <bernhard.scholz@sydney.edu.au>")
 SET(CPACK_PACKAGE_DESCRIPTION "Souffle - A Datalog Compiler")
 SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A Datalog Compiler")
 
@@ -401,14 +401,14 @@ SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A Datalog Compiler")
 SET(CPACK_THREADS 0)
 
 # Make sure changelog, bash-completion and other important files in debian directory also packaged
-SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_SOURCE_DIR}/debian/changelog.in" "${CMAKE_SOURCE_DIR}/debian/souffle.bash-completion" "${CMAKE_SOURCE_DIR}/debian/copyright")
+SET(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_SOURCE_DIR}/debian/changelog" "${CMAKE_SOURCE_DIR}/debian/souffle.bash-completion" "${CMAKE_SOURCE_DIR}/debian/copyright")
 
 # --------------------------------------------------
 # CPack configuration 
 # --------------------------------------------------
 if (CHECK_OS_RESULT EQUAL 0)
-    if (CHECK_OS_OUTPUT MATCHES "UBUNTU")
-        # Generate just DEB
+    if (CHECK_OS_OUTPUT MATCHES "DEBIAN")
+        # Generate DEB packages
         SET(CPACK_GENERATOR "DEB")
         # --------------------------------------------------
         # Variables relevent to DEB packages
@@ -425,12 +425,13 @@ if (CHECK_OS_RESULT EQUAL 0)
         INCLUDE(CPack)
     endif()
 
-    if (CHECK_OS_OUTPUT MATCHES "FEDORA" OR CHECK_OS_OUTPUT MATCHES "CENTOS")
+    if (CHECK_OS_OUTPUT MATCHES "FEDORA")
       SET(CPACK_RPM_PACKAGE_GROUP "Unspecified")
       SET(CPACK_RPM_PACKAGE_LICENSE "UPL-1.0 License")
       SET(CPACK_RPM_PACKAGE_VENDOR "Souffle-lang")
+      SET(CPACK_RPM_PACKAGE_DESCRIPTION "${CPACK_PACKAGE_DESCRIPTION}")
 
-      # Generate both DEB and RPM packages
+      # Generate RPM packages
       SET(CPACK_GENERATOR "RPM")
 
       # --------------------------------------------------
