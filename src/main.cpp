@@ -531,8 +531,9 @@ int main(int argc, char** argv) {
 
     // Magic-Set pipeline
     auto magicPipeline = mk<ast::transform::PipelineTransformer>(
-            mk<ast::transform::ExpandEqrelsTransformer>(), mk<ast::transform::MagicSetTransformer>(),
-            mk<ast::transform::ResolveAliasesTransformer>(),
+            mk<ast::transform::ConditionalTransformer>(
+                    Global::config().has("magic-transform"), mk<ast::transform::ExpandEqrelsTransformer>()),
+            mk<ast::transform::MagicSetTransformer>(), mk<ast::transform::ResolveAliasesTransformer>(),
             mk<ast::transform::RemoveRelationCopiesTransformer>(),
             mk<ast::transform::RemoveEmptyRelationsTransformer>(),
             mk<ast::transform::RemoveRedundantRelationsTransformer>(), clone(equivalencePipeline));
