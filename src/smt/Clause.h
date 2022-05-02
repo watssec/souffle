@@ -677,17 +677,19 @@ public:
         // add rules and their dependencies
         Graph<RelationIndex> dep_graph;
 
+        // populate the nodes in the dep graph
+        for (const auto& [_, val] : relationRegistry.mapping) {
+            dep_graph.addNode(val.index);
+            mapping.emplace(val.index, std::vector<ClauseAnalyzer>());
+        }
+
+        // do the actual analysis
         const auto& program = unit.getProgram();
         const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
         for (const auto clause : program.getClauses()) {
             const auto relation =
                     relationRegistry.retrieve_relation(clause->getHead()->getQualifiedName().toString());
             mapping[relation].emplace_back(clause, type_analysis, typeRegistry, relationRegistry);
-        }
-
-        // populate the nodes in the dep graph
-        for (const auto& [_, val] : relationRegistry.mapping) {
-            dep_graph.addNode(val.index);
         }
 
         // populate the edges in the dep graph

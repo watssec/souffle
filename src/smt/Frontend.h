@@ -67,11 +67,13 @@ public:
                 for (const auto& index : scc.nodes) {
                     const auto& rel = relations.retrieve_details(index);
                     backend.mkRelDeclRecursive(rel.index, rel.name, rel.params);
+                    build_relation(rel.index);
                 }
             } else {
                 assert(scc.nodes.size() == 1);
                 const auto& rel = relations.retrieve_details(*scc.nodes.begin());
                 backend.mkRelDeclSimple(rel.index, rel.name, rel.params);
+                build_relation(rel.index);
             }
         }
     }
@@ -140,6 +142,15 @@ public:
     }
 
 private:
+    void build_relation(const RelationIndex& index) const {
+        const auto& defs = clauses.mapping.at(index);
+        for (const auto& analyzer : defs) {
+            const auto& rule = RuleAnalyzer(types, relations, analyzer);
+            // TODO impl
+            assert(rule.counter != 0);
+        }
+    }
+
     void build_terms_by_sequence(
             Backend& backend, const ClauseInstantiation& inst, const std::vector<const Term*>& seq) const {
         for (auto term : seq) {
