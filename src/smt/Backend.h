@@ -59,8 +59,8 @@ public:
     virtual void mkTermConstNumber(const TermIndex& index, int64_t value) = 0;
     virtual void mkTermConstUnsigned(const TermIndex& index, uint64_t value) = 0;
     virtual void mkTermIdent(const TermIndex& index, const TypeIndex& type, const std::string& ident) = 0;
-    virtual void mkTermOp(
-            const TermIndex& index, const FunctorOp& op, const std::vector<TermIndex>& args) = 0;
+    virtual void mkTermFunctor(
+            const TermIndex& index, const FunctorOp& op, const TermIndex& lhs, const TermIndex& rhs) = 0;
     virtual void mkTermCtor(const TermIndex& index, const TypeIndex& adt, const std::string& branch,
             const std::vector<TermIndex>& args) = 0;
     virtual void mkTermAtom(

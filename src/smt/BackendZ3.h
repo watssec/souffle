@@ -312,59 +312,52 @@ public:
     void mkTermIdent(const TermIndex& index, const TypeIndex& type, const std::string& ident) override {
         registerTerm(index, Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, ident.c_str()), types[type]->sort));
     };
-    void mkTermOp(const TermIndex& index, const FunctorOp& op, const std::vector<TermIndex>& args) override {
+    void mkTermFunctor(const TermIndex& index, const FunctorOp& op, const TermIndex& lhs,
+            const TermIndex& rhs) override {
+        const auto& lhs_term = terms.at(lhs)->term;
+        const auto& rhs_term = terms.at(rhs)->term;
         Z3_ast result;
         switch (op) {
                 // number
             case FunctorOp::ADD: {
-                assert(args.size() == 2);
-                result = Z3_mk_add(ctx, 2, new Z3_ast[2]{terms[args[0]]->term, terms[args[1]]->term});
+                result = Z3_mk_add(ctx, 2, new Z3_ast[2]{lhs_term, rhs_term});
                 break;
             }
             case FunctorOp::SUB: {
-                assert(args.size() == 2);
-                result = Z3_mk_sub(ctx, 2, new Z3_ast[2]{terms[args[0]]->term, terms[args[1]]->term});
+                result = Z3_mk_sub(ctx, 2, new Z3_ast[2]{lhs_term, rhs_term});
                 break;
             }
             case FunctorOp::MUL: {
-                assert(args.size() == 2);
-                result = Z3_mk_mul(ctx, 2, new Z3_ast[2]{terms[args[0]]->term, terms[args[1]]->term});
+                result = Z3_mk_mul(ctx, 2, new Z3_ast[2]{lhs_term, rhs_term});
                 break;
             }
             case FunctorOp::DIV: {
-                assert(args.size() == 2);
-                result = Z3_mk_div(ctx, terms[args[0]]->term, terms[args[1]]->term);
+                result = Z3_mk_div(ctx, lhs_term, rhs_term);
                 break;
             }
             case FunctorOp::MOD: {
-                assert(args.size() == 2);
-                result = Z3_mk_mod(ctx, terms[args[0]]->term, terms[args[1]]->term);
+                result = Z3_mk_mod(ctx, lhs_term, rhs_term);
                 break;
             }
                 // unsigned
             case FunctorOp::UADD: {
-                assert(args.size() == 2);
-                result = Z3_mk_bvadd(ctx, terms[args[0]]->term, terms[args[1]]->term);
+                result = Z3_mk_bvadd(ctx, lhs_term, rhs_term);
                 break;
             }
             case FunctorOp::USUB: {
-                assert(args.size() == 2);
-                result = Z3_mk_bvsub(ctx, terms[args[0]]->term, terms[args[1]]->term);
+                result = Z3_mk_bvsub(ctx, lhs_term, rhs_term);
                 break;
             }
             case FunctorOp::UMUL: {
-                assert(args.size() == 2);
-                result = Z3_mk_bvmul(ctx, terms[args[0]]->term, terms[args[1]]->term);
+                result = Z3_mk_bvmul(ctx, lhs_term, rhs_term);
                 break;
             }
             case FunctorOp::UDIV: {
-                assert(args.size() == 2);
-                result = Z3_mk_bvudiv(ctx, terms[args[0]]->term, terms[args[1]]->term);
+                result = Z3_mk_bvudiv(ctx, lhs_term, rhs_term);
                 break;
             }
             case FunctorOp::UMOD: {
-                assert(args.size() == 2);
-                result = Z3_mk_bvurem(ctx, terms[args[0]]->term, terms[args[1]]->term);
+                result = Z3_mk_bvurem(ctx, lhs_term, rhs_term);
                 break;
             }
                 // others

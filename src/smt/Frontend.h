@@ -153,25 +153,25 @@ private:
             }
 
             // recursive nodes
-            if (auto term_op = dynamic_cast<const TermOp*>(term)) {
-                backend.mkTermOp(index, term_op->op, term_op->children);
+            if (auto term_functor = dynamic_cast<const TermFunctorOp*>(term)) {
+                backend.mkTermFunctor(index, term_functor->op, term_functor->lhs, term_functor->rhs);
                 continue;
             }
             if (auto term_ctor = dynamic_cast<const TermCtor*>(term)) {
-                backend.mkTermCtor(index, term_ctor->adt, term_ctor->branch, term_ctor->children);
+                backend.mkTermCtor(index, term_ctor->adt, term_ctor->branch, term_ctor->args);
                 continue;
             }
             if (auto term_atom = dynamic_cast<const TermAtom*>(term)) {
-                backend.mkTermAtom(index, term_atom->relation, term_atom->children);
+                backend.mkTermAtom(index, term_atom->relation, term_atom->args);
                 continue;
             }
             if (auto term_negation = dynamic_cast<const TermNegation*>(term)) {
-                backend.mkTermNegation(index, term_negation->children[0]);
+                backend.mkTermNegation(index, term_negation->child);
                 continue;
             }
             if (auto term_constraint = dynamic_cast<const TermConstraint*>(term)) {
-                backend.mkTermConstraint(index, term_constraint->op, term_constraint->children[0],
-                        term_constraint->children[1]);
+                backend.mkTermConstraint(
+                        index, term_constraint->op, term_constraint->lhs, term_constraint->rhs);
                 continue;
             }
 

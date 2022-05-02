@@ -44,69 +44,119 @@ struct Term {
 
 public:
     const TermIndex index;
-    const std::vector<TermIndex> children;
 
 protected:
-    Term(TermIndex index_, std::vector<TermIndex> children_)
-            : index(index_), children(std::move(children_)) {}
+    explicit Term(TermIndex index_) : index(index_) {}
 
 public:
-    virtual ~Term() = default;
+    virtual std::vector<TermIndex> children() const = 0;
 };
 
-// leaf nodes
+struct TermLeaf : public Term {
+protected:
+    explicit TermLeaf(TermIndex index_) : Term(index_) {}
 
-struct TermConstBool : public Term {
+public:
+    std::vector<TermIndex> children() const override {
+        return {};
+    }
+};
+
+struct TermUnary : public Term {
+public:
+    const TermIndex child;
+
+protected:
+    TermUnary(TermIndex index_, TermIndex child_) : Term(index_), child(child_) {}
+
+public:
+    std::vector<TermIndex> children() const override {
+        return {child};
+    }
+};
+
+struct TermBinary : public Term {
+public:
+    const TermIndex lhs;
+    const TermIndex rhs;
+
+protected:
+    TermBinary(TermIndex index_, TermIndex lhs_, TermIndex rhs_) : Term(index_), lhs(lhs_), rhs(rhs_) {}
+
+public:
+    std::vector<TermIndex> children() const override {
+        return {lhs, rhs};
+    }
+};
+
+struct TermVariadic : public Term {
+public:
+    const std::vector<TermIndex> args;
+
+protected:
+    TermVariadic(TermIndex index_, std::vector<TermIndex> args_) : Term(index_), args(std::move(args_)) {}
+
+public:
+    std::vector<TermIndex> children() const override {
+        return args;
+    }
+};
+
+// const nodes
+
+struct TermConstBool : public TermLeaf {
     friend ClauseAnalyzer;
 
 public:
     const bool value;
 
 protected:
-    TermConstBool(TermIndex index_, bool value_) : Term(index_, {}), value(value_) {}
+    TermConstBool(TermIndex index_, bool value_) : TermLeaf(index_), value(value_) {}
 };
 
-struct TermConstNumber : public Term {
+struct TermConstNumber : public TermLeaf {
     friend ClauseAnalyzer;
 
 public:
     const int64_t value;
 
 protected:
-    TermConstNumber(TermIndex index_, int64_t value_) : Term(index_, {}), value(value_) {}
+    TermConstNumber(TermIndex index_, int64_t value_) : TermLeaf(index_), value(value_) {}
 };
 
-struct TermConstUnsigned : public Term {
+struct TermConstUnsigned : public TermLeaf {
     friend ClauseAnalyzer;
 
 public:
     const uint64_t value;
 
 protected:
-    TermConstUnsigned(TermIndex index_, uint64_t value_) : Term(index_, {}), value(value_) {}
+    TermConstUnsigned(TermIndex index_, uint64_t value_) : TermLeaf(index_), value(value_) {}
 };
 
-struct TermVarNamed : public Term {
+// var nodes
+
+struct TermVarNamed : public TermLeaf {
     friend ClauseAnalyzer;
 
 public:
     const std::string name;
 
 protected:
-    TermVarNamed(TermIndex index_, std::string name_) : Term(index_, {}), name(std::move(name_)) {}
+    TermVarNamed(TermIndex index_, std::string name_) : TermLeaf(index_), name(std::move(name_)) {}
 };
 
-struct TermVarUnnamed : public Term {
+struct TermVarUnnamed : public TermLeaf {
     friend ClauseAnalyzer;
 
 public:
     const ast::UnnamedVariable* ptr;
 
 protected:
-    TermVarUnnamed(TermIndex index_, const ast::UnnamedVariable* ptr_) : Term(index_, {}), ptr(ptr_) {}
+    TermVarUnnamed(TermIndex index_, const ast::UnnamedVariable* ptr_) : TermLeaf(index_), ptr(ptr_) {}
 };
 
-struct TermIdent : public Term {
+struct TermIdent : public TermLeaf {
     friend ClauseAnalyzer;
 
 public:
@@ -115,26 +165,26 @@ public:
 
 protected:
     TermIdent(TermIndex index_, std::string value_)
-            : Term(index_, {}), type(std::nullopt), value(std::move(value_)) {}
+            : TermLeaf(index_), type(std::nullopt), value(std::move(value_)) {}
 
     TermIdent(TermIndex index_, TypeIndex type_, std::string value_)
-            : Term(index_, {}), type(type_), value(std::move(value_)) {}
+            : TermLeaf(index_), type(type_), value(std::move(value_)) {}
 };
 
 // recursive nodes
 
-struct TermOp : public Term {
+struct TermFunctorOp : public TermBinary {
     friend ClauseAnalyzer;
 
 public:
     const FunctorOp op;
 
 protected:
-    TermOp(TermIndex index_, FunctorOp op_, std::vector<TermIndex> children_)
-            : Term(index_, children_), op(op_) {}
+    TermFunctorOp(TermIndex index_, FunctorOp op_, TermIndex lhs_, TermIndex rhs_)
+            : TermBinary(index_, lhs_, rhs_), op(op_) {}
 };
 
-struct TermCtor : public Term {
+struct TermCtor : public TermVariadic {
     friend ClauseAnalyzer;
 
 public:
@@ -143,10 +193,10 @@ public:
 
 protected:
     TermCtor(TermIndex index_, TypeIndex adt_, std::string branch_, std::vector<TermIndex> children_)
-            : Term(index_, children_), adt(adt_), branch(std::move(branch_)) {}
+            : TermVariadic(index_, children_), adt(adt_), branch(std::move(branch_)) {}
 };
 
-struct TermAtom : public Term {
+struct TermAtom : public TermVariadic {
     friend ClauseAnalyzer;
 
 public:
@@ -154,25 +204,25 @@ public:
 
 protected:
     TermAtom(TermIndex index_, RelationIndex relation_, std::vector<TermIndex> children_)
-            : Term(index_, children_), relation(relation_) {}
+            : TermVariadic(index_, children_), relation(relation_) {}
 };
 
-struct TermNegation : public Term {
+struct TermNegation : public TermUnary {
     friend ClauseAnalyzer;
 
 protected:
-    TermNegation(TermIndex index_, TermIndex atom) : Term(index_, {atom}) {}
+    TermNegation(TermIndex index_, TermIndex atom) : TermUnary(index_, atom) {}
 };
 
-struct TermConstraint : public Term {
+struct TermConstraint : public TermBinary {
     friend ClauseAnalyzer;
 
 public:
     const BinaryConstraintOp op;
 
 protected:
-    TermConstraint(TermIndex index_, BinaryConstraintOp op_, TermIndex lhs, TermIndex rhs)
-            : Term(index_, {lhs, rhs}), op(op_) {}
+    TermConstraint(TermIndex index_, BinaryConstraintOp op_, TermIndex lhs_, TermIndex rhs_)
+            : TermBinary(index_, lhs_, rhs_), op(op_) {}
 };
 
 /**
@@ -400,7 +450,8 @@ private:
             // (intrinsic) functors
             if (const auto arg_functor = dynamic_cast<const ast::IntrinsicFunctor*>(arg)) {
                 const auto op = typing.getPolymorphicOperator(*arg_functor);
-                return register_term<TermOp>(op, child_terms);
+                assert(child_terms.size() == 2);
+                return register_term<TermFunctorOp>(op, child_terms[0], child_terms[1]);
             }
 
             // record ctor
@@ -518,7 +569,7 @@ private:
 private:
     void reverse_link_terms_recursive(const TermIndex& index, std::map<TermIndex, TermIndex>& links) const {
         const auto& term = terms.at(index);
-        for (const auto& child : term->children) {
+        for (const auto& child : term->children()) {
             reverse_link_terms_recursive(child, links);
             const auto& [_, inserted] = links.emplace(child, index);
             assert(inserted);
@@ -548,7 +599,8 @@ private:
 
                 if (auto term_atom = dynamic_cast<const TermAtom*>(parent)) {
                     unsigned pos = 0;
-                    for (const auto& child : term_atom->children) {
+                    const auto children = term_atom->children();
+                    for (const auto& child : children) {
                         if (child != key) {
                             pos++;
                             continue;
@@ -566,7 +618,7 @@ private:
                     }
 
                     // must be able to find
-                    assert(pos != term_atom->children.size());
+                    assert(pos != children.size());
                     continue;
                 }
 
@@ -587,7 +639,7 @@ private:
 private:
     void visit_terms_recursive(const TermIndex& index, std::vector<const Term*>& sequence) const {
         const auto& term = terms.at(index);
-        for (const auto& child : term->children) {
+        for (const auto& child : term->children()) {
             visit_terms_recursive(child, sequence);
         }
         sequence.push_back(term.get());
