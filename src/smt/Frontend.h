@@ -13,6 +13,7 @@
 
 #include "smt/Backend.h"
 #include "smt/Clause.h"
+#include "smt/Expr.h"
 #include "smt/Relation.h"
 #include "smt/Typing.h"
 

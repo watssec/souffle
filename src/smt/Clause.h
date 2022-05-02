@@ -46,7 +46,7 @@ public:
     const std::vector<TermIndex> children;
 
 protected:
-    explicit Term(TermIndex index_, std::vector<TermIndex> children_)
+    Term(TermIndex index_, std::vector<TermIndex> children_)
             : index(index_), children(std::move(children_)) {}
 
 public:
