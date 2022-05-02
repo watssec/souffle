@@ -65,7 +65,7 @@ public:
                 dep_graph.addEdge(head, dep);
             }
 
-            // create the expr analyzer
+            // create the exprs
             const auto relation =
                     relationRegistry.retrieve_relation(clause->getHead()->getQualifiedName().toString());
             mapping[relation].emplace_back(typeRegistry, relationRegistry, analyzer);

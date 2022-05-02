@@ -229,7 +229,11 @@ public:
             : typeRegistry(typeRegistry_), relationRegistry(relationRegistry_),
               clauseAnalysis(clauseAnalysis_) {
         // heavy lifting
-        transform();
+        if (clauseAnalysis.body.empty()) {
+            transform_fact();
+        } else {
+            transform_rule();
+        }
     }
 
 private:
@@ -247,7 +251,10 @@ private:
     }
 
 private:
-    void transform() {
+    void transform_fact() {
+        // TODO
+    }
+    void transform_rule() {
         // pre-define the parameters
         const auto& rel = relationRegistry.retrieve_details(clauseAnalysis.get_head());
         std::vector<ExprIndex> params;
