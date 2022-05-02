@@ -120,16 +120,16 @@ template <typename T>
 class Graph {
 protected:
     // graph representation in adjacency list
-    std::map<const T*, std::set<const T*>> graph;
+    std::map<T, std::set<T>> graph;
 
 public:  // Graph construction
-    void addNode(const T* key) {
+    void addNode(T key) {
         const auto it = graph.find(key);
         assert(it == graph.end());
         graph[key] = {};
     }
 
-    void addEdge(const T* src, const T* dst) {
+    void addEdge(T src, T dst) {
         const auto it_src = graph.find(src);
         assert(it_src != graph.end());
         const auto it_dst = graph.find(dst);
@@ -138,9 +138,9 @@ public:  // Graph construction
     }
 
 public:  // SCC
-    std::list<std::set<const T*>> deriveSCC() const {
-        algorithm::tarjan::graph<const T*> g;
-        std::map<const T*, algorithm::tarjan::vertex<const T*>*> v;
+    std::list<std::set<T>> deriveSCC() const {
+        algorithm::tarjan::graph<T> g;
+        std::map<T, algorithm::tarjan::vertex<T>*> v;
         for (const auto [key, _] : graph) {
             v[key] = g.add_vertex(key);
         }
@@ -150,10 +150,10 @@ public:  // SCC
             }
         }
 
-        std::list<std::set<const T*>> result;
-        algorithm::tarjan::runner<const T*> tarjan;
+        std::list<std::set<T>> result;
+        algorithm::tarjan::runner<T> tarjan;
         for (auto&& component : tarjan.run(g)) {
-            std::set<const T*> scc;
+            std::set<T> scc;
             for (auto node : component) {
                 scc.insert(node->get_data());
             }

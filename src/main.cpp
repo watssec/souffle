@@ -302,7 +302,6 @@ int main(int argc, char** argv) {
                 {"smt", '\0', "SMT", "", true,
                         "Model the program with SMT facilities.\n"
                         "Available SMT facilities include:\n"
-                        "\tMUZ\n"
                         "\tZ3\n"
                         "\tCVC\n"},
 #endif
@@ -682,12 +681,10 @@ int main(int argc, char** argv) {
     if (smt_model) {
         for (auto& item : Global::config().getMany("smt")) {
             smt::Frontend frontend(*astTranslationUnit);
-            if (item == "MUZ") {
-                smt::BackendZ3MuZ backend;
-                frontend.populate_backend(backend);
-            } else if (item == "Z3") {
-                smt::BackendZ3Rec backend;
-                frontend.populate_backend(backend);
+            if (item == "Z3") {
+                // TODO: enable
+                // smt::BackendZ3Rec backend;
+                // frontend.populate_backend(backend);
             } else if (item == "CVC") {
                 // TODO: implement
             } else {

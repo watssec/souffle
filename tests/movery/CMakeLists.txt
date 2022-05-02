@@ -24,7 +24,6 @@ function(MOVERY_TEST_WITH_SOUFFLE CATEGORY NAME)
 endfunction()
 
 function(MOVERY_TEST CATEGORY NAME)
-  movery_test_with_smt(${CATEGORY} ${NAME} "MUZ")
   movery_test_with_smt(${CATEGORY} ${NAME} "Z3")
   movery_test_with_smt(${CATEGORY} ${NAME} "CVC")
   movery_test_with_souffle(${CATEGORY} ${NAME})

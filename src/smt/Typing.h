@@ -455,8 +455,8 @@ private:
     }
 
     /// The ADTs can be mutually recursive, build a dependency graph to capture their dependencies
-    Graph<ast::analysis::Type> build_adt_dep_graph() const {
-        Graph<ast::analysis::Type> dep_graph;
+    Graph<const ast::analysis::Type*> build_adt_dep_graph() const {
+        Graph<const ast::analysis::Type*> dep_graph;
 
         // first pass: create nodes in the graph
         for (const auto& [_key, val] : adt_registry) {
