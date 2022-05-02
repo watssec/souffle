@@ -24,6 +24,7 @@ namespace souffle::smt {
 // forward declarations
 class ClauseInstantiation;
 class ClauseAnalyzer;
+class RuleAnalyzer;
 
 /**
  * An index that uniquely identifies a term in a clause
@@ -69,7 +70,7 @@ struct TermConstNumber : public Term {
     friend ClauseAnalyzer;
 
 public:
-    int64_t value;
+    const int64_t value;
 
 protected:
     TermConstNumber(TermIndex index_, int64_t value_) : Term(index_, {}), value(value_) {}
@@ -79,7 +80,7 @@ struct TermConstUnsigned : public Term {
     friend ClauseAnalyzer;
 
 public:
-    uint64_t value;
+    const uint64_t value;
 
 protected:
     TermConstUnsigned(TermIndex index_, uint64_t value_) : Term(index_, {}), value(value_) {}
@@ -227,6 +228,8 @@ protected:
  * A registry of terms appeared in one clause
  */
 class ClauseAnalyzer {
+    friend RuleAnalyzer;
+
 private:
     // environment
     const ast::analysis::TypeAnalysis& typing;
@@ -263,13 +266,6 @@ public:
             assert(vars_named.empty());
             assert(vars_unnamed.empty());
             return;
-        }
-
-        // derive from header argument terms
-        auto atom = dynamic_cast<const TermAtom*>(terms[head].get());
-        for (const auto& child : atom->children) {
-            const auto* arg = terms.at(child).get();
-            follow_header_argument(arg, arg);
         }
     }
 
@@ -612,13 +608,6 @@ private:
             terms.erase(key);
             terms.emplace(key, new_term);
         }
-    }
-
-private:
-    void follow_header_argument(const Term* term, const Term* cursor) {
-        // constants are allowed
-        // TODO
-        assert(term == cursor);
     }
 
 private:

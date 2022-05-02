@@ -69,6 +69,10 @@ public:
         // clauses
         for (const auto& [_, analyzers] : clauses.mapping) {
             for (const auto& analyzer : analyzers) {
+                // TODO: use rules
+                const auto rule = RuleAnalyzer(types, relations, analyzer);
+                assert(rule.counter != 0);
+
                 auto insts = analyzer.create_instantiations();
                 auto order = analyzer.create_sequence();
 
