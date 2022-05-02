@@ -133,7 +133,7 @@ protected:
             : Term(index_, children_), op(op_) {}
 };
 
-struct TermCtor : public Term {
+struct TermADTCtor : public Term {
     friend ClauseAnalyzer;
 
 public:
@@ -141,8 +141,33 @@ public:
     const std::string branch;
 
 protected:
-    TermCtor(TermIndex index_, TypeIndex adt_, std::string branch_, std::vector<TermIndex> children_)
+    TermADTCtor(TermIndex index_, TypeIndex adt_, std::string branch_, std::vector<TermIndex> children_)
             : Term(index_, children_), adt(adt_), branch(std::move(branch_)) {}
+};
+
+struct TermADTTest : public Term {
+    friend ClauseAnalyzer;
+
+public:
+    const TypeIndex adt;
+    const std::string branch;
+
+protected:
+    TermADTTest(TermIndex index_, TypeIndex adt_, std::string branch_, TermIndex child_)
+            : Term(index_, {child_}), adt(adt_), branch(std::move(branch_)) {}
+};
+
+struct TermADTGetter : public Term {
+    friend ClauseAnalyzer;
+
+public:
+    const TypeIndex adt;
+    const std::string branch;
+    const std::string field;
+
+protected:
+    TermADTGetter(TermIndex index_, TypeIndex adt_, std::string branch_, std::string field_, TermIndex child_)
+            : Term(index_, {child_}), adt(adt_), branch(std::move(branch_)), field(std::move(field_)) {}
 };
 
 struct TermAtom : public Term {
@@ -262,6 +287,14 @@ public:
         if (body.empty()) {
             assert(vars_named.empty());
             assert(vars_unnamed.empty());
+            return;
+        }
+
+        // derive from header argument terms
+        auto atom = dynamic_cast<const TermAtom*>(terms[head].get());
+        for (const auto& child : atom->children) {
+            const auto* arg = terms.at(child).get();
+            follow_header_argument(arg, arg);
         }
     }
 
@@ -442,7 +475,7 @@ private:
                 assert(branch_decl.fields.size() == sub_args.size());
 
                 // register the term
-                return register_term<TermCtor>(index, branch_decl.name, child_terms);
+                return register_term<TermADTCtor>(index, branch_decl.name, child_terms);
             }
 
             // branch ctor
@@ -466,7 +499,7 @@ private:
                 assert(branch_decl->fields.size() == sub_args.size());
 
                 // register the term
-                return register_term<TermCtor>(index, branch_decl->name, child_terms);
+                return register_term<TermADTCtor>(index, branch_decl->name, child_terms);
             }
 
             // catch all
@@ -604,6 +637,13 @@ private:
             terms.erase(key);
             terms.emplace(key, new_term);
         }
+    }
+
+private:
+    void follow_header_argument(const Term* term, const Term* cursor) {
+        // constants are allowed
+        // TODO
+        assert(term == cursor);
     }
 
 private:
