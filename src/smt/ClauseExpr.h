@@ -161,7 +161,33 @@ protected:
     ExprVarQuant(ExprIndex index_, std::string name_) : ExprVar(index_, name_) {}
 };
 
-// recursive nodes
+// ident expr
+
+struct ExprIdent : public ExprLeaf {
+    friend ClauseExprAnalyzer;
+
+public:
+    const TypeIndex type;
+    const std::string value;
+
+protected:
+    ExprIdent(ExprIndex index_, TypeIndex type_, std::string value_)
+            : ExprLeaf(index_), type(type_), value(std::move(value_)) {}
+};
+
+// recursive exprs
+
+struct ExprADTCtor : public ExprVariadic {
+    friend ClauseExprAnalyzer;
+
+public:
+    const TypeIndex adt;
+    const std::string branch;
+
+protected:
+    ExprADTCtor(ExprIndex index_, TypeIndex adt_, std::string branch_, std::vector<ExprIndex> children_)
+            : ExprVariadic(index_, children_), adt(adt_), branch(std::move(branch_)) {}
+};
 
 struct ExprADTTest : public ExprUnary {
     friend ClauseExprAnalyzer;
@@ -186,6 +212,35 @@ public:
 protected:
     ExprADTGetter(ExprIndex index_, TypeIndex adt_, std::string branch_, std::string field_, ExprIndex child_)
             : ExprUnary(index_, child_), adt(adt_), branch(std::move(branch_)), field(std::move(field_)) {}
+};
+
+struct ExprAtom : public ExprVariadic {
+    friend ClauseExprAnalyzer;
+
+public:
+    const RelationIndex relation;
+
+protected:
+    ExprAtom(ExprIndex index_, RelationIndex relation_, std::vector<ExprIndex> children_)
+            : ExprVariadic(index_, children_), relation(relation_) {}
+};
+
+struct ExprNegation : public ExprUnary {
+    friend ClauseExprAnalyzer;
+
+protected:
+    ExprNegation(ExprIndex index_, ExprIndex child_) : ExprUnary(index_, child_) {}
+};
+
+struct ExprFunctor : public ExprBinary {
+    friend ClauseExprAnalyzer;
+
+public:
+    const FunctorOp op;
+
+protected:
+    ExprFunctor(ExprIndex index_, FunctorOp op_, ExprIndex lhs_, ExprIndex rhs_)
+            : ExprBinary(index_, lhs_, rhs_), op(op_) {}
 };
 
 struct ExprConstraint : public ExprBinary {
@@ -219,9 +274,12 @@ protected:
     std::map<ExprIndex, std::unique_ptr<Expr>> exprs{};
 
     // variable binding
-    std::map<std::string, ExprIndex> vars_named{};
-    std::map<const ast::UnnamedVariable*, ExprIndex> vars_unnamed{};
+    std::map<std::string, ExprIndex> param_vars_named{};
+    std::map<const ast::UnnamedVariable*, ExprIndex> param_vars_unnamed{};
     std::vector<ExprIndex> binding_conds{};
+
+    std::map<std::string, TypeIndex> quant_vars_named{};
+    std::map<const ast::UnnamedVariable*, TypeIndex> quant_vars_unnamed{};
 
 public:
     ClauseExprAnalyzer(const TypeRegistry& typeRegistry_, const RelationRegistry& relationRegistry_,
@@ -272,6 +330,20 @@ private:
             const auto* arg = terms.at(atom->args[i]).get();
             follow_header_argument(arg, exprs[params[i]].get());
         }
+
+        // any unresolved variable will become existentially quantified
+        for (const auto& [name, type] : clauseAnalysis.vars_named) {
+            const auto it = param_vars_named.find(name);
+            if (it == param_vars_named.end()) {
+                quant_vars_named.emplace(name, type);
+            }
+        }
+        for (const auto& [ptr, type] : clauseAnalysis.vars_unnamed) {
+            const auto it = param_vars_unnamed.find(ptr);
+            if (it == param_vars_unnamed.end()) {
+                quant_vars_unnamed.emplace(ptr, type);
+            }
+        }
     }
 
     void follow_header_argument(const Term* term, const Expr* cursor) {
@@ -291,7 +363,7 @@ private:
 
         // variables also mark the end of tracing
         if (auto var_named = dynamic_cast<const TermVarNamed*>(term)) {
-            const auto [_, inserted] = vars_named.emplace(var_named->name, cursor->index);
+            const auto [_, inserted] = param_vars_named.emplace(var_named->name, cursor->index);
             // NOTE: this assertion is in fact not necessary.
             // It is perfectly OK to have the same souffle variable bounded to two params.
             // But for simplicity, we keep the condition here.
@@ -299,7 +371,7 @@ private:
             return;
         }
         if (auto var_unnamed = dynamic_cast<const TermVarUnnamed*>(term)) {
-            const auto [_, inserted] = vars_unnamed.emplace(var_unnamed->ptr, cursor->index);
+            const auto [_, inserted] = param_vars_unnamed.emplace(var_unnamed->ptr, cursor->index);
             // NOTE: unlike the named var case, this assertion is necessary
             assert(inserted);
             return;

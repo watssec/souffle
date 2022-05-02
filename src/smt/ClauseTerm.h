@@ -211,7 +211,7 @@ struct TermNegation : public TermUnary {
     friend ClauseTermAnalyzer;
 
 protected:
-    TermNegation(TermIndex index_, TermIndex atom) : TermUnary(index_, atom) {}
+    TermNegation(TermIndex index_, TermIndex child_) : TermUnary(index_, child_) {}
 };
 
 struct TermConstraint : public TermBinary {
