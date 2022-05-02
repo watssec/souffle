@@ -69,46 +69,40 @@ public:
         // clauses
         for (const auto& [_, analyzers] : clauses.mapping) {
             for (const auto& analyzer : analyzers) {
-                // TODO: use rules
-                const auto rule = RuleAnalyzer(types, relations, analyzer);
-                assert(rule.counter != 0);
-
-                auto insts = analyzer.create_instantiations();
+                auto inst = analyzer.get_vars();
                 auto order = analyzer.create_sequence();
 
-                for (const auto& inst : insts) {
-                    // mark the start of clause declaration
-                    backend.initClause();
+                // mark the start of clause declaration
+                backend.initClause();
 
-                    // declare vars
-                    for (const auto& [key, val] : inst.vars_named) {
-                        backend.mkVar(key, val);
-                    }
-                    for (const auto& [key, val] : inst.vars_unnamed) {
-                        backend.mkVar(inst.anon_names.at(key), val);
-                    }
-
-                    // build terms
-                    build_terms_by_sequence(backend, inst, order.head);
-                    for (const auto& seq : order.body) {
-                        build_terms_by_sequence(backend, inst, seq);
-                    }
-
-                    // make facts/rules
-                    auto head_index = order.head.back()->index;
-                    if (order.body.empty()) {
-                        backend.mkFact(head_index);
-                    } else {
-                        std::vector<TermIndex> body_indices;
-                        for (const auto& seq : order.body) {
-                            body_indices.push_back(seq.back()->index);
-                        }
-                        backend.mkRule(head_index, body_indices);
-                    }
-
-                    // mark the end of clause declaration
-                    backend.finiClause();
+                // declare vars
+                for (const auto& [key, val] : inst.vars_named) {
+                    backend.mkVar(key, val);
                 }
+                for (const auto& [key, val] : inst.vars_unnamed) {
+                    backend.mkVar(inst.anon_names.at(key), val);
+                }
+
+                // build terms
+                build_terms_by_sequence(backend, inst, order.head);
+                for (const auto& seq : order.body) {
+                    build_terms_by_sequence(backend, inst, seq);
+                }
+
+                // make facts/rules
+                auto head_index = order.head.back()->index;
+                if (order.body.empty()) {
+                    backend.mkFact(head_index);
+                } else {
+                    std::vector<TermIndex> body_indices;
+                    for (const auto& seq : order.body) {
+                        body_indices.push_back(seq.back()->index);
+                    }
+                    backend.mkRule(head_index, body_indices);
+                }
+
+                // mark the end of clause declaration
+                backend.finiClause();
             }
 
             // queries

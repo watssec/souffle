@@ -132,6 +132,7 @@ private:
     const TypeRegistry& typeRegistry;
     const RelationRegistry& relationRegistry;
     const ClauseAnalyzer& clauseAnalysis;
+    const ClauseInstantiation& clauseInst;
 
     // counter
     size_t counter = 1;
@@ -142,9 +143,9 @@ protected:
 
 public:
     RuleAnalyzer(const TypeRegistry& typeRegistry_, const RelationRegistry& relationRegistry_,
-            const ClauseAnalyzer& clauseAnalysis_)
+            const ClauseAnalyzer& clauseAnalysis_, const ClauseInstantiation& clauseInst_)
             : typeRegistry(typeRegistry_), relationRegistry(relationRegistry_),
-              clauseAnalysis(clauseAnalysis_) {
+              clauseAnalysis(clauseAnalysis_), clauseInst(clauseInst_) {
         // follow header argument terms to resolve variables
         const auto& terms = clauseAnalysis.terms;
         auto atom = dynamic_cast<const TermAtom*>(terms.at(clauseAnalysis.head).get());

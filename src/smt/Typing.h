@@ -181,15 +181,6 @@ public:
         return *result;
     }
 
-    /// Convert a typeset into a vector of type indices
-    std::vector<TypeIndex> typeset_to_indices(const ast::analysis::TypeSet& typeset) const {
-        std::vector<TypeIndex> indices;
-        for (const auto& ty : typeset) {
-            indices.push_back(retrieve_type(ty.getName().toString()));
-        }
-        return indices;
-    }
-
     /// Retrieve the details of an ident type
     const std::string& retrieve_ident(const TypeIndex& index) const {
         for (const auto& [key, val] : type_idents) {

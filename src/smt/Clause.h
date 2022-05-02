@@ -182,7 +182,6 @@ class ClauseInstantiation {
     friend ClauseAnalyzer;
 
 public:
-    // environment
     const std::map<std::string, TypeIndex> vars_named;
     const std::map<const ast::UnnamedVariable*, TypeIndex> vars_unnamed;
     const std::map<const ast::UnnamedVariable*, std::string> anon_names;
@@ -241,8 +240,8 @@ private:
 
 protected:
     // bounded variables
-    std::map<std::string, ast::analysis::TypeSet> vars_named{};
-    std::map<const ast::UnnamedVariable*, ast::analysis::TypeSet> vars_unnamed{};
+    std::map<std::string, TypeIndex> vars_named{};
+    std::map<const ast::UnnamedVariable*, TypeIndex> vars_unnamed{};
 
     // term registry
     std::map<TermIndex, std::unique_ptr<Term>> terms;
@@ -285,28 +284,8 @@ public:
         return result;
     }
 
-    std::vector<ClauseInstantiation> create_instantiations() const {
-        // build a set of clause registries based on types assigned to each variable
-        std::map<std::string, std::vector<TypeIndex>> sorts_for_named_vars;
-        for (const auto& [key, val] : vars_named) {
-            sorts_for_named_vars.emplace(key, typeRegistry.typeset_to_indices(val));
-        }
-        auto combo_named = cartesian_distribute(sorts_for_named_vars);
-
-        std::map<const ast::UnnamedVariable*, std::vector<TypeIndex>> sorts_for_unnamed_vars;
-        for (const auto& [key, val] : vars_unnamed) {
-            sorts_for_unnamed_vars.emplace(key, typeRegistry.typeset_to_indices(val));
-        }
-        auto combo_unnamed = cartesian_distribute(sorts_for_unnamed_vars);
-
-        std::vector<ClauseInstantiation> registries;
-        for (auto item_named : combo_named) {
-            for (auto item_unnamed : combo_unnamed) {
-                auto registry = ClauseInstantiation(item_named, item_unnamed);
-                registries.push_back(registry);
-            }
-        }
-        return registries;
+    ClauseInstantiation get_vars() const {
+        return ClauseInstantiation(vars_named, vars_unnamed);
     }
 
     ConstructionOrder create_sequence() const {
@@ -336,7 +315,7 @@ private:
     TermIndex analyze_clause_argument(const ast::Argument* arg) {
         // rule: each argument must have a finite set of types, i.e., not the universal type
         auto typeset = typing.getTypes(arg);
-        assert(!typeset.empty() && !typeset.isAll());
+        assert(typeset.size() == 1);
 
         // filter out unsupported cases
         if (dynamic_cast<const ast::TypeCast*>(arg)) {
@@ -359,7 +338,6 @@ private:
 
         // constants
         if (const auto arg_const_num = dynamic_cast<const ast::NumericConstant*>(arg)) {
-            assert(typeset.size() == 1);
             const auto attrs = typing.getTypeAttributes(arg_const_num);
             assert(attrs.size() == 1);
 
@@ -377,26 +355,23 @@ private:
             }
         }
         if (const auto arg_const_str = dynamic_cast<const ast::StringConstant*>(arg)) {
-            assert(typeset.size() == 1);
             const auto attrs = typing.getTypeAttributes(arg_const_str);
             assert(attrs.size() == 1);
             assert(*attrs.begin() == TypeAttribute::Symbol);
-
             return register_term<TermIdent>(arg_const_str->getConstant());
         }
 
         // variables
         if (const auto arg_var = dynamic_cast<const ast::Variable*>(arg)) {
             // implicit assert: all inferred types for variables should appear in the type registry as well
-            auto converted = typeRegistry.typeset_to_indices(typeset);
-            assert(converted.size() == typeset.size());
+            const auto type = typeRegistry.retrieve_type(typeset.begin()->getName().toString());
 
             // save it to variable registry if we haven't seen it yet
             auto it = vars_named.find(arg_var->getName());
             if (it == vars_named.end()) {
-                vars_named.emplace(arg_var->getName(), typeset);
+                vars_named.emplace(arg_var->getName(), type);
             } else {
-                assert(it->second == typeset);
+                assert(it->second == type);
             }
 
             // save the term to registry
@@ -405,11 +380,10 @@ private:
 
         if (const auto arg_ignored = dynamic_cast<const ast::UnnamedVariable*>(arg)) {
             // implicit assert: all inferred types for variables should appear in the type registry as well
-            auto converted = typeRegistry.typeset_to_indices(typeset);
-            assert(converted.size() == typeset.size());
+            const auto type = typeRegistry.retrieve_type(typeset.begin()->getName().toString());
 
             // save it to variable registry
-            auto const [_, inserted] = vars_unnamed.emplace(arg_ignored, typeset);
+            auto const [_, inserted] = vars_unnamed.emplace(arg_ignored, type);
             assert(inserted);
 
             // save the term to registry
