@@ -28,21 +28,14 @@ class Frontend {
 private:
     TypeRegistry types;
     RelationRegistry relations;
-    ClauseRegistry clauseReg;
-    std::vector<ClauseAnalyzer> clauses;
+    ClauseRegistry clauses;
     std::vector<RelationIndex> queries;
 
 public:
     explicit Frontend(const ast::TranslationUnit& unit)
-            : types(unit), relations(unit, types), clauseReg(unit, types, relations) {
-        // add rules
-        const auto& program = unit.getProgram();
-        const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
-        for (const auto clause : program.getClauses()) {
-            clauses.emplace_back(clause, type_analysis, types, relations);
-        }
-
+            : types(unit), relations(unit, types), clauses(unit, types, relations) {
         // prepare queries
+        const auto& program = unit.getProgram();
         for (const auto* directive : program.getDirectives()) {
             if (directive->getType() != ast::DirectiveType::output) {
                 throw std::runtime_error("Only the `output` directive is supported now");
@@ -73,48 +66,50 @@ public:
         }
 
         // clauses
-        for (const auto& analyzer : clauses) {
-            auto insts = analyzer.create_instantiations();
-            auto order = analyzer.create_sequence();
+        for (const auto& [_, analyzers] : clauses.mapping) {
+            for (const auto& analyzer : analyzers) {
+                auto insts = analyzer.create_instantiations();
+                auto order = analyzer.create_sequence();
 
-            for (const auto& inst : insts) {
-                // mark the start of clause declaration
-                backend.initClause();
+                for (const auto& inst : insts) {
+                    // mark the start of clause declaration
+                    backend.initClause();
 
-                // declare vars
-                for (const auto& [key, val] : inst.vars_named) {
-                    backend.mkVar(key, val);
-                }
-                for (const auto& [key, val] : inst.vars_unnamed) {
-                    backend.mkVar(inst.anon_names.at(key), val);
-                }
-
-                // build terms
-                build_terms_by_sequence(backend, inst, order.head);
-                for (const auto& seq : order.body) {
-                    build_terms_by_sequence(backend, inst, seq);
-                }
-
-                // make facts/rules
-                auto head_index = order.head.back()->index;
-                if (order.body.empty()) {
-                    backend.mkFact(head_index);
-                } else {
-                    std::vector<TermIndex> body_indices;
-                    for (const auto& seq : order.body) {
-                        body_indices.push_back(seq.back()->index);
+                    // declare vars
+                    for (const auto& [key, val] : inst.vars_named) {
+                        backend.mkVar(key, val);
                     }
-                    backend.mkRule(head_index, body_indices);
+                    for (const auto& [key, val] : inst.vars_unnamed) {
+                        backend.mkVar(inst.anon_names.at(key), val);
+                    }
+
+                    // build terms
+                    build_terms_by_sequence(backend, inst, order.head);
+                    for (const auto& seq : order.body) {
+                        build_terms_by_sequence(backend, inst, seq);
+                    }
+
+                    // make facts/rules
+                    auto head_index = order.head.back()->index;
+                    if (order.body.empty()) {
+                        backend.mkFact(head_index);
+                    } else {
+                        std::vector<TermIndex> body_indices;
+                        for (const auto& seq : order.body) {
+                            body_indices.push_back(seq.back()->index);
+                        }
+                        backend.mkRule(head_index, body_indices);
+                    }
+
+                    // mark the end of clause declaration
+                    backend.finiClause();
                 }
-
-                // mark the end of clause declaration
-                backend.finiClause();
             }
-        }
 
-        // queries
-        for (const auto& rel : queries) {
-            std::cout << backend.query(rel) << std::endl;
+            // queries
+            for (const auto& rel : queries) {
+                std::cout << backend.query(rel) << std::endl;
+            }
         }
     }
 
