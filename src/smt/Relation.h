@@ -20,6 +20,7 @@ namespace souffle::smt {
 
 // forward declarations
 class RelationRegistry;
+class ClauseRegistry;
 class Frontend;
 
 /**
@@ -48,6 +49,7 @@ public:
  */
 class RelationRegistry {
     friend Frontend;
+    friend ClauseRegistry;
 
 private:
     // counter

@@ -257,9 +257,30 @@ public:
 
         // fixup the missing type inference for idents (i.e., string constants)
         infer_ident_type_for_string_constant();
+
+        // sanity check: a fact cannot have free variables (named or unnamed)
+        if (body.empty()) {
+            assert(vars_named.empty());
+            assert(vars_unnamed.empty());
+        }
     }
 
 public:
+    RelationIndex get_head() const {
+        auto atom = dynamic_cast<const TermAtom*>(terms.at(head).get());
+        return atom->relation;
+    }
+
+    std::vector<RelationIndex> get_deps() const {
+        std::vector<RelationIndex> result;
+        for (const auto& i : body) {
+            if (auto atom = dynamic_cast<const TermAtom*>(terms.at(i).get())) {
+                result.push_back(atom->relation);
+            }
+        }
+        return result;
+    }
+
     std::vector<ClauseInstantiation> create_instantiations() const {
         // build a set of clause registries based on types assigned to each variable
         std::map<std::string, std::vector<TypeIndex>> sorts_for_named_vars;
@@ -517,21 +538,6 @@ private:
     }
 
 private:
-    void visit_terms_recursive(const TermIndex& index, std::vector<const Term*>& sequence) const {
-        const auto& term = terms.at(index);
-        for (const auto& child : term->children) {
-            visit_terms_recursive(child, sequence);
-        }
-        sequence.push_back(term.get());
-    }
-
-    std::vector<const Term*> visit_terms(const TermIndex& index) const {
-        std::vector<const Term*> sequence;
-        visit_terms_recursive(index, sequence);
-        return sequence;
-    }
-
-private:
     void reverse_link_terms_recursive(const TermIndex& index, std::map<TermIndex, TermIndex>& links) const {
         const auto& term = terms.at(index);
         for (const auto& child : term->children) {
@@ -598,6 +604,72 @@ private:
             terms.erase(key);
             terms.emplace(key, new_term);
         }
+    }
+
+private:
+    void visit_terms_recursive(const TermIndex& index, std::vector<const Term*>& sequence) const {
+        const auto& term = terms.at(index);
+        for (const auto& child : term->children) {
+            visit_terms_recursive(child, sequence);
+        }
+        sequence.push_back(term.get());
+    }
+
+    std::vector<const Term*> visit_terms(const TermIndex& index) const {
+        std::vector<const Term*> sequence;
+        visit_terms_recursive(index, sequence);
+        return sequence;
+    }
+};
+
+/**
+ * A registry of clauses appeared in the whole program
+ */
+class ClauseRegistry {
+    friend Frontend;
+
+private:
+    // environment
+    const TypeRegistry& typeRegistry;
+    const RelationRegistry& relationRegistry;
+
+protected:
+    // registry
+    std::map<RelationIndex, std::vector<ClauseAnalyzer>> mapping{};
+
+    // relation registration sequence
+    std::list<std::set<RelationIndex>> sequence{};
+
+public:
+    ClauseRegistry(const ast::TranslationUnit& unit, const TypeRegistry& typeRegistry_,
+            const RelationRegistry& relationRegistry_)
+            : typeRegistry(typeRegistry_), relationRegistry(relationRegistry_) {
+        // add rules and their dependencies
+        Graph<RelationIndex> dep_graph;
+
+        const auto& program = unit.getProgram();
+        const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
+        for (const auto clause : program.getClauses()) {
+            const auto relation =
+                    relationRegistry.retrieve_relation(clause->getHead()->getQualifiedName().toString());
+            mapping[relation].emplace_back(clause, type_analysis, typeRegistry, relationRegistry);
+        }
+
+        // populate the nodes in the dep graph
+        for (const auto& [_, val] : relationRegistry.mapping) {
+            dep_graph.addNode(val.first);
+        }
+
+        // populate the edges in the dep graph
+        for (const auto& [_, val] : mapping) {
+            for (const auto& analyzer : val) {
+                const auto head = analyzer.get_head();
+                for (const auto& dep : analyzer.get_deps()) {
+                    dep_graph.addEdge(head, dep);
+                }
+            }
+        }
+        sequence = dep_graph.deriveSCC();
     }
 };
 

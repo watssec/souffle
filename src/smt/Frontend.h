@@ -28,16 +28,18 @@ class Frontend {
 private:
     TypeRegistry types;
     RelationRegistry relations;
+    ClauseRegistry clauseReg;
     std::vector<ClauseAnalyzer> clauses;
     std::vector<RelationIndex> queries;
 
 public:
-    explicit Frontend(const ast::TranslationUnit& unit) : types(unit), relations(unit, types) {
+    explicit Frontend(const ast::TranslationUnit& unit)
+            : types(unit), relations(unit, types), clauseReg(unit, types, relations) {
         // add rules
         const auto& program = unit.getProgram();
         const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
-        for (const auto rule : program.getClauses()) {
-            clauses.emplace_back(rule, type_analysis, types, relations);
+        for (const auto clause : program.getClauses()) {
+            clauses.emplace_back(clause, type_analysis, types, relations);
         }
 
         // prepare queries
