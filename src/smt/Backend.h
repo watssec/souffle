@@ -8,7 +8,8 @@
 
 #pragma once
 
-#include "smt/Clause.h"
+#include "smt/ClauseTerm.h"
+#include "smt/ClauseExpr.h"
 #include "smt/Relation.h"
 #include "smt/Typing.h"
 

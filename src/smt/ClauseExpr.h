@@ -1,8 +1,8 @@
 /************************************************************************
  *
- * @file Expr.h
+ * @file ClauseExpr.h
  *
- * Hosts the expressions appeared in the program
+ * Hosts the clauses appeared in the program (in expr view)
  *
  ***********************************************************************/
 
@@ -16,21 +16,21 @@
 #include <utility>
 #include <vector>
 
-#include "smt/Clause.h"
+#include "smt/ClauseTerm.h"
 #include "smt/Relation.h"
 #include "smt/Typing.h"
 
 namespace souffle::smt {
 
 // forward declarations
-class RuleAnalyzer;
+class ClauseExprAnalyzer;
 class Frontend;
 
 /**
  * An index that uniquely identifies an expression
  */
 class ExprIndex : public Index {
-    friend RuleAnalyzer;
+    friend ClauseExprAnalyzer;
 
 protected:
     explicit ExprIndex(size_t index_) : Index(index_) {}
@@ -103,7 +103,7 @@ public:
 // const exprs
 
 struct ExprConstBool : public ExprLeaf {
-    friend RuleAnalyzer;
+    friend ClauseExprAnalyzer;
 
 public:
     const bool value;
@@ -113,7 +113,7 @@ protected:
 };
 
 struct ExprConstNumber : public ExprLeaf {
-    friend RuleAnalyzer;
+    friend ClauseExprAnalyzer;
 
 public:
     const int64_t value;
@@ -123,7 +123,7 @@ protected:
 };
 
 struct ExprConstUnsigned : public ExprLeaf {
-    friend RuleAnalyzer;
+    friend ClauseExprAnalyzer;
 
 public:
     const uint64_t value;
@@ -148,14 +148,14 @@ public:
 };
 
 struct ExprVarParam : public ExprVar {
-    friend RuleAnalyzer;
+    friend ClauseExprAnalyzer;
 
 protected:
     ExprVarParam(ExprIndex index_, std::string name_) : ExprVar(index_, name_) {}
 };
 
 struct ExprVarQuant : public ExprVar {
-    friend RuleAnalyzer;
+    friend ClauseExprAnalyzer;
 
 protected:
     ExprVarQuant(ExprIndex index_, std::string name_) : ExprVar(index_, name_) {}
@@ -164,7 +164,7 @@ protected:
 // recursive nodes
 
 struct ExprADTTest : public ExprUnary {
-    friend RuleAnalyzer;
+    friend ClauseExprAnalyzer;
 
 public:
     const TypeIndex adt;
@@ -176,7 +176,7 @@ protected:
 };
 
 struct ExprADTGetter : public ExprUnary {
-    friend RuleAnalyzer;
+    friend ClauseExprAnalyzer;
 
 public:
     const TypeIndex adt;
@@ -189,7 +189,7 @@ protected:
 };
 
 struct ExprConstraint : public ExprBinary {
-    friend RuleAnalyzer;
+    friend ClauseExprAnalyzer;
 
 public:
     const BinaryConstraintOp op;
@@ -202,14 +202,14 @@ protected:
 /**
  * A registry of expressions appeared in one rule
  */
-class RuleAnalyzer {
+class ClauseExprAnalyzer {
     friend Frontend;
 
 private:
     // environment
     const TypeRegistry& typeRegistry;
     const RelationRegistry& relationRegistry;
-    const ClauseAnalyzer& clauseAnalysis;
+    const ClauseTermAnalyzer& clauseAnalysis;
 
     // counter
     size_t counter = 1;
@@ -224,8 +224,8 @@ protected:
     std::vector<ExprIndex> binding_conds{};
 
 public:
-    RuleAnalyzer(const TypeRegistry& typeRegistry_, const RelationRegistry& relationRegistry_,
-            const ClauseAnalyzer& clauseAnalysis_)
+    ClauseExprAnalyzer(const TypeRegistry& typeRegistry_, const RelationRegistry& relationRegistry_,
+            const ClauseTermAnalyzer& clauseAnalysis_)
             : typeRegistry(typeRegistry_), relationRegistry(relationRegistry_),
               clauseAnalysis(clauseAnalysis_) {
         // heavy lifting
