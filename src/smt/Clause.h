@@ -638,7 +638,7 @@ protected:
     std::map<RelationIndex, std::vector<ClauseAnalyzer>> mapping{};
 
     // relation registration sequence
-    std::list<std::set<RelationIndex>> sequence{};
+    std::list<SCC<RelationIndex>> sequence{};
 
 public:
     ClauseRegistry(const ast::TranslationUnit& unit, const TypeRegistry& typeRegistry_,

@@ -166,7 +166,7 @@ public:
         // register types, including the mutually recursive ADTs
         type_check(program, type_env);
         const auto adt_dep_graph = build_adt_dep_graph();
-        for (const auto& scc : adt_dep_graph.deriveSCC()) {
+        for (const auto& [scc, _] : adt_dep_graph.deriveSCC()) {
             // NOTE: the SCCs are iterated over in a topological order
             assert(!scc.empty());
             register_type_records(scc);

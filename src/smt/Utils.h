@@ -117,6 +117,16 @@ private:
 }  // namespace algorithm::tarjan
 
 template <typename T>
+class SCC {
+public:
+    const std::set<T> nodes;
+    const bool is_cyclic;
+
+public:
+    SCC(std::set<T> nodes_, bool is_cyclic_) : nodes(std::move(nodes_)), is_cyclic(is_cyclic_) {}
+};
+
+template <typename T>
 class Graph {
 protected:
     // graph representation in adjacency list
@@ -138,7 +148,7 @@ public:  // Graph construction
     }
 
 public:  // SCC
-    std::list<std::set<T>> deriveSCC() const {
+    std::list<SCC<T>> deriveSCC() const {
         algorithm::tarjan::graph<T> g;
         std::map<T, algorithm::tarjan::vertex<T>*> v;
         for (const auto [key, _] : graph) {
@@ -150,14 +160,15 @@ public:  // SCC
             }
         }
 
-        std::list<std::set<T>> result;
+        std::list<SCC<T>> result;
         algorithm::tarjan::runner<T> tarjan;
         for (auto&& component : tarjan.run(g)) {
             std::set<T> scc;
             for (auto node : component) {
                 scc.insert(node->get_data());
             }
-            result.push_back(scc);
+            bool is_cyclic = scc.size() != 1 || graph.at(*scc.begin()).empty();
+            result.emplace_back(scc, is_cyclic);
         }
         return result;
     }
