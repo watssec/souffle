@@ -50,8 +50,8 @@ public:
     virtual void mkTypeRecords(const ADTGroup& group) = 0;
 
     // relations
-    virtual void mkRelation(
-            const RelationIndex& index, const std::string& name, const std::vector<TypeIndex>& domains) = 0;
+    virtual void mkRelation(const RelationIndex& index, const std::string& name,
+            const std::vector<std::pair<std::string, TypeIndex>>& params) = 0;
 
     // terms
     virtual void mkTermVarRef(const TermIndex& index, const std::string& name) = 0;

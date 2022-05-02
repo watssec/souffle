@@ -38,10 +38,11 @@ protected:
  */
 struct RelationInfo {
 public:
-    std::vector<TypeIndex> domains;
+    const std::vector<std::pair<std::string, TypeIndex>> params;
 
 public:
-    explicit RelationInfo(std::vector<TypeIndex> domains_) : domains(std::move(domains_)) {}
+    explicit RelationInfo(std::vector<std::pair<std::string, TypeIndex>> params_)
+            : params(std::move(params_)) {}
 };
 
 /**
@@ -75,13 +76,13 @@ public:
                         "Functional constraints not supported: " + rel->getQualifiedName().toString());
             }
 
-            // collect domains
-            std::vector<TypeIndex> domain;
+            // collect parameters
+            std::vector<std::pair<std::string, TypeIndex>> params;
             for (const auto attr : rel->getAttributes()) {
                 auto type = typeRegistry.retrieve_type(attr->getTypeName().toString());
-                domain.push_back(type);
+                params.emplace_back(attr->getName(), type);
             }
-            register_relation(rel->getQualifiedName().toString(), domain);
+            register_relation(rel->getQualifiedName().toString(), params);
         }
     }
 
@@ -120,10 +121,10 @@ private:
     }
 
     /// Register a relation to the registry
-    void register_relation(std::string name, std::vector<TypeIndex> domains) {
+    void register_relation(std::string name, std::vector<std::pair<std::string, TypeIndex>> params) {
         assert(!retrieve_relation_or_invalid(name).has_value());
         const auto [_, inserted] =
-                mapping.emplace(std::move(name), std::make_pair(new_index(), std::move(domains)));
+                mapping.emplace(std::move(name), std::make_pair(new_index(), std::move(params)));
         assert(inserted);
     }
 };

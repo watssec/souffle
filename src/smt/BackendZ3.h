@@ -273,12 +273,12 @@ public:
 
     // relations
     void mkRelation(const RelationIndex& index, const std::string& name,
-            const std::vector<TypeIndex>& domains) override {
-        Z3_sort domain_sorts[domains.size()];
-        for (unsigned i = 0; i < domains.size(); i++) {
-            domain_sorts[i] = types[domains[i]]->sort;
+            const std::vector<std::pair<std::string, TypeIndex>>& params) override {
+        Z3_sort domain_sorts[params.size()];
+        for (unsigned i = 0; i < params.size(); i++) {
+            domain_sorts[i] = types[params[i].second]->sort;
         }
-        auto fun = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx, name.c_str()), domains.size(), domain_sorts,
+        auto fun = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx, name.c_str()), params.size(), domain_sorts,
                 Z3_mk_bool_sort(ctx));
         const auto& [_, inserted] = relations.emplace(index, new RelationZ3(fun));
         assert(inserted);
@@ -548,8 +548,8 @@ private:
 
 public:
     void mkRelation(const RelationIndex& index, const std::string& name,
-            const std::vector<TypeIndex>& domains) override {
-        BackendZ3::mkRelation(index, name, domains);
+            const std::vector<std::pair<std::string, TypeIndex>>& params) override {
+        BackendZ3::mkRelation(index, name, params);
         Z3_fixedpoint_register_relation(ctx, fp, relations[index]->fun);
     }
 

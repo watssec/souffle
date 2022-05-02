@@ -44,7 +44,7 @@ public:
             const auto rel = relations.retrieve_relation(directive->getQualifiedName().toString());
 
             // TODO: a current limitation, we only handle SAT/UNSAT relations
-            assert(relations.retrieve_details(rel).domains.empty());
+            assert(relations.retrieve_details(rel).params.empty());
             queries.emplace_back(rel);
         }
     };
@@ -63,7 +63,7 @@ public:
 
         // relations
         for (const auto& [name, vals] : relations.mapping) {
-            backend.mkRelation(vals.first, name, vals.second.domains);
+            backend.mkRelation(vals.first, name, vals.second.params);
         }
 
         // clauses

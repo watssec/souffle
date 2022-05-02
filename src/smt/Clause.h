@@ -490,9 +490,9 @@ private:
 
         // retrieve the type information for each argument
         const auto details = relationRegistry.retrieve_details(index);
-        assert(details.domains.size() == atom->getArity());
+        assert(details.params.size() == atom->getArity());
         const auto args = atom->getArguments();
-        assert(details.domains.size() == args.size());
+        assert(details.params.size() == args.size());
 
         // iterate over args
         std::vector<TermIndex> child_terms;
@@ -586,7 +586,7 @@ private:
 
                         // found the child, retrieve its type declaration
                         const auto& details = relationRegistry.retrieve_details(term_atom->relation);
-                        const auto& ident_name = typeRegistry.retrieve_ident(details.domains[pos]);
+                        const auto& ident_name = typeRegistry.retrieve_ident(details.params[pos].second);
                         auto ident_type = typeRegistry.retrieve_type(ident_name);
 
                         // host the information in another dat structure
