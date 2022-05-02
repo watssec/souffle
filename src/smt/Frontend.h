@@ -158,7 +158,7 @@ private:
                 backend.mkTermOp(index, term_op->op, term_op->children);
                 continue;
             }
-            if (auto term_ctor = dynamic_cast<const TermADTCtor*>(term)) {
+            if (auto term_ctor = dynamic_cast<const TermCtor*>(term)) {
                 backend.mkTermCtor(index, term_ctor->adt, term_ctor->branch, term_ctor->children);
                 continue;
             }
