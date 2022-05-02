@@ -687,7 +687,7 @@ public:
 
         // populate the nodes in the dep graph
         for (const auto& [_, val] : relationRegistry.mapping) {
-            dep_graph.addNode(val.first);
+            dep_graph.addNode(val.index);
         }
 
         // populate the edges in the dep graph

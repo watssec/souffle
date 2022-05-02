@@ -272,6 +272,30 @@ public:
     }
 
     // relations
+    void mkRelDeclSimple(const RelationIndex& index, const std::string& name,
+            const std::vector<std::pair<std::string, TypeIndex>>& params) override {
+        Z3_sort domain_sorts[params.size()];
+        for (unsigned i = 0; i < params.size(); i++) {
+            domain_sorts[i] = types[params[i].second]->sort;
+        }
+        auto fun = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx, name.c_str()), params.size(), domain_sorts,
+                Z3_mk_bool_sort(ctx));
+        const auto& [_, inserted] = relations.emplace(index, new RelationZ3(fun));
+        assert(inserted);
+    };
+
+    void mkRelDeclRecursive(const RelationIndex& index, const std::string& name,
+            const std::vector<std::pair<std::string, TypeIndex>>& params) override {
+        Z3_sort domain_sorts[params.size()];
+        for (unsigned i = 0; i < params.size(); i++) {
+            domain_sorts[i] = types[params[i].second]->sort;
+        }
+        auto fun = Z3_mk_rec_func_decl(ctx, Z3_mk_string_symbol(ctx, name.c_str()), params.size(),
+                domain_sorts, Z3_mk_bool_sort(ctx));
+        const auto& [_, inserted] = relations.emplace(index, new RelationZ3(fun));
+        assert(inserted);
+    };
+
     void mkRelation(const RelationIndex& index, const std::string& name,
             const std::vector<std::pair<std::string, TypeIndex>>& params) override {
         Z3_sort domain_sorts[params.size()];
@@ -509,66 +533,6 @@ public:
         vars_decl.clear();
         terms.clear();
         clause_term.reset();
-    }
-};
-
-class BackendZ3MuZ : public BackendZ3 {
-protected:
-    Z3_fixedpoint fp;
-    size_t counter_facts = 0;
-    size_t counter_rules = 0;
-
-public:
-    BackendZ3MuZ() : BackendZ3(mkConfig()) {
-        fp = Z3_mk_fixedpoint(ctx);
-        Z3_fixedpoint_inc_ref(ctx, fp);
-
-        // TODO: tune the parameters
-        Z3_params params = Z3_mk_params(ctx);
-        Z3_params_set_symbol(
-                ctx, params, Z3_mk_string_symbol(ctx, "engine"), Z3_mk_string_symbol(ctx, "spacer"));
-        Z3_fixedpoint_set_params(ctx, fp, params);
-    }
-    ~BackendZ3MuZ() {
-        Z3_fixedpoint_dec_ref(ctx, fp);
-    }
-
-private:
-    static inline Z3_config mkConfig() {
-        auto cfg = Z3_mk_config();
-        return cfg;
-    }
-
-public:
-    void mkRelation(const RelationIndex& index, const std::string& name,
-            const std::vector<std::pair<std::string, TypeIndex>>& params) override {
-        BackendZ3::mkRelation(index, name, params);
-        Z3_fixedpoint_register_relation(ctx, fp, relations[index]->fun);
-    }
-
-    void mkFact(const TermIndex& head) override {
-        BackendZ3::mkFact(head);
-        if (clause_term->is_quantified) {
-            Z3_fixedpoint_add_rule(ctx, fp, clause_term->term,
-                    Z3_mk_string_symbol(ctx, ("Fact" + std::to_string(counter_facts++)).c_str()));
-        } else {
-            Z3_fixedpoint_assert(ctx, fp, clause_term->term);
-        }
-    }
-    void mkRule(const TermIndex& head, const std::vector<TermIndex>& body) override {
-        BackendZ3::mkRule(head, body);
-        if (clause_term->is_quantified) {
-            Z3_fixedpoint_add_rule(ctx, fp, clause_term->term,
-                    Z3_mk_string_symbol(ctx, ("Rule" + std::to_string(counter_rules++)).c_str()));
-        } else {
-            Z3_fixedpoint_assert(ctx, fp, clause_term->term);
-        }
-    }
-
-    SMTResult query(const RelationIndex& index) override {
-        const auto result =
-                Z3_fixedpoint_query_relations(ctx, fp, 1, new Z3_func_decl[1]{relations[index]->fun});
-        return z3_result_to_smt_result(result);
     }
 };
 

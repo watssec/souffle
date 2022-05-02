@@ -50,11 +50,9 @@ protected:
     explicit Expr(ExprIndex index_) : index(index_) {}
 };
 
-// const exprs
-
-struct ExprConst : public Expr {
+struct ExprLeaf : public Expr {
 protected:
-    explicit ExprConst(ExprIndex index_) : Expr(index_) {}
+    explicit ExprLeaf(ExprIndex index_) : Expr(index_) {}
 
 public:
     std::vector<ExprIndex> children() const override {
@@ -62,44 +60,46 @@ public:
     }
 };
 
-struct ExprConstBool : public ExprConst {
+// const exprs
+
+struct ExprConstBool : public ExprLeaf {
     friend RuleAnalyzer;
 
 public:
     const bool value;
 
 protected:
-    ExprConstBool(ExprIndex index_, bool value_) : ExprConst(index_), value(value_) {}
+    ExprConstBool(ExprIndex index_, bool value_) : ExprLeaf(index_), value(value_) {}
 };
 
-struct ExprConstNumber : public ExprConst {
+struct ExprConstNumber : public ExprLeaf {
     friend RuleAnalyzer;
 
 public:
     const int64_t value;
 
 protected:
-    ExprConstNumber(ExprIndex index_, int64_t value_) : ExprConst(index_), value(value_) {}
+    ExprConstNumber(ExprIndex index_, int64_t value_) : ExprLeaf(index_), value(value_) {}
 };
 
-struct ExprConstUnsigned : public ExprConst {
+struct ExprConstUnsigned : public ExprLeaf {
     friend RuleAnalyzer;
 
 public:
     const uint64_t value;
 
 protected:
-    ExprConstUnsigned(ExprIndex index_, uint64_t value_) : ExprConst(index_), value(value_) {}
+    ExprConstUnsigned(ExprIndex index_, uint64_t value_) : ExprLeaf(index_), value(value_) {}
 };
 
 // param exprs
 
 struct ExprParam : public Expr {
 public:
-    const TypeIndex type;
+    const std::string name;
 
 protected:
-    ExprParam(ExprIndex index_, TypeIndex type_) : Expr(index_), type(type_) {}
+    ExprParam(ExprIndex index_, std::string name_) : Expr(index_), name(std::move(name_)) {}
 
 public:
     std::vector<ExprIndex> children() const override {
@@ -111,14 +111,14 @@ struct ExprParamArg : public ExprParam {
     friend RuleAnalyzer;
 
 protected:
-    ExprParamArg(ExprIndex index_, TypeIndex type_) : ExprParam(index_, type_) {}
+    ExprParamArg(ExprIndex index_, std::string name_) : ExprParam(index_, name_) {}
 };
 
 struct ExprParamVar : public ExprParam {
     friend RuleAnalyzer;
 
 protected:
-    ExprParamVar(ExprIndex index_, TypeIndex type_) : ExprParam(index_, type_) {}
+    ExprParamVar(ExprIndex index_, std::string name_) : ExprParam(index_, name_) {}
 };
 
 /**
@@ -133,6 +133,9 @@ private:
     const RelationRegistry& relationRegistry;
     const ClauseAnalyzer& clauseAnalysis;
 
+    // clause specific settings
+    const std::vector<ExprIndex>& params;
+
     // counter
     size_t counter = 1;
 
@@ -142,9 +145,12 @@ protected:
 
 public:
     RuleAnalyzer(const TypeRegistry& typeRegistry_, const RelationRegistry& relationRegistry_,
-            const ClauseAnalyzer& clauseAnalysis_)
+            const ClauseAnalyzer& clauseAnalysis_, const std::vector<ExprIndex>& params_)
             : typeRegistry(typeRegistry_), relationRegistry(relationRegistry_),
-              clauseAnalysis(clauseAnalysis_) {
+              clauseAnalysis(clauseAnalysis_), params(params_) {
+        // pre-populate instantiations
+        const auto inst = clauseAnalysis.get_vars();
+
         // follow header argument terms to resolve variables
         const auto& terms = clauseAnalysis.terms;
         auto atom = dynamic_cast<const TermAtom*>(terms.at(clauseAnalysis.head).get());

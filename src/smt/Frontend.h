@@ -62,8 +62,35 @@ public:
         }
 
         // relations
+        for (const auto& scc : clauses.sequence) {
+            if (scc.is_cyclic) {
+                for (const auto& index : scc.nodes) {
+                    const auto& rel = relations.retrieve_details(index);
+                    backend.mkRelDeclRecursive(rel.index, rel.name, rel.params);
+                }
+            } else {
+                assert(scc.nodes.size() == 1);
+                const auto& rel = relations.retrieve_details(*scc.nodes.begin());
+                backend.mkRelDeclSimple(rel.index, rel.name, rel.params);
+            }
+        }
+    }
+
+    // TODO: to be removed
+    void populate_backend2(Backend& backend) const {
+        // types
+        backend.mkTypeNumber(types.type_number);
+        backend.mkTypeUnsigned(types.type_unsigned);
+        for (const auto& [name, index] : types.type_idents) {
+            backend.mkTypeIdent(index, name);
+        }
+        for (const auto& group : types.adt_sequence) {
+            backend.mkTypeRecords(group);
+        }
+
+        // relations
         for (const auto& [name, vals] : relations.mapping) {
-            backend.mkRelation(vals.first, name, vals.second.params);
+            backend.mkRelation(vals.index, name, vals.params);
         }
 
         // clauses

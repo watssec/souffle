@@ -50,6 +50,12 @@ public:
     virtual void mkTypeRecords(const ADTGroup& group) = 0;
 
     // relations
+    virtual void mkRelDeclSimple(const RelationIndex& index, const std::string& name,
+            const std::vector<std::pair<std::string, TypeIndex>>& params) = 0;
+    virtual void mkRelDeclRecursive(const RelationIndex& index, const std::string& name,
+            const std::vector<std::pair<std::string, TypeIndex>>& params) = 0;
+
+    // TODO: remove
     virtual void mkRelation(const RelationIndex& index, const std::string& name,
             const std::vector<std::pair<std::string, TypeIndex>>& params) = 0;
 
