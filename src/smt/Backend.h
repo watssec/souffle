@@ -56,10 +56,6 @@ public:
     virtual void mkRelDeclRecursive(const RelationIndex& index, const std::string& name,
             const std::vector<std::pair<std::string, TypeIndex>>& params) = 0;
 
-    // TODO: remove
-    virtual void mkRelation(const RelationIndex& index, const std::string& name,
-            const std::vector<std::pair<std::string, TypeIndex>>& params) = 0;
-
     // terms
     virtual void mkTermVarRef(const TermIndex& index, const std::string& name) = 0;
     virtual void mkTermConstBool(const TermIndex& index, bool value) = 0;

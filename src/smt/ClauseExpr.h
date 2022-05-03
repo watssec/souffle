@@ -254,6 +254,30 @@ protected:
             : ExprBinary(index_, lhs_, rhs_), op(op_) {}
 };
 
+struct ExprPredicates : public ExprVariadic {
+    friend ClauseExprAnalyzer;
+
+public:
+    const bool is_conjunction;
+
+protected:
+    ExprPredicates(ExprIndex index_, bool is_conjunction_, std::vector<ExprIndex> children_)
+            : ExprVariadic(index_, children_), is_conjunction(is_conjunction_) {}
+};
+
+struct ExprQuantifier : public ExprUnary {
+    friend ClauseExprAnalyzer;
+
+public:
+    const bool is_forall;
+    const std::map<std::string, TypeIndex> vars;
+
+protected:
+    ExprQuantifier(
+            ExprIndex index_, bool is_forall_, std::map<std::string, TypeIndex> vars_, ExprIndex child_)
+            : ExprUnary(index_, child_), is_forall(is_forall_), vars(std::move(vars_)) {}
+};
+
 /**
  * A registry of expressions appeared in one rule
  */
@@ -283,8 +307,8 @@ protected:
     std::map<const ast::UnnamedVariable*, TypeIndex> quant_vars_unnamed{};
     std::map<std::string, TypeIndex> quant_var_types{};
 
-    // body literals (for rules) and head literal (for fact)
-    std::vector<ExprIndex> literals{};
+    // root expr
+    ExprIndex root{0};
 
 public:
     ClauseExprAnalyzer(const TypeRegistry& typeRegistry_, const RelationRegistry& relationRegistry_,
@@ -315,7 +339,7 @@ private:
 
 private:
     void transform_fact() {
-        literals.push_back(convert(clauseAnalysis.head));
+        root = convert(clauseAnalysis.head);
     }
 
     void transform_rule() {
@@ -352,9 +376,23 @@ private:
         }
 
         // convert the body literals
+        std::vector<ExprIndex> literals;
         for (const auto& item : clauseAnalysis.body) {
             literals.push_back(convert(item));
         }
+
+        std::vector<ExprIndex> predicates;
+        predicates.insert(predicates.end(), binding_conds.cbegin(), binding_conds.cend());
+        if (quant_var_types.empty()) {
+            // combine the body literals and binding conditions
+            predicates.insert(predicates.end(), literals.cbegin(), literals.cend());
+        } else {
+            // encapsulate body literals with an existential quantifier
+            const auto quant_body_index = register_expr<ExprPredicates>(true, literals);
+            const auto quant_index = register_expr<ExprQuantifier>(false, quant_var_types, quant_body_index);
+            predicates.push_back(quant_index);
+        }
+        root = register_expr<ExprPredicates>(true, predicates);
     }
 
     void follow_header_argument(const Term* term, const Expr* cursor) {

@@ -60,7 +60,7 @@ public:
             backend.mkTypeRecords(group);
         }
 
-        // relations
+        // relation declarations
         for (const auto& scc : clauses.sequence) {
             if (scc.is_cyclic) {
                 for (const auto& index : scc.nodes) {

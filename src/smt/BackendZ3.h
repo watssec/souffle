@@ -296,18 +296,6 @@ public:
         assert(inserted);
     };
 
-    void mkRelation(const RelationIndex& index, const std::string& name,
-            const std::vector<std::pair<std::string, TypeIndex>>& params) override {
-        Z3_sort domain_sorts[params.size()];
-        for (unsigned i = 0; i < params.size(); i++) {
-            domain_sorts[i] = types[params[i].second]->sort;
-        }
-        auto fun = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx, name.c_str()), params.size(), domain_sorts,
-                Z3_mk_bool_sort(ctx));
-        const auto& [_, inserted] = relations.emplace(index, new RelationZ3(fun));
-        assert(inserted);
-    };
-
     // vars
     void mkVar(const std::string& name, const TypeIndex& type) override {
         Z3_sort var_sort = types[type]->sort;
