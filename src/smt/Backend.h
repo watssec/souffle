@@ -15,24 +15,24 @@
 
 namespace souffle::smt {
 
-enum class SMTResult {
+enum class QueryResult {
     UNKNOWN = -1,
-    UNSAT = 0,
-    SAT = 1,
+    FAIL = 0,
+    PASS = 1,
 };
 
-inline std::ostream& operator<<(std::ostream& os, const SMTResult& result) {
+inline std::ostream& operator<<(std::ostream& os, const QueryResult& result) {
     switch (result) {
-        case SMTResult::UNKNOWN: {
+        case QueryResult::UNKNOWN: {
             os << "UNKNOWN";
             break;
         }
-        case SMTResult::UNSAT: {
-            os << "UNSAT";
+        case QueryResult::FAIL: {
+            os << "FAIL";
             break;
         }
-        case SMTResult::SAT: {
-            os << "SAT";
+        case QueryResult::PASS: {
+            os << "PASS";
             break;
         }
     }
@@ -108,7 +108,7 @@ public:
 
     // query
     virtual void fact(const ExprIndex& expr) = 0;
-    virtual SMTResult query(const RelationIndex& index) = 0;
+    virtual QueryResult query(const RelationIndex& index) = 0;
 };
 
 }  // namespace souffle::smt

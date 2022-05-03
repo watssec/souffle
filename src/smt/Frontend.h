@@ -42,7 +42,7 @@ public:
             }
             const auto rel = relations.retrieve_relation(directive->getQualifiedName().toString());
 
-            // TODO: a current limitation, we only handle SAT/UNSAT relations
+            // TODO: a current limitation, we only handle PASS/FAIL relations
             assert(relations.retrieve_details(rel).params.empty());
             queries.emplace_back(rel);
         }
@@ -111,6 +111,12 @@ public:
                 build_exprs_by_sequence(backend, sequence);
                 backend.fact(analyzer.root);
             }
+        }
+
+        // queries
+        for (const auto& query : queries) {
+            auto result = backend.query(query);
+            assert(result == QueryResult::PASS);
         }
     }
 

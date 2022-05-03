@@ -18,20 +18,6 @@ namespace souffle::smt {
 class BackendZ3;
 class BackendZ3Rec;
 
-// utilities
-namespace {
-SMTResult z3_result_to_smt_result(Z3_lbool result) {
-    if (result == Z3_L_TRUE) {
-        return SMTResult::SAT;
-    }
-    if (result == Z3_L_FALSE) {
-        return SMTResult::UNSAT;
-    }
-    assert(result == Z3_L_UNDEF);
-    return SMTResult::UNKNOWN;
-}
-}  // namespace
-
 class SortZ3 {
     friend BackendZ3;
 
@@ -652,15 +638,50 @@ public:
         Z3_solver_assert(ctx, solver, exprs[expr]);
     }
 
-    SMTResult query(const RelationIndex& index) override {
-        auto needle = Z3_mk_not(ctx, rel_defs[index]->get_body());
+    QueryResult query(const RelationIndex& index) override {
+        // check the positive case
+        auto positive = rel_defs[index]->get_body();
 
         Z3_solver_push(ctx, solver);
-        Z3_solver_assert(ctx, solver, needle);
-        auto result = Z3_solver_check(ctx, solver);
+        Z3_solver_assert(ctx, solver, positive);
+        auto result_p = Z3_solver_check(ctx, solver);
         Z3_solver_pop(ctx, solver, 1);
 
-        return z3_result_to_smt_result(result);
+        switch (result_p) {
+            case Z3_L_UNDEF: {
+                return QueryResult::UNKNOWN;
+            }
+            case Z3_L_FALSE: {
+                return QueryResult::FAIL;
+            }
+            case Z3_L_TRUE: {
+                // expected
+                break;
+            }
+        }
+
+        // check the negative case
+        auto negative = Z3_mk_not(ctx, positive);
+
+        Z3_solver_push(ctx, solver);
+        Z3_solver_assert(ctx, solver, negative);
+        auto result_n = Z3_solver_check(ctx, solver);
+        Z3_solver_pop(ctx, solver, 1);
+
+        switch (result_n) {
+            case Z3_L_UNDEF: {
+                return QueryResult::UNKNOWN;
+            }
+            case Z3_L_FALSE: {
+                // expected
+                break;
+            }
+            case Z3_L_TRUE: {
+                return QueryResult::FAIL;
+            }
+        }
+
+        return QueryResult::PASS;
     }
 };
 
