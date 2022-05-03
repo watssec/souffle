@@ -52,23 +52,31 @@ public:
             mapping[val.index].clear();
         }
 
+        // ensure that all terms and exprs have unique indices
+        size_t counter_term = 0;
+        size_t counter_expr = 0;
+
         // do the actual analysis
         const auto& program = unit.getProgram();
         const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
         for (const auto clause : program.getClauses()) {
             // analyze the clause
-            ClauseTermAnalyzer analyzer(clause, type_analysis, typeRegistry, relationRegistry);
+            ClauseTermAnalyzer analyzer_term(
+                    clause, type_analysis, typeRegistry, relationRegistry, counter_term);
+            counter_term = analyzer_term.counter;
 
             // populate the edges in the dep graph
-            const auto main = analyzer.get_main();
-            for (const auto& dep : analyzer.get_deps()) {
+            const auto main = analyzer_term.get_main();
+            for (const auto& dep : analyzer_term.get_deps()) {
                 dep_graph.addEdge(main, dep);
             }
 
             // create the exprs
             const auto relation =
                     relationRegistry.retrieve_relation(clause->getHead()->getQualifiedName().toString());
-            mapping[relation].emplace_back(typeRegistry, relationRegistry, analyzer);
+            const auto& analyzer_expr = mapping[relation].emplace_back(
+                    typeRegistry, relationRegistry, analyzer_term, counter_expr);
+            counter_expr = analyzer_expr.counter;
         }
 
         // derive the relation registration sequence

@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "smt/ClauseTerm.h"
 #include "smt/ClauseExpr.h"
+#include "smt/ClauseTerm.h"
 #include "smt/Relation.h"
 #include "smt/Typing.h"
 
@@ -53,31 +53,56 @@ public:
     // relations
     virtual void mkRelDeclSimple(const RelationIndex& index, const std::string& name,
             const std::vector<std::pair<std::string, TypeIndex>>& params) = 0;
+    virtual void mkRelDefSimple(const RelationIndex& index, const std::string& name,
+            const std::vector<std::pair<std::string, TypeIndex>>& params,
+            const std::vector<ExprIndex>& defs) = 0;
+
     virtual void mkRelDeclRecursive(const RelationIndex& index, const std::string& name,
             const std::vector<std::pair<std::string, TypeIndex>>& params) = 0;
+    virtual void mkRelDefRecursive(const RelationIndex& index, const std::vector<ExprIndex>& defs) = 0;
 
-    // terms
-    virtual void mkTermVarRef(const TermIndex& index, const std::string& name) = 0;
-    virtual void mkTermConstBool(const TermIndex& index, bool value) = 0;
-    virtual void mkTermConstNumber(const TermIndex& index, int64_t value) = 0;
-    virtual void mkTermConstUnsigned(const TermIndex& index, uint64_t value) = 0;
-    virtual void mkTermIdent(const TermIndex& index, const TypeIndex& type, const std::string& ident) = 0;
-    virtual void mkTermFunctor(
-            const TermIndex& index, const FunctorOp& op, const TermIndex& lhs, const TermIndex& rhs) = 0;
-    virtual void mkTermCtor(const TermIndex& index, const TypeIndex& adt, const std::string& branch,
-            const std::vector<TermIndex>& args) = 0;
-    virtual void mkTermAtom(
-            const TermIndex& index, const RelationIndex& relation, const std::vector<TermIndex>& args) = 0;
-    virtual void mkTermNegation(const TermIndex& index, const TermIndex& term) = 0;
-    virtual void mkTermConstraint(const TermIndex& index, const BinaryConstraintOp& op, const TermIndex& lhs,
-            const TermIndex& rhs) = 0;
+    virtual void mkFact(const ExprIndex& expr) = 0;
 
-    // clause
-    virtual void initClause() = 0;
-    virtual void mkVar(const std::string& name, const TypeIndex& type) = 0;
-    virtual void mkFact(const TermIndex& head) = 0;
-    virtual void mkRule(const TermIndex& head, const std::vector<TermIndex>& body) = 0;
-    virtual void finiClause() = 0;
+    // contexts
+    virtual void initDef() = 0;
+    virtual void mkVarParam(const std::string& name, const TypeIndex& type) = 0;
+    virtual void finiDef() = 0;
+
+    virtual void initQuantifier() = 0;
+    virtual void mkVarQuant(const std::string& name, const TypeIndex& type) = 0;
+    virtual void finiQuantifier() = 0;
+
+    // exprs
+    virtual void mkExprVarParamRef(const ExprIndex& index, const std::string& name) = 0;
+    virtual void mkExprVarQuantRef(const ExprIndex& index, const std::string& name) = 0;
+
+    virtual void mkExprConstBool(const ExprIndex& index, bool value) = 0;
+    virtual void mkExprConstNumber(const ExprIndex& index, int64_t value) = 0;
+    virtual void mkExprConstUnsigned(const ExprIndex& index, uint64_t value) = 0;
+
+    virtual void mkExprIdent(const ExprIndex& index, const TypeIndex& type, const std::string& ident) = 0;
+
+    virtual void mkExprADTCtor(const ExprIndex& index, const TypeIndex& adt, const std::string& branch,
+            const std::vector<ExprIndex>& args) = 0;
+    virtual void mkExprADTTest(const ExprIndex& index, const TypeIndex& adt, const std::string& branch,
+            const ExprIndex& sub) = 0;
+    virtual void mkExprADTGetter(const ExprIndex& index, const TypeIndex& adt, const std::string& branch,
+            const std::string& field, const ExprIndex& sub) = 0;
+
+    virtual void mkExprAtom(
+            const ExprIndex& index, const RelationIndex& relation, const std::vector<ExprIndex>& args) = 0;
+    virtual void mkExprNegation(const ExprIndex& index, const ExprIndex& sub) = 0;
+
+    virtual void mkExprFunctor(
+            const ExprIndex& index, const FunctorOp& op, const ExprIndex& lhs, const ExprIndex& rhs) = 0;
+    virtual void mkExprConstraint(const ExprIndex& index, const BinaryConstraintOp& op, const ExprIndex& lhs,
+            const ExprIndex& rhs) = 0;
+
+    virtual void mkExprPredConjunction(const ExprIndex& index, const std::vector<ExprIndex>& args) = 0;
+    virtual void mkExprPredDisjunction(const ExprIndex& index, const std::vector<ExprIndex>& args) = 0;
+
+    virtual void mkExprQuantifierExists(const ExprIndex& index, const ExprIndex& body) = 0;
+    virtual void mkExprQuantifierForall(const ExprIndex& index, const ExprIndex& body) = 0;
 
     // query
     virtual SMTResult query(const RelationIndex& index) = 0;

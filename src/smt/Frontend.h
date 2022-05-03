@@ -60,81 +60,177 @@ public:
             backend.mkTypeRecords(group);
         }
 
-        // relation declarations
+        // relations
         for (const auto& scc : clauses.sequence) {
             if (scc.is_cyclic) {
+                // create declarations
                 for (const auto& index : scc.nodes) {
                     const auto& rel = relations.retrieve_details(index);
                     backend.mkRelDeclRecursive(rel.index, rel.name, rel.params);
                 }
+
+                // register definitions
+                for (const auto& index : scc.nodes) {
+                    const auto defs = prepare_relation_definitions(backend, index);
+                    // only register definitions when there exists associated rules
+                    // otherwise it remains a declaration
+                    if (!defs.empty()) {
+                        backend.mkRelDefRecursive(index, defs);
+                    }
+                }
             } else {
                 assert(scc.nodes.size() == 1);
-                const auto& rel = relations.retrieve_details(*scc.nodes.begin());
-                backend.mkRelDeclSimple(rel.index, rel.name, rel.params);
+                const auto& index = *scc.nodes.begin();
+                const auto& rel = relations.retrieve_details(index);
+
+                const auto defs = prepare_relation_definitions(backend, index);
+                if (defs.empty()) {
+                    // make a declaration when there does not exist any associated rules
+                    backend.mkRelDeclSimple(rel.index, rel.name, rel.params);
+                } else {
+                    // make a definition when there exists rules for this relation
+                    backend.mkRelDefSimple(rel.index, rel.name, rel.params, defs);
+                }
+            }
+        }
+
+        // facts
+        for (const auto& [_, analyzers] : clauses.mapping) {
+            for (const auto& analyzer : analyzers) {
+                if (analyzer.is_rule) {
+                    continue;
+                }
+                // TODO: add fact
             }
         }
     }
 
 private:
-    void build_terms_by_sequence(
-            Backend& backend, const ClauseInstantiation& inst, const std::vector<const Term*>& seq) const {
-        for (auto term : seq) {
-            auto index = term->index;
+    std::vector<ExprIndex> prepare_relation_definitions(Backend& backend, const RelationIndex& index) const {
+        // quickly scan for definitions
+        bool has_def = false;
+        for (const auto& analyzer : clauses.mapping.at(index)) {
+            if (!analyzer.is_rule) {
+                continue;
+            }
+            has_def = true;
+            break;
+        }
+
+        // shortcut if there is no rules associated with this relation
+        if (!has_def) {
+            return {};
+        }
+
+        // create definitions
+        const auto& rel = relations.retrieve_details(index);
+        backend.initDef();
+
+        std::vector<ExprIndex> defs;
+        for (const auto& analyzer : clauses.mapping.at(index)) {
+            if (!analyzer.is_rule) {
+                continue;
+            }
+            // TODO: create exprs
+            defs.push_back(analyzer.root);
+        }
+
+        backend.finiDef();
+        return defs;
+    }
+
+    void build_exprs_by_sequence(Backend& backend, const std::vector<const Expr*>& seq) const {
+        for (auto expr : seq) {
+            auto index = expr->index;
 
             // constants
-            if (auto term_const_bool = dynamic_cast<const TermConstBool*>(term)) {
-                backend.mkTermConstBool(index, term_const_bool->value);
+            if (auto const_bool = dynamic_cast<const ExprConstBool*>(expr)) {
+                backend.mkExprConstBool(index, const_bool->value);
                 continue;
             }
-            if (auto term_const_number = dynamic_cast<const TermConstNumber*>(term)) {
-                backend.mkTermConstNumber(index, term_const_number->value);
+            if (auto const_number = dynamic_cast<const ExprConstNumber*>(expr)) {
+                backend.mkExprConstNumber(index, const_number->value);
                 continue;
             }
-            if (auto term_const_unsigned = dynamic_cast<const TermConstUnsigned*>(term)) {
-                backend.mkTermConstUnsigned(index, term_const_unsigned->value);
+            if (auto const_unsigned = dynamic_cast<const ExprConstUnsigned*>(expr)) {
+                backend.mkExprConstUnsigned(index, const_unsigned->value);
                 continue;
             }
 
             // variables
-            if (auto term_var_named = dynamic_cast<const TermVarNamed*>(term)) {
-                auto it = inst.vars_named.find(term_var_named->name);
-                assert(it != inst.vars_named.end());
-                backend.mkTermVarRef(index, term_var_named->name);
+            if (auto var_param = dynamic_cast<const ExprVarParam*>(expr)) {
+                backend.mkExprVarParamRef(index, var_param->name);
                 continue;
             }
-            if (auto term_var_unnamed = dynamic_cast<const TermVarUnnamed*>(term)) {
-                auto it = inst.vars_unnamed.find(term_var_unnamed->ptr);
-                assert(it != inst.vars_unnamed.end());
-                backend.mkTermVarRef(index, inst.anon_names.at(it->first));
+            if (auto var_quant = dynamic_cast<const ExprVarQuant*>(expr)) {
+                backend.mkExprVarQuantRef(index, var_quant->name);
                 continue;
             }
 
             // identifier
-            if (auto term_ident = dynamic_cast<const TermIdent*>(term)) {
-                backend.mkTermIdent(index, term_ident->type.value(), term_ident->value);
+            if (auto ident = dynamic_cast<const ExprIdent*>(expr)) {
+                backend.mkExprIdent(index, ident->type, ident->value);
                 continue;
             }
 
-            // recursive nodes
-            if (auto term_functor = dynamic_cast<const TermFunctorOp*>(term)) {
-                backend.mkTermFunctor(index, term_functor->op, term_functor->lhs, term_functor->rhs);
+            // recursive
+            if (auto adt_ctor = dynamic_cast<const ExprADTCtor*>(expr)) {
+                backend.mkExprADTCtor(index, adt_ctor->adt, adt_ctor->branch, adt_ctor->args);
                 continue;
             }
-            if (auto term_ctor = dynamic_cast<const TermCtor*>(term)) {
-                backend.mkTermCtor(index, term_ctor->adt, term_ctor->branch, term_ctor->args);
+            if (auto adt_test = dynamic_cast<const ExprADTTest*>(expr)) {
+                backend.mkExprADTTest(index, adt_test->adt, adt_test->branch, adt_test->child);
                 continue;
             }
-            if (auto term_atom = dynamic_cast<const TermAtom*>(term)) {
-                backend.mkTermAtom(index, term_atom->relation, term_atom->args);
+            if (auto adt_getter = dynamic_cast<const ExprADTGetter*>(expr)) {
+                backend.mkExprADTGetter(
+                        index, adt_getter->adt, adt_getter->branch, adt_getter->field, adt_getter->child);
                 continue;
             }
-            if (auto term_negation = dynamic_cast<const TermNegation*>(term)) {
-                backend.mkTermNegation(index, term_negation->child);
+
+            if (auto atom = dynamic_cast<const ExprAtom*>(expr)) {
+                backend.mkExprAtom(index, atom->relation, atom->args);
                 continue;
             }
-            if (auto term_constraint = dynamic_cast<const TermConstraint*>(term)) {
-                backend.mkTermConstraint(
-                        index, term_constraint->op, term_constraint->lhs, term_constraint->rhs);
+            if (auto negation = dynamic_cast<const ExprNegation*>(expr)) {
+                backend.mkExprNegation(index, negation->child);
+                continue;
+            }
+
+            if (auto functor = dynamic_cast<const ExprFunctor*>(expr)) {
+                backend.mkExprFunctor(index, functor->op, functor->lhs, functor->rhs);
+                continue;
+            }
+            if (auto constraint = dynamic_cast<const ExprConstraint*>(expr)) {
+                backend.mkExprConstraint(index, constraint->op, constraint->lhs, constraint->rhs);
+                continue;
+            }
+
+            // collectives
+            if (auto predicates = dynamic_cast<const ExprPredicates*>(expr)) {
+                if (predicates->is_conjunction) {
+                    backend.mkExprPredConjunction(index, predicates->args);
+                } else {
+                    backend.mkExprPredDisjunction(index, predicates->args);
+                }
+                continue;
+            }
+
+            // quantifiers
+            if (auto quant_vars = dynamic_cast<const ExprQuantifierVars*>(expr)) {
+                backend.initQuantifier();
+                for (const auto& [name, type] : quant_vars->vars) {
+                    backend.mkVarQuant(name, type);
+                }
+                continue;
+            }
+            if (auto quant_full = dynamic_cast<const ExprQuantifierFull*>(expr)) {
+                if (quant_full->is_forall) {
+                    backend.mkExprQuantifierForall(index, quant_full->rhs);
+                } else {
+                    backend.mkExprQuantifierExists(index, quant_full->rhs);
+                }
+                backend.finiQuantifier();
                 continue;
             }
 

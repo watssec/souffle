@@ -22,9 +22,9 @@
 namespace souffle::smt {
 
 // forward declarations
-class ClauseInstantiation;
 class ClauseTermAnalyzer;
 class ClauseExprAnalyzer;
+class ClauseRegistry;
 
 /**
  * An index that uniquely identifies a term in a clause
@@ -226,39 +226,6 @@ protected:
 };
 
 /**
- * An instantiation of one clause
- */
-class ClauseInstantiation {
-    friend ClauseTermAnalyzer;
-
-public:
-    const std::map<std::string, TypeIndex> vars_named;
-    const std::map<const ast::UnnamedVariable*, TypeIndex> vars_unnamed;
-    const std::map<const ast::UnnamedVariable*, std::string> anon_names;
-
-protected:
-    ClauseInstantiation(std::map<std::string, TypeIndex> vars_named_,
-            std::map<const ast::UnnamedVariable*, TypeIndex> vars_unnamed_)
-            : vars_named(std::move(vars_named_)), vars_unnamed(std::move(vars_unnamed_)),
-              anon_names(create_anon_names(vars_named, vars_unnamed)) {}
-
-private:
-    static std::map<const ast::UnnamedVariable*, std::string> create_anon_names(
-            const std::map<std::string, TypeIndex>& vars_named,
-            const std::map<const ast::UnnamedVariable*, TypeIndex>& vars_unnamed) {
-        std::map<const ast::UnnamedVariable*, std::string> result;
-        unsigned counter = 0;
-        for (const auto& [key, val] : vars_unnamed) {
-            std::string name = "$anon" + std::to_string(counter);
-            auto it = vars_named.find(name);
-            assert(it == vars_named.end());
-            result.emplace(key, name);
-        }
-        return result;
-    }
-};
-
-/**
  * Holds the sequence of AST reconstruction
  */
 class ConstructionOrder {
@@ -278,6 +245,7 @@ protected:
  */
 class ClauseTermAnalyzer {
     friend ClauseExprAnalyzer;
+    friend ClauseRegistry;
 
 private:
     // environment
@@ -286,7 +254,7 @@ private:
     const RelationRegistry& relationRegistry;
 
     // counter
-    size_t counter = 1;
+    size_t counter;
 
 protected:
     // bounded variables
@@ -302,8 +270,9 @@ protected:
 
 public:
     ClauseTermAnalyzer(const ast::Clause* clause, const ast::analysis::TypeAnalysis& typing_,
-            const TypeRegistry& typeRegistry_, const RelationRegistry& relationRegistry_)
-            : typing(typing_), typeRegistry(typeRegistry_), relationRegistry(relationRegistry_) {
+            const TypeRegistry& typeRegistry_, const RelationRegistry& relationRegistry_, size_t counter_)
+            : typing(typing_), typeRegistry(typeRegistry_), relationRegistry(relationRegistry_),
+              counter(counter_) {
         // the heavy lifting
         analyze_clause(clause);
 
@@ -332,10 +301,6 @@ public:
             }
         }
         return result;
-    }
-
-    ClauseInstantiation get_vars() const {
-        return ClauseInstantiation(vars_named, vars_unnamed);
     }
 
     ConstructionOrder create_sequence() const {

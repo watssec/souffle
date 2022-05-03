@@ -24,6 +24,7 @@ namespace souffle::smt {
 
 // forward declarations
 class ClauseExprAnalyzer;
+class ClauseRegistry;
 class Frontend;
 
 /**
@@ -265,17 +266,26 @@ protected:
             : ExprVariadic(index_, children_), is_conjunction(is_conjunction_) {}
 };
 
-struct ExprQuantifier : public ExprUnary {
+struct ExprQuantifierVars : public ExprLeaf {
+    friend ClauseExprAnalyzer;
+
+public:
+    const std::map<std::string, TypeIndex> vars;
+
+protected:
+    ExprQuantifierVars(ExprIndex index_, std::map<std::string, TypeIndex> vars_)
+            : ExprLeaf(index_), vars(std::move(vars_)) {}
+};
+
+struct ExprQuantifierFull : public ExprBinary {
     friend ClauseExprAnalyzer;
 
 public:
     const bool is_forall;
-    const std::map<std::string, TypeIndex> vars;
 
 protected:
-    ExprQuantifier(
-            ExprIndex index_, bool is_forall_, std::map<std::string, TypeIndex> vars_, ExprIndex child_)
-            : ExprUnary(index_, child_), is_forall(is_forall_), vars(std::move(vars_)) {}
+    ExprQuantifierFull(ExprIndex index_, bool is_forall_, ExprIndex lhs_, ExprIndex rhs_)
+            : ExprBinary(index_, lhs_, rhs_), is_forall(is_forall_) {}
 };
 
 /**
@@ -283,6 +293,7 @@ protected:
  */
 class ClauseExprAnalyzer {
     friend Frontend;
+    friend ClauseRegistry;
 
 private:
     // environment
@@ -291,7 +302,7 @@ private:
     const ClauseTermAnalyzer& clauseAnalysis;
 
     // counter
-    size_t counter = 1;
+    size_t counter;
 
 protected:
     // expr registry
@@ -307,14 +318,15 @@ protected:
     std::map<const ast::UnnamedVariable*, TypeIndex> quant_vars_unnamed{};
     std::map<std::string, TypeIndex> quant_var_types{};
 
-    // root expr
+    // root
+    bool is_rule;
     ExprIndex root{0};
 
 public:
     ClauseExprAnalyzer(const TypeRegistry& typeRegistry_, const RelationRegistry& relationRegistry_,
-            const ClauseTermAnalyzer& clauseAnalysis_)
+            const ClauseTermAnalyzer& clauseAnalysis_, size_t counter_)
             : typeRegistry(typeRegistry_), relationRegistry(relationRegistry_),
-              clauseAnalysis(clauseAnalysis_) {
+              clauseAnalysis(clauseAnalysis_), counter(counter_) {
         // heavy lifting
         if (clauseAnalysis.body.empty()) {
             transform_fact();
@@ -340,6 +352,7 @@ private:
 private:
     void transform_fact() {
         root = convert(clauseAnalysis.head);
+        is_rule = false;
     }
 
     void transform_rule() {
@@ -388,11 +401,16 @@ private:
             predicates.insert(predicates.end(), literals.cbegin(), literals.cend());
         } else {
             // encapsulate body literals with an existential quantifier
+            const auto quant_vars_index = register_expr<ExprQuantifierVars>(quant_var_types);
             const auto quant_body_index = register_expr<ExprPredicates>(true, literals);
-            const auto quant_index = register_expr<ExprQuantifier>(false, quant_var_types, quant_body_index);
+            const auto quant_index =
+                    register_expr<ExprQuantifierFull>(false, quant_vars_index, quant_body_index);
             predicates.push_back(quant_index);
         }
+
+        // final registration
         root = register_expr<ExprPredicates>(true, predicates);
+        is_rule = true;
     }
 
     void follow_header_argument(const Term* term, const Expr* cursor) {
