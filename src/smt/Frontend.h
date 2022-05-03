@@ -71,25 +71,25 @@ public:
 
                 // register definitions
                 for (const auto& index : scc.nodes) {
-                    const auto defs = prepare_relation_definitions(backend, index);
+                    const auto& rel = relations.retrieve_details(index);
+                    const auto defs = prepare_relation_definitions(backend, rel);
                     // only register definitions when there exists associated rules
                     // otherwise it remains a declaration
                     if (!defs.empty()) {
-                        backend.mkRelDefRecursive(index, defs);
+                        backend.mkRelDefRecursive(rel.index, rel.params, defs);
                     }
                 }
             } else {
                 assert(scc.nodes.size() == 1);
                 const auto& index = *scc.nodes.begin();
                 const auto& rel = relations.retrieve_details(index);
-
-                const auto defs = prepare_relation_definitions(backend, index);
+                const auto defs = prepare_relation_definitions(backend, rel);
                 if (defs.empty()) {
                     // make a declaration when there does not exist any associated rules
                     backend.mkRelDeclSimple(rel.index, rel.name, rel.params);
                 } else {
                     // make a definition when there exists rules for this relation
-                    backend.mkRelDefSimple(rel.index, rel.name, rel.params, defs);
+                    backend.mkRelDefSimple(rel.index, rel.params, defs);
                 }
             }
         }
@@ -106,10 +106,10 @@ public:
     }
 
 private:
-    std::vector<ExprIndex> prepare_relation_definitions(Backend& backend, const RelationIndex& index) const {
+    std::vector<ExprIndex> prepare_relation_definitions(Backend& backend, const RelationInfo& rel) const {
         // quickly scan for definitions
         bool has_def = false;
-        for (const auto& analyzer : clauses.mapping.at(index)) {
+        for (const auto& analyzer : clauses.mapping.at(rel.index)) {
             if (!analyzer.is_rule) {
                 continue;
             }
@@ -123,11 +123,16 @@ private:
         }
 
         // create definitions
-        const auto& rel = relations.retrieve_details(index);
         backend.initDef();
 
+        // register params
+        for (const auto& [name, type] : rel.params) {
+            backend.mkVarParam(name, type);
+        }
+
+        // register definitions
         std::vector<ExprIndex> defs;
-        for (const auto& analyzer : clauses.mapping.at(index)) {
+        for (const auto& analyzer : clauses.mapping.at(rel.index)) {
             if (!analyzer.is_rule) {
                 continue;
             }
@@ -225,10 +230,15 @@ private:
                 continue;
             }
             if (auto quant_full = dynamic_cast<const ExprQuantifierFull*>(expr)) {
+                std::vector<std::pair<std::string, TypeIndex>> quant_vars;
+                for (const auto& [name, type] : quant_full->vars) {
+                    quant_vars.emplace_back(name, type);
+                }
+
                 if (quant_full->is_forall) {
-                    backend.mkExprQuantifierForall(index, quant_full->rhs);
+                    backend.mkExprQuantifierForall(index, quant_vars, quant_full->rhs);
                 } else {
-                    backend.mkExprQuantifierExists(index, quant_full->rhs);
+                    backend.mkExprQuantifierExists(index, quant_vars, quant_full->rhs);
                 }
                 backend.finiQuantifier();
                 continue;

@@ -281,11 +281,13 @@ struct ExprQuantifierFull : public ExprBinary {
     friend ClauseExprAnalyzer;
 
 public:
+    const std::map<std::string, TypeIndex> vars;
     const bool is_forall;
 
 protected:
-    ExprQuantifierFull(ExprIndex index_, bool is_forall_, ExprIndex lhs_, ExprIndex rhs_)
-            : ExprBinary(index_, lhs_, rhs_), is_forall(is_forall_) {}
+    ExprQuantifierFull(ExprIndex index_, std::map<std::string, TypeIndex> vars_, bool is_forall_,
+            ExprIndex lhs_, ExprIndex rhs_)
+            : ExprBinary(index_, lhs_, rhs_), vars(std::move(vars_)), is_forall(is_forall_) {}
 };
 
 /**
@@ -403,8 +405,8 @@ private:
             // encapsulate body literals with an existential quantifier
             const auto quant_vars_index = register_expr<ExprQuantifierVars>(quant_var_types);
             const auto quant_body_index = register_expr<ExprPredicates>(true, literals);
-            const auto quant_index =
-                    register_expr<ExprQuantifierFull>(false, quant_vars_index, quant_body_index);
+            const auto quant_index = register_expr<ExprQuantifierFull>(
+                    quant_var_types, false, quant_vars_index, quant_body_index);
             predicates.push_back(quant_index);
         }
 

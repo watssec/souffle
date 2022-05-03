@@ -53,15 +53,15 @@ public:
     // relations
     virtual void mkRelDeclSimple(const RelationIndex& index, const std::string& name,
             const std::vector<std::pair<std::string, TypeIndex>>& params) = 0;
-    virtual void mkRelDefSimple(const RelationIndex& index, const std::string& name,
+    virtual void mkRelDefSimple(const RelationIndex& index,
             const std::vector<std::pair<std::string, TypeIndex>>& params,
             const std::vector<ExprIndex>& defs) = 0;
 
     virtual void mkRelDeclRecursive(const RelationIndex& index, const std::string& name,
             const std::vector<std::pair<std::string, TypeIndex>>& params) = 0;
-    virtual void mkRelDefRecursive(const RelationIndex& index, const std::vector<ExprIndex>& defs) = 0;
-
-    virtual void mkFact(const ExprIndex& expr) = 0;
+    virtual void mkRelDefRecursive(const RelationIndex& index,
+            const std::vector<std::pair<std::string, TypeIndex>>& params,
+            const std::vector<ExprIndex>& defs) = 0;
 
     // contexts
     virtual void initDef() = 0;
@@ -101,10 +101,13 @@ public:
     virtual void mkExprPredConjunction(const ExprIndex& index, const std::vector<ExprIndex>& args) = 0;
     virtual void mkExprPredDisjunction(const ExprIndex& index, const std::vector<ExprIndex>& args) = 0;
 
-    virtual void mkExprQuantifierExists(const ExprIndex& index, const ExprIndex& body) = 0;
-    virtual void mkExprQuantifierForall(const ExprIndex& index, const ExprIndex& body) = 0;
+    virtual void mkExprQuantifierExists(const ExprIndex& index,
+            const std::vector<std::pair<std::string, TypeIndex>>& vars, const ExprIndex& body) = 0;
+    virtual void mkExprQuantifierForall(const ExprIndex& index,
+            const std::vector<std::pair<std::string, TypeIndex>>& vars, const ExprIndex& body) = 0;
 
     // query
+    virtual void fact(const ExprIndex& expr) = 0;
     virtual SMTResult query(const RelationIndex& index) = 0;
 };
 

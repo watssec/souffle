@@ -16,7 +16,6 @@ namespace souffle::smt {
 
 // forward declarations
 class BackendZ3;
-class BackendZ3MuZ;
 class BackendZ3Rec;
 
 // utilities
@@ -74,7 +73,7 @@ public:
     struct Variant {
         Z3_func_decl ctor;
         Z3_func_decl test;
-        std::vector<Z3_func_decl> getters;
+        std::map<std::string, Z3_func_decl> getters;
     };
 
 protected:
@@ -85,39 +84,25 @@ protected:
             : SortZ3(sort_), variants(std::move(variants_)) {}
 };
 
-class RelationZ3 {
-    friend BackendZ3;
-    friend BackendZ3MuZ;
-    friend BackendZ3Rec;
-
-protected:
-    Z3_func_decl fun;
-
-protected:
-    RelationZ3(Z3_func_decl fun_) : fun(fun_) {}
-};
-
-class TermZ3 {
+class FunctionZ3 {
     friend BackendZ3;
 
 protected:
-    Z3_ast term;
+    std::vector<Z3_ast> params;
+    Z3_ast body;
 
 protected:
-    TermZ3(Z3_ast term_) : term(term_) {}
-};
+    FunctionZ3(std::vector<Z3_ast> params_, Z3_ast body_) : params(std::move(params_)), body(body_) {}
 
-class ClauseZ3 {
-    friend BackendZ3;
-    friend BackendZ3MuZ;
-    friend BackendZ3Rec;
+public:
+    Z3_ast substitute(Z3_context ctx, size_t size, Z3_ast args[]) const {
+        assert(size == params.size());
+        return Z3_substitute(ctx, body, size, params.data(), args);
+    }
 
-protected:
-    Z3_ast term;
-    bool is_quantified;
-
-protected:
-    ClauseZ3(Z3_ast term_, bool is_quantified_) : term(term_), is_quantified(is_quantified_) {}
+    Z3_ast get_body() const {
+        return body;
+    }
 };
 
 /**
@@ -129,15 +114,21 @@ protected:
     Z3_sort sort_number;
     Z3_sort sort_unsigned;
 
-    // per-program
+    // types
     std::map<TypeIndex, std::unique_ptr<SortZ3>> types;
-    std::map<RelationIndex, std::unique_ptr<RelationZ3>> relations;
 
-    // per-clause
-    std::map<std::string, Z3_ast> vars;
-    std::vector<std::pair<Z3_symbol, Z3_sort>> vars_decl;
-    std::map<TermIndex, std::unique_ptr<TermZ3>> terms;
-    std::unique_ptr<ClauseZ3> clause_term;
+    // relations
+    std::map<RelationIndex, Z3_func_decl> rel_decls;
+    std::map<RelationIndex, std::unique_ptr<FunctionZ3>> rel_defs;
+
+    // terms
+    std::map<ExprIndex, Z3_ast> exprs;
+
+    // per-definition
+    std::map<std::string, Z3_ast> vars_param;
+
+    // per-quantifier
+    std::map<std::string, Z3_ast> vars_quant;
 
 protected:
     explicit BackendZ3(Z3_config cfg) {
@@ -155,9 +146,9 @@ public:
     }
 
 private:
-    // terms
-    void registerTerm(const TermIndex& index, Z3_ast term) {
-        const auto& [_, inserted] = terms.emplace(index, new TermZ3(simplify(term)));
+    // exprs
+    void registerExpr(const ExprIndex& index, Z3_ast term) {
+        const auto& [_, inserted] = exprs.emplace(index, simplify(term));
         assert(inserted);
     }
 
@@ -252,7 +243,10 @@ public:
                 SortRecordZ3::Variant variant;
                 variant.ctor = fun_ctor;
                 variant.test = fun_test;
-                variant.getters.assign(fun_getters, fun_getters + fields.size());
+                variant.getters.clear();
+                for (unsigned i = 0; i < fields.size(); i++) {
+                    variant.getters.emplace(fields[i].name, fun_getters[i]);
+                }
                 variants.emplace(branch.name, variant);
             }
 
@@ -280,9 +274,34 @@ public:
         }
         auto fun = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx, name.c_str()), params.size(), domain_sorts,
                 Z3_mk_bool_sort(ctx));
-        const auto& [_, inserted] = relations.emplace(index, new RelationZ3(fun));
+        const auto& [_, inserted] = rel_decls.emplace(index, fun);
         assert(inserted);
     };
+
+    void mkRelDefSimple(const RelationIndex& index,
+            const std::vector<std::pair<std::string, TypeIndex>>& params,
+            const std::vector<ExprIndex>& defs) override {
+        // collect params
+        assert(params.size() == vars_param.size());
+        std::vector<Z3_ast> param_asts;
+        for (const auto& [var_name, _] : params) {
+            const auto it = vars_param.find(var_name);
+            assert(it != vars_param.end());
+            param_asts.push_back(it->second);
+        }
+
+        // collect body
+        assert(!defs.empty());
+        Z3_ast def_asts[defs.size()];
+        for (size_t i = 0; i < defs.size(); i++) {
+            def_asts[i] = exprs[defs[i]];
+        }
+        auto body_ast = Z3_mk_or(ctx, defs.size(), def_asts);
+
+        // insert into registry
+        const auto [_, inserted] = rel_defs.emplace(index, new FunctionZ3(param_asts, body_ast));
+        assert(inserted);
+    }
 
     void mkRelDeclRecursive(const RelationIndex& index, const std::string& name,
             const std::vector<std::pair<std::string, TypeIndex>>& params) override {
@@ -292,42 +311,140 @@ public:
         }
         auto fun = Z3_mk_rec_func_decl(ctx, Z3_mk_string_symbol(ctx, name.c_str()), params.size(),
                 domain_sorts, Z3_mk_bool_sort(ctx));
-        const auto& [_, inserted] = relations.emplace(index, new RelationZ3(fun));
+        const auto& [_, inserted] = rel_decls.emplace(index, fun);
         assert(inserted);
     };
 
-    // vars
-    void mkVar(const std::string& name, const TypeIndex& type) override {
+    void mkRelDefRecursive(const RelationIndex& index,
+            const std::vector<std::pair<std::string, TypeIndex>>& params,
+            const std::vector<ExprIndex>& defs) override {
+        // collect params
+        assert(params.size() == vars_param.size());
+        std::vector<Z3_ast> param_asts;
+        for (const auto& [var_name, _] : params) {
+            const auto it = vars_param.find(var_name);
+            assert(it != vars_param.end());
+            param_asts.push_back(it->second);
+        }
+
+        // collect body
+        assert(!defs.empty());
+        Z3_ast def_asts[defs.size()];
+        for (size_t i = 0; i < defs.size(); i++) {
+            def_asts[i] = exprs[defs[i]];
+        }
+        auto body_ast = Z3_mk_or(ctx, defs.size(), def_asts);
+
+        // insert into registry
+        Z3_add_rec_def(ctx, rel_decls[index], params.size(), param_asts.data(), body_ast);
+    }
+
+    // context
+    void initDef() override {
+        assert(vars_param.empty());
+    }
+    void mkVarParam(const std::string& name, const TypeIndex& type) override {
         Z3_sort var_sort = types[type]->sort;
-        Z3_symbol var_name = Z3_mk_string_symbol(ctx, name.c_str());
-
-        const auto& [_, inserted] = vars.emplace(name, Z3_mk_bound(ctx, vars_decl.size(), var_sort));
+        Z3_ast var_ref = Z3_mk_fresh_const(ctx, name.c_str(), var_sort);
+        const auto& [_, inserted] = vars_param.emplace(name, var_ref);
         assert(inserted);
+    }
+    void finiDef() override {
+        vars_param.clear();
+    }
 
-        // update the var decls in reverse order
-        vars_decl.emplace(vars_decl.begin(), var_name, var_sort);
+    void initQuantifier() override {
+        assert(vars_quant.empty());
+    }
+    void mkVarQuant(const std::string& name, const TypeIndex& type) override {
+        Z3_sort var_sort = types[type]->sort;
+        Z3_ast var_ref = Z3_mk_bound(ctx, vars_quant.size(), var_sort);
+        const auto& [_, inserted] = vars_quant.emplace(name, var_ref);
+        assert(inserted);
+    }
+    void finiQuantifier() override {
+        vars_quant.clear();
     }
 
     // terms
-    void mkTermVarRef(const TermIndex& index, const std::string& name) override {
-        registerTerm(index, vars[name]);
+    void mkExprVarParamRef(const ExprIndex& index, const std::string& name) override {
+        registerExpr(index, vars_param[name]);
     }
-    void mkTermConstBool(const TermIndex& index, bool value) override {
-        registerTerm(index, value ? Z3_mk_true(ctx) : Z3_mk_false(ctx));
+    void mkExprVarQuantRef(const ExprIndex& index, const std::string& name) override {
+        registerExpr(index, vars_quant[name]);
     }
-    void mkTermConstNumber(const TermIndex& index, int64_t value) override {
-        registerTerm(index, Z3_mk_int(ctx, value, sort_number));
+
+    void mkExprConstBool(const ExprIndex& index, bool value) override {
+        registerExpr(index, value ? Z3_mk_true(ctx) : Z3_mk_false(ctx));
     }
-    void mkTermConstUnsigned(const TermIndex& index, uint64_t value) override {
-        registerTerm(index, Z3_mk_int(ctx, value, sort_unsigned));
+    void mkExprConstNumber(const ExprIndex& index, int64_t value) override {
+        registerExpr(index, Z3_mk_int(ctx, value, sort_number));
     }
-    void mkTermIdent(const TermIndex& index, const TypeIndex& type, const std::string& ident) override {
-        registerTerm(index, Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, ident.c_str()), types[type]->sort));
+    void mkExprConstUnsigned(const ExprIndex& index, uint64_t value) override {
+        registerExpr(index, Z3_mk_int(ctx, value, sort_unsigned));
+    }
+
+    void mkExprIdent(const ExprIndex& index, const TypeIndex& type, const std::string& ident) override {
+        registerExpr(index, Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, ident.c_str()), types[type]->sort));
     };
-    void mkTermFunctor(const TermIndex& index, const FunctorOp& op, const TermIndex& lhs,
-            const TermIndex& rhs) override {
-        const auto& lhs_term = terms.at(lhs)->term;
-        const auto& rhs_term = terms.at(rhs)->term;
+
+    void mkExprADTCtor(const ExprIndex& index, const TypeIndex& adt, const std::string& branch,
+            const std::vector<ExprIndex>& args) override {
+        auto type = dynamic_cast<const SortRecordZ3*>(types[adt].get());
+        auto variant = type->variants.at(branch);
+
+        Z3_ast subs[args.size()];
+        for (unsigned i = 0; i < args.size(); i++) {
+            subs[i] = exprs[args[i]];
+        }
+        registerExpr(index, Z3_mk_app(ctx, type->variants.at(branch).ctor, args.size(), subs));
+    }
+    void mkExprADTTest(const ExprIndex& index, const TypeIndex& adt, const std::string& branch,
+            const ExprIndex& sub) override {
+        auto type = dynamic_cast<const SortRecordZ3*>(types[adt].get());
+        auto variant = type->variants.at(branch);
+
+        Z3_ast subs[1] = {exprs[sub]};
+        registerExpr(index, Z3_mk_app(ctx, type->variants.at(branch).test, 1, subs));
+    }
+    void mkExprADTGetter(const ExprIndex& index, const TypeIndex& adt, const std::string& branch,
+            const std::string& field, const ExprIndex& sub) override {
+        auto type = dynamic_cast<const SortRecordZ3*>(types[adt].get());
+        auto variant = type->variants.at(branch);
+
+        Z3_ast subs[1] = {exprs[sub]};
+        registerExpr(index, Z3_mk_app(ctx, type->variants.at(branch).getters.at(field), 1, subs));
+    }
+
+    void mkExprAtom(const ExprIndex& index, const RelationIndex& relation,
+            const std::vector<ExprIndex>& args) override {
+        // collect arguments
+        Z3_ast subs[args.size()];
+        for (unsigned i = 0; i < args.size(); i++) {
+            subs[i] = exprs[args[i]];
+        }
+
+        // try applying declarations first
+        auto it_decl = rel_decls.find(relation);
+        if (it_decl != rel_decls.end()) {
+            registerExpr(index, Z3_mk_app(ctx, it_decl->second, args.size(), subs));
+            return;
+        }
+
+        // try applying definitions
+        auto it_def = rel_defs.find(relation);
+        assert(it_def != rel_defs.end());
+        auto applied = it_def->second->substitute(ctx, args.size(), subs);
+        registerExpr(index, applied);
+    };
+    void mkExprNegation(const ExprIndex& index, const ExprIndex& term) override {
+        registerExpr(index, Z3_mk_not(ctx, exprs[term]));
+    };
+
+    void mkExprFunctor(const ExprIndex& index, const FunctorOp& op, const ExprIndex& lhs,
+            const ExprIndex& rhs) override {
+        const auto& lhs_term = exprs.at(lhs);
+        const auto& rhs_term = exprs.at(rhs);
         Z3_ast result;
         switch (op) {
                 // number
@@ -377,79 +494,57 @@ public:
                 throw std::runtime_error("Operation not supported");
             }
         }
-        registerTerm(index, result);
+        registerExpr(index, result);
     }
-    void mkTermCtor(const TermIndex& index, const TypeIndex& adt, const std::string& branch,
-            const std::vector<TermIndex>& args) override {
-        auto type = dynamic_cast<const SortRecordZ3*>(types[adt].get());
-        auto variant = type->variants.at(branch);
-
-        Z3_ast subs[args.size()];
-        for (unsigned i = 0; i < args.size(); i++) {
-            subs[i] = terms[args[i]]->term;
-        }
-        registerTerm(index, Z3_mk_app(ctx, type->variants.at(branch).ctor, args.size(), subs));
-    }
-    void mkTermAtom(const TermIndex& index, const RelationIndex& relation,
-            const std::vector<TermIndex>& args) override {
-        const auto rel = relations[relation].get();
-        Z3_ast subs[args.size()];
-
-        for (unsigned i = 0; i < args.size(); i++) {
-            subs[i] = terms[args[i]]->term;
-        }
-        registerTerm(index, Z3_mk_app(ctx, rel->fun, args.size(), subs));
-    };
-    void mkTermNegation(const TermIndex& index, const TermIndex& term) override {
-        registerTerm(index, Z3_mk_not(ctx, terms[term]->term));
-    };
-    void mkTermConstraint(const TermIndex& index, const BinaryConstraintOp& op, const TermIndex& lhs,
-            const TermIndex& rhs) override {
+    void mkExprConstraint(const ExprIndex& index, const BinaryConstraintOp& op, const ExprIndex& lhs,
+            const ExprIndex& rhs) override {
+        const auto& lhs_term = exprs.at(lhs);
+        const auto& rhs_term = exprs.at(rhs);
         Z3_ast result;
         switch (op) {
                 // equality
             case BinaryConstraintOp::EQ: {
-                result = Z3_mk_eq(ctx, terms[lhs]->term, terms[rhs]->term);
+                result = Z3_mk_eq(ctx, lhs_term, rhs_term);
                 break;
             }
             case BinaryConstraintOp::NE: {
-                result = Z3_mk_not(ctx, Z3_mk_eq(ctx, terms[lhs]->term, terms[rhs]->term));
+                result = Z3_mk_not(ctx, Z3_mk_eq(ctx, lhs_term, rhs_term));
                 break;
             }
 
                 // number
             case BinaryConstraintOp::LT: {
-                result = Z3_mk_lt(ctx, terms[lhs]->term, terms[rhs]->term);
+                result = Z3_mk_lt(ctx, lhs_term, rhs_term);
                 break;
             }
             case BinaryConstraintOp::LE: {
-                result = Z3_mk_le(ctx, terms[lhs]->term, terms[rhs]->term);
+                result = Z3_mk_le(ctx, lhs_term, rhs_term);
                 break;
             }
             case BinaryConstraintOp::GE: {
-                result = Z3_mk_ge(ctx, terms[lhs]->term, terms[rhs]->term);
+                result = Z3_mk_ge(ctx, lhs_term, rhs_term);
                 break;
             }
             case BinaryConstraintOp::GT: {
-                result = Z3_mk_gt(ctx, terms[lhs]->term, terms[rhs]->term);
+                result = Z3_mk_gt(ctx, lhs_term, rhs_term);
                 break;
             }
 
                 // unsigned
             case BinaryConstraintOp::ULT: {
-                result = Z3_mk_bvult(ctx, terms[lhs]->term, terms[rhs]->term);
+                result = Z3_mk_bvult(ctx, lhs_term, rhs_term);
                 break;
             }
             case BinaryConstraintOp::ULE: {
-                result = Z3_mk_bvule(ctx, terms[lhs]->term, terms[rhs]->term);
+                result = Z3_mk_bvule(ctx, lhs_term, rhs_term);
                 break;
             }
             case BinaryConstraintOp::UGE: {
-                result = Z3_mk_bvuge(ctx, terms[lhs]->term, terms[rhs]->term);
+                result = Z3_mk_bvuge(ctx, lhs_term, rhs_term);
                 break;
             }
             case BinaryConstraintOp::UGT: {
-                result = Z3_mk_bvugt(ctx, terms[lhs]->term, terms[rhs]->term);
+                result = Z3_mk_bvugt(ctx, lhs_term, rhs_term);
                 break;
             }
                 // others
@@ -457,70 +552,69 @@ public:
                 throw std::runtime_error("Operation not supported");
             }
         }
-        registerTerm(index, result);
+        registerExpr(index, result);
     }
 
-    // clause
-    void initClause() override {
-        assert(vars.empty());
-        assert(vars_decl.empty());
-        assert(terms.empty());
-        assert(clause_term == nullptr);
+    void mkExprPredConjunction(const ExprIndex& index, const std::vector<ExprIndex>& args) override {
+        Z3_ast preds[args.size()];
+        for (size_t i = 0; i < args.size(); i++) {
+            preds[i] = exprs[args[i]];
+        }
+        registerExpr(index, Z3_mk_and(ctx, args.size(), preds));
     }
-    void mkFact(const TermIndex& head) override {
-        Z3_ast head_atom = terms[head]->term;
 
-        // first check if this is quantified
-        if (vars_decl.empty()) {
-            clause_term.reset(new ClauseZ3(head_atom, false));
-            return;
+    void mkExprPredDisjunction(const ExprIndex& index, const std::vector<ExprIndex>& args) override {
+        Z3_ast preds[args.size()];
+        for (size_t i = 0; i < args.size(); i++) {
+            preds[i] = exprs[args[i]];
         }
-
-        // handle quantified case
-        size_t vars_num = vars_decl.size();
-        Z3_sort forall_var_sorts[vars_num];
-        Z3_symbol forall_var_names[vars_num];
-        for (unsigned i = 0; i < vars_decl.size(); i++) {
-            forall_var_names[i] = vars_decl[i].first;
-            forall_var_sorts[i] = vars_decl[i].second;
-        }
-        Z3_ast forall =
-                Z3_mk_forall(ctx, 0, 0, nullptr, vars_num, forall_var_sorts, forall_var_names, head_atom);
-        clause_term.reset(new ClauseZ3(forall, true));
+        registerExpr(index, Z3_mk_or(ctx, args.size(), preds));
     }
-    void mkRule(const TermIndex& head, const std::vector<TermIndex>& body) override {
-        assert(!body.empty());
 
-        Z3_ast head_atom = terms[head]->term;
-        Z3_ast items[body.size()];
-        for (unsigned i = 0; i < body.size(); i++) {
-            items[i] = terms[body[i]]->term;
-        }
-        Z3_ast implication = Z3_mk_implies(ctx, Z3_mk_and(ctx, body.size(), items), head_atom);
+    void mkExprQuantifierExists(const ExprIndex& index,
+            const std::vector<std::pair<std::string, TypeIndex>>& vars, const ExprIndex& body) override {
+        assert(vars.size() == vars_quant.size());
+        size_t vars_num = vars.size();
 
-        // first check if this is quantified
-        if (vars_decl.empty()) {
-            clause_term.reset(new ClauseZ3(implication, false));
-            return;
+        // collect vars
+        Z3_sort quant_var_sorts[vars_num];
+        Z3_symbol quant_var_names[vars_num];
+        for (size_t i = 0; i < vars_num; i++) {
+            const auto& [var_name, var_type] = vars[i];
+            const auto it = vars_quant.find(var_name);
+            assert(it != vars_param.end());
+
+            quant_var_sorts[i] = types[var_type]->sort;
+            quant_var_names[i] = Z3_mk_string_symbol(ctx, var_name.c_str());
         }
 
-        // handle quantified case
-        size_t vars_num = vars_decl.size();
-        Z3_sort forall_var_sorts[vars_num];
-        Z3_symbol forall_var_names[vars_num];
-        for (unsigned i = 0; i < vars_decl.size(); i++) {
-            forall_var_names[i] = vars_decl[i].first;
-            forall_var_sorts[i] = vars_decl[i].second;
-        }
-        Z3_ast forall =
-                Z3_mk_forall(ctx, 0, 0, nullptr, vars_num, forall_var_sorts, forall_var_names, implication);
-        clause_term.reset(new ClauseZ3(forall, true));
+        // create the expression
+        Z3_ast quant_expr =
+                Z3_mk_exists(ctx, 0, 0, nullptr, vars_num, quant_var_sorts, quant_var_names, exprs[body]);
+        registerExpr(index, quant_expr);
     }
-    void finiClause() override {
-        vars.clear();
-        vars_decl.clear();
-        terms.clear();
-        clause_term.reset();
+
+    void mkExprQuantifierForall(const ExprIndex& index,
+            const std::vector<std::pair<std::string, TypeIndex>>& vars, const ExprIndex& body) override {
+        assert(vars.size() == vars_quant.size());
+        size_t vars_num = vars.size();
+
+        // collect vars
+        Z3_sort quant_var_sorts[vars_num];
+        Z3_symbol quant_var_names[vars_num];
+        for (size_t i = 0; i < vars_num; i++) {
+            const auto& [var_name, var_type] = vars[i];
+            const auto it = vars_quant.find(var_name);
+            assert(it != vars_param.end());
+
+            quant_var_sorts[i] = types[var_type]->sort;
+            quant_var_names[i] = Z3_mk_string_symbol(ctx, var_name.c_str());
+        }
+
+        // create the expression
+        Z3_ast quant_expr =
+                Z3_mk_forall(ctx, 0, 0, nullptr, vars_num, quant_var_sorts, quant_var_names, exprs[body]);
+        registerExpr(index, quant_expr);
     }
 };
 
@@ -552,21 +646,18 @@ private:
     }
 
 public:
-    void mkFact(const TermIndex& head) override {
-        BackendZ3::mkFact(head);
-        Z3_solver_assert(ctx, solver, clause_term->term);
-    }
-    void mkRule(const TermIndex& head, const std::vector<TermIndex>& body) override {
-        BackendZ3::mkRule(head, body);
-        Z3_solver_assert(ctx, solver, clause_term->term);
+    void fact(const ExprIndex& expr) override {
+        Z3_solver_assert(ctx, solver, exprs[expr]);
     }
 
     SMTResult query(const RelationIndex& index) override {
-        auto needle = Z3_mk_not(ctx, Z3_mk_app(ctx, relations[index]->fun, 0, nullptr));
+        auto needle = Z3_mk_not(ctx, rel_defs[index]->get_body());
+
         Z3_solver_push(ctx, solver);
         Z3_solver_assert(ctx, solver, needle);
         auto result = Z3_solver_check(ctx, solver);
         Z3_solver_pop(ctx, solver, 1);
+
         return z3_result_to_smt_result(result);
     }
 };
