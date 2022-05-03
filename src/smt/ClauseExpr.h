@@ -104,32 +104,26 @@ public:
 // const exprs
 
 struct ExprConstBool : public ExprLeaf {
-    friend ClauseExprAnalyzer;
-
 public:
     const bool value;
 
-protected:
+public:
     ExprConstBool(ExprIndex index_, bool value_) : ExprLeaf(index_), value(value_) {}
 };
 
 struct ExprConstNumber : public ExprLeaf {
-    friend ClauseExprAnalyzer;
-
 public:
     const int64_t value;
 
-protected:
+public:
     ExprConstNumber(ExprIndex index_, int64_t value_) : ExprLeaf(index_), value(value_) {}
 };
 
 struct ExprConstUnsigned : public ExprLeaf {
-    friend ClauseExprAnalyzer;
-
 public:
     const uint64_t value;
 
-protected:
+public:
     ExprConstUnsigned(ExprIndex index_, uint64_t value_) : ExprLeaf(index_), value(value_) {}
 };
 
@@ -149,29 +143,23 @@ public:
 };
 
 struct ExprVarParam : public ExprVar {
-    friend ClauseExprAnalyzer;
-
-protected:
+public:
     ExprVarParam(ExprIndex index_, std::string name_) : ExprVar(index_, name_) {}
 };
 
 struct ExprVarQuant : public ExprVar {
-    friend ClauseExprAnalyzer;
-
-protected:
+public:
     ExprVarQuant(ExprIndex index_, std::string name_) : ExprVar(index_, name_) {}
 };
 
 // ident expr
 
 struct ExprIdent : public ExprLeaf {
-    friend ClauseExprAnalyzer;
-
 public:
     const TypeIndex type;
     const std::string value;
 
-protected:
+public:
     ExprIdent(ExprIndex index_, TypeIndex type_, std::string value_)
             : ExprLeaf(index_), type(type_), value(std::move(value_)) {}
 };
@@ -179,112 +167,92 @@ protected:
 // recursive exprs
 
 struct ExprADTCtor : public ExprVariadic {
-    friend ClauseExprAnalyzer;
-
 public:
     const TypeIndex adt;
     const std::string branch;
 
-protected:
+public:
     ExprADTCtor(ExprIndex index_, TypeIndex adt_, std::string branch_, std::vector<ExprIndex> children_)
             : ExprVariadic(index_, children_), adt(adt_), branch(std::move(branch_)) {}
 };
 
 struct ExprADTTest : public ExprUnary {
-    friend ClauseExprAnalyzer;
-
 public:
     const TypeIndex adt;
     const std::string branch;
 
-protected:
+public:
     ExprADTTest(ExprIndex index_, TypeIndex adt_, std::string branch_, ExprIndex child_)
             : ExprUnary(index_, child_), adt(adt_), branch(std::move(branch_)) {}
 };
 
 struct ExprADTGetter : public ExprUnary {
-    friend ClauseExprAnalyzer;
-
 public:
     const TypeIndex adt;
     const std::string branch;
     const std::string field;
 
-protected:
+public:
     ExprADTGetter(ExprIndex index_, TypeIndex adt_, std::string branch_, std::string field_, ExprIndex child_)
             : ExprUnary(index_, child_), adt(adt_), branch(std::move(branch_)), field(std::move(field_)) {}
 };
 
 struct ExprAtom : public ExprVariadic {
-    friend ClauseExprAnalyzer;
-
 public:
     const RelationIndex relation;
 
-protected:
+public:
     ExprAtom(ExprIndex index_, RelationIndex relation_, std::vector<ExprIndex> children_)
             : ExprVariadic(index_, children_), relation(relation_) {}
 };
 
 struct ExprNegation : public ExprUnary {
-    friend ClauseExprAnalyzer;
-
-protected:
+public:
     ExprNegation(ExprIndex index_, ExprIndex child_) : ExprUnary(index_, child_) {}
 };
 
 struct ExprFunctor : public ExprBinary {
-    friend ClauseExprAnalyzer;
-
 public:
     const FunctorOp op;
 
-protected:
+public:
     ExprFunctor(ExprIndex index_, FunctorOp op_, ExprIndex lhs_, ExprIndex rhs_)
             : ExprBinary(index_, lhs_, rhs_), op(op_) {}
 };
 
 struct ExprConstraint : public ExprBinary {
-    friend ClauseExprAnalyzer;
-
 public:
     const BinaryConstraintOp op;
 
-protected:
+public:
     ExprConstraint(ExprIndex index_, BinaryConstraintOp op_, ExprIndex lhs_, ExprIndex rhs_)
             : ExprBinary(index_, lhs_, rhs_), op(op_) {}
 };
 
 struct ExprPredicates : public ExprVariadic {
-    friend ClauseExprAnalyzer;
-
 public:
     const bool is_conjunction;
 
-protected:
+public:
     ExprPredicates(ExprIndex index_, bool is_conjunction_, std::vector<ExprIndex> children_)
             : ExprVariadic(index_, children_), is_conjunction(is_conjunction_) {}
 };
 
 struct ExprQuantifierVars : public ExprLeaf {
-    friend ClauseExprAnalyzer;
-
 public:
     const std::map<std::string, TypeIndex> vars;
 
-protected:
+public:
     ExprQuantifierVars(ExprIndex index_, std::map<std::string, TypeIndex> vars_)
             : ExprLeaf(index_), vars(std::move(vars_)) {}
 };
 
 struct ExprQuantifierFull : public ExprBinary {
-    friend ClauseExprAnalyzer;
-
 public:
     const std::map<std::string, TypeIndex> vars;
     const bool is_forall;
 
-protected:
+public:
     ExprQuantifierFull(ExprIndex index_, std::map<std::string, TypeIndex> vars_, bool is_forall_,
             ExprIndex lhs_, ExprIndex rhs_)
             : ExprBinary(index_, lhs_, rhs_), vars(std::move(vars_)), is_forall(is_forall_) {}
@@ -320,7 +288,7 @@ protected:
     std::map<const ast::UnnamedVariable*, TypeIndex> quant_vars_unnamed{};
     std::map<std::string, TypeIndex> quant_var_types{};
 
-    // root
+    // exposed knowledge
     bool is_rule;
     ExprIndex root{0};
 
@@ -331,8 +299,10 @@ public:
               clauseAnalysis(clauseAnalysis_), counter(counter_) {
         // heavy lifting
         if (clauseAnalysis.body.empty()) {
+            is_rule = false;
             transform_fact();
         } else {
+            is_rule = true;
             transform_rule();
         }
     }
@@ -359,7 +329,6 @@ private:
 private:
     void transform_fact() {
         root = convert(clauseAnalysis.head);
-        is_rule = false;
     }
 
     void transform_rule() {
@@ -400,7 +369,9 @@ private:
         for (const auto& item : clauseAnalysis.body) {
             literals.push_back(convert(item));
         }
+        assert(quant_var_types.size() == quant_vars_named.size() + quant_vars_unnamed.size());
 
+        // build the final clause
         std::vector<ExprIndex> predicates;
         predicates.insert(predicates.end(), binding_conds.cbegin(), binding_conds.cend());
         if (quant_var_types.empty()) {
@@ -417,7 +388,6 @@ private:
 
         // final registration
         root = register_expr<ExprPredicates>(true, predicates);
-        is_rule = true;
     }
 
     void follow_header_argument(const Term* term, const Expr* cursor) {
@@ -502,12 +472,13 @@ private:
 
         // variables
         if (auto term_var_named = dynamic_cast<const TermVarNamed*>(term)) {
+            // check if this var can be derived from the param var
             auto it_param = param_vars_named.find(term_var_named->name);
             if (it_param != param_vars_named.end()) {
                 return it_param->second;
             }
 
-            // this is a quantified var
+            // this is a quantifier var
             auto it_quant = quant_vars_named.find(term_var_named->name);
             assert(it_quant != quant_vars_named.end());
 
@@ -523,10 +494,11 @@ private:
             auto it_param = param_vars_unnamed.find(term_var_unnamed->ptr);
             assert(it_param == param_vars_unnamed.end());
 
+            // it must be a quantifier var
             auto it_quant = quant_vars_unnamed.find(term_var_unnamed->ptr);
             assert(it_quant != quant_vars_unnamed.end());
 
-            auto new_name = "$_unnamed_" + std::to_string(quant_vars_named.size());
+            auto new_name = "$_unnamed_" + std::to_string(quant_var_types.size());
             const auto [_, inserted] = quant_var_types.emplace(new_name, it_quant->second);
             assert(inserted);
             return register_expr<ExprVarQuant>(new_name);

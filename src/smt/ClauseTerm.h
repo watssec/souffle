@@ -40,8 +40,6 @@ protected:
  * An information package about a term
  */
 struct Term {
-    friend ClauseTermAnalyzer;
-
 public:
     const TermIndex index;
 
@@ -105,65 +103,53 @@ public:
 // const nodes
 
 struct TermConstBool : public TermLeaf {
-    friend ClauseTermAnalyzer;
-
 public:
     const bool value;
 
-protected:
+public:
     TermConstBool(TermIndex index_, bool value_) : TermLeaf(index_), value(value_) {}
 };
 
 struct TermConstNumber : public TermLeaf {
-    friend ClauseTermAnalyzer;
-
 public:
     const int64_t value;
 
-protected:
+public:
     TermConstNumber(TermIndex index_, int64_t value_) : TermLeaf(index_), value(value_) {}
 };
 
 struct TermConstUnsigned : public TermLeaf {
-    friend ClauseTermAnalyzer;
-
 public:
     const uint64_t value;
 
-protected:
+public:
     TermConstUnsigned(TermIndex index_, uint64_t value_) : TermLeaf(index_), value(value_) {}
 };
 
 // var nodes
 
 struct TermVarNamed : public TermLeaf {
-    friend ClauseTermAnalyzer;
-
 public:
     const std::string name;
 
-protected:
+public:
     TermVarNamed(TermIndex index_, std::string name_) : TermLeaf(index_), name(std::move(name_)) {}
 };
 
 struct TermVarUnnamed : public TermLeaf {
-    friend ClauseTermAnalyzer;
-
 public:
     const ast::UnnamedVariable* ptr;
 
-protected:
+public:
     TermVarUnnamed(TermIndex index_, const ast::UnnamedVariable* ptr_) : TermLeaf(index_), ptr(ptr_) {}
 };
 
 struct TermIdent : public TermLeaf {
-    friend ClauseTermAnalyzer;
-
 public:
     const std::optional<TypeIndex> type;
     const std::string value;
 
-protected:
+public:
     TermIdent(TermIndex index_, std::string value_)
             : TermLeaf(index_), type(std::nullopt), value(std::move(value_)) {}
 
@@ -174,53 +160,43 @@ protected:
 // recursive nodes
 
 struct TermFunctorOp : public TermBinary {
-    friend ClauseTermAnalyzer;
-
 public:
     const FunctorOp op;
 
-protected:
+public:
     TermFunctorOp(TermIndex index_, FunctorOp op_, TermIndex lhs_, TermIndex rhs_)
             : TermBinary(index_, lhs_, rhs_), op(op_) {}
 };
 
 struct TermCtor : public TermVariadic {
-    friend ClauseTermAnalyzer;
-
 public:
     const TypeIndex adt;
     const std::string branch;
 
-protected:
+public:
     TermCtor(TermIndex index_, TypeIndex adt_, std::string branch_, std::vector<TermIndex> children_)
             : TermVariadic(index_, children_), adt(adt_), branch(std::move(branch_)) {}
 };
 
 struct TermAtom : public TermVariadic {
-    friend ClauseTermAnalyzer;
-
 public:
     const RelationIndex relation;
 
-protected:
+public:
     TermAtom(TermIndex index_, RelationIndex relation_, std::vector<TermIndex> children_)
             : TermVariadic(index_, children_), relation(relation_) {}
 };
 
 struct TermNegation : public TermUnary {
-    friend ClauseTermAnalyzer;
-
-protected:
+public:
     TermNegation(TermIndex index_, TermIndex child_) : TermUnary(index_, child_) {}
 };
 
 struct TermConstraint : public TermBinary {
-    friend ClauseTermAnalyzer;
-
 public:
     const BinaryConstraintOp op;
 
-protected:
+public:
     TermConstraint(TermIndex index_, BinaryConstraintOp op_, TermIndex lhs_, TermIndex rhs_)
             : TermBinary(index_, lhs_, rhs_), op(op_) {}
 };
@@ -268,7 +244,6 @@ public:
         if (body.empty()) {
             assert(vars_named.empty());
             assert(vars_unnamed.empty());
-            return;
         }
     }
 
