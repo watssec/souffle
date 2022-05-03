@@ -278,8 +278,13 @@ protected:
     std::map<const ast::UnnamedVariable*, ExprIndex> param_vars_unnamed{};
     std::vector<ExprIndex> binding_conds{};
 
+    // quantified variables
     std::map<std::string, TypeIndex> quant_vars_named{};
     std::map<const ast::UnnamedVariable*, TypeIndex> quant_vars_unnamed{};
+    std::map<std::string, TypeIndex> quant_var_types{};
+
+    // body literals (for rules) and head literal (for fact)
+    std::vector<ExprIndex> literals{};
 
 public:
     ClauseExprAnalyzer(const TypeRegistry& typeRegistry_, const RelationRegistry& relationRegistry_,
@@ -310,11 +315,12 @@ private:
 
 private:
     void transform_fact() {
-        // TODO
+        literals.push_back(convert(clauseAnalysis.head));
     }
+
     void transform_rule() {
         // pre-define the parameters
-        const auto& rel = relationRegistry.retrieve_details(clauseAnalysis.get_head());
+        const auto& rel = relationRegistry.retrieve_details(clauseAnalysis.get_main());
         std::vector<ExprIndex> params;
         for (const auto& [name, type] : rel.params) {
             auto index = register_expr<ExprVarParam>(name);
@@ -343,6 +349,11 @@ private:
             if (it == param_vars_unnamed.end()) {
                 quant_vars_unnamed.emplace(ptr, type);
             }
+        }
+
+        // convert the body literals
+        for (const auto& item : clauseAnalysis.body) {
+            literals.push_back(convert(item));
         }
     }
 
@@ -409,6 +420,91 @@ private:
 
         // all other terms are not allowed
         throw std::runtime_error("Unexpected term during header tracing");
+    }
+
+private:
+    ExprIndex convert(const TermIndex& index) {
+        const auto* term = clauseAnalysis.terms.at(index).get();
+
+        // constants
+        if (auto term_const_bool = dynamic_cast<const TermConstBool*>(term)) {
+            return register_expr<ExprConstBool>(term_const_bool->value);
+        }
+        if (auto term_const_number = dynamic_cast<const TermConstNumber*>(term)) {
+            return register_expr<ExprConstNumber>(term_const_number->value);
+        }
+        if (auto term_const_unsigned = dynamic_cast<const TermConstUnsigned*>(term)) {
+            return register_expr<ExprConstUnsigned>(term_const_unsigned->value);
+        }
+
+        // variables
+        if (auto term_var_named = dynamic_cast<const TermVarNamed*>(term)) {
+            auto it_param = param_vars_named.find(term_var_named->name);
+            if (it_param != param_vars_named.end()) {
+                return it_param->second;
+            }
+
+            // this is a quantified var
+            auto it_quant = quant_vars_named.find(term_var_named->name);
+            assert(it_quant != quant_vars_named.end());
+
+            auto new_name = "$_" + term_var_named->name;
+            const auto [it, inserted] = quant_var_types.emplace(new_name, it_quant->second);
+            if (!inserted) {
+                assert(it->second == it_quant->second);
+            }
+            return register_expr<ExprVarQuant>(new_name);
+        }
+        if (auto term_var_unnamed = dynamic_cast<const TermVarUnnamed*>(term)) {
+            // unnamed vars in body literals must not be in params
+            auto it_param = param_vars_unnamed.find(term_var_unnamed->ptr);
+            assert(it_param == param_vars_unnamed.end());
+
+            auto it_quant = quant_vars_unnamed.find(term_var_unnamed->ptr);
+            assert(it_quant != quant_vars_unnamed.end());
+
+            auto new_name = "$_unnamed_" + std::to_string(quant_vars_named.size());
+            const auto [_, inserted] = quant_var_types.emplace(new_name, it_quant->second);
+            assert(inserted);
+            return register_expr<ExprVarQuant>(new_name);
+        }
+
+        // identifier
+        if (auto term_ident = dynamic_cast<const TermIdent*>(term)) {
+            return register_expr<ExprIdent>(term_ident->type.value(), term_ident->value);
+        }
+
+        // recursive nodes
+        if (auto term_functor = dynamic_cast<const TermFunctorOp*>(term)) {
+            auto lhs = convert(term_functor->rhs);
+            auto rhs = convert(term_functor->rhs);
+            return register_expr<ExprFunctor>(term_functor->op, lhs, rhs);
+        }
+        if (auto term_ctor = dynamic_cast<const TermCtor*>(term)) {
+            std::vector<ExprIndex> args;
+            for (const auto& item : term_ctor->args) {
+                args.push_back(convert(item));
+            }
+            return register_expr<ExprADTCtor>(term_ctor->adt, term_ctor->branch, args);
+        }
+        if (auto term_atom = dynamic_cast<const TermAtom*>(term)) {
+            std::vector<ExprIndex> args;
+            for (const auto& item : term_atom->args) {
+                args.push_back(convert(item));
+            }
+            return register_expr<ExprAtom>(term_atom->relation, args);
+        }
+        if (auto term_negation = dynamic_cast<const TermNegation*>(term)) {
+            return register_expr<ExprNegation>(convert(term_negation->child));
+        }
+        if (auto term_constraint = dynamic_cast<const TermConstraint*>(term)) {
+            auto lhs = convert(term_constraint->rhs);
+            auto rhs = convert(term_constraint->rhs);
+            return register_expr<ExprConstraint>(term_constraint->op, lhs, rhs);
+        }
+
+        // catch all
+        throw new std::runtime_error("Unsupported terms");
     }
 };
 

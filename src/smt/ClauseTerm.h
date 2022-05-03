@@ -294,11 +294,11 @@ protected:
     std::map<const ast::UnnamedVariable*, TypeIndex> vars_unnamed{};
 
     // term registry
-    std::map<TermIndex, std::unique_ptr<Term>> terms;
+    std::map<TermIndex, std::unique_ptr<Term>> terms{};
 
     // structure
     TermIndex head{0};
-    std::vector<TermIndex> body;
+    std::vector<TermIndex> body{};
 
 public:
     ClauseTermAnalyzer(const ast::Clause* clause, const ast::analysis::TypeAnalysis& typing_,
@@ -319,7 +319,7 @@ public:
     }
 
 public:
-    RelationIndex get_head() const {
+    RelationIndex get_main() const {
         auto atom = dynamic_cast<const TermAtom*>(terms.at(head).get());
         return atom->relation;
     }

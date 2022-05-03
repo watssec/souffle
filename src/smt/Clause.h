@@ -60,9 +60,9 @@ public:
             ClauseTermAnalyzer analyzer(clause, type_analysis, typeRegistry, relationRegistry);
 
             // populate the edges in the dep graph
-            const auto head = analyzer.get_head();
+            const auto main = analyzer.get_main();
             for (const auto& dep : analyzer.get_deps()) {
-                dep_graph.addEdge(head, dep);
+                dep_graph.addEdge(main, dep);
             }
 
             // create the exprs
