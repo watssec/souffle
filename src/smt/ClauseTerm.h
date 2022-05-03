@@ -253,11 +253,13 @@ public:
         return atom->relation;
     }
 
-    std::vector<RelationIndex> get_deps() const {
-        std::vector<RelationIndex> result;
+    std::set<RelationIndex> get_deps() const {
+        std::set<RelationIndex> result;
         for (const auto& i : body) {
-            if (auto atom = dynamic_cast<const TermAtom*>(terms.at(i).get())) {
-                result.push_back(atom->relation);
+            for (const auto& term : visit_terms(i)) {
+                if (auto atom = dynamic_cast<const TermAtom*>(term)) {
+                    result.insert(atom->relation);
+                }
             }
         }
         return result;
@@ -550,6 +552,21 @@ private:
             terms.erase(key);
             terms.emplace(key, new_term);
         }
+    }
+
+private:
+    void visit_terms_recursive(const TermIndex& index, std::vector<const Term*>& sequence) const {
+        const auto& term = terms.at(index);
+        for (const auto& child : term->children()) {
+            visit_terms_recursive(child, sequence);
+        }
+        sequence.push_back(term.get());
+    }
+
+    std::vector<const Term*> visit_terms(const TermIndex& index) const {
+        std::vector<const Term*> sequence;
+        visit_terms_recursive(index, sequence);
+        return sequence;
     }
 };
 
