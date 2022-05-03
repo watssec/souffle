@@ -148,8 +148,10 @@ public:
 private:
     // exprs
     void registerExpr(const ExprIndex& index, Z3_ast term) {
-        const auto& [_, inserted] = exprs.emplace(index, simplify(term));
-        assert(inserted);
+        const auto& [it, inserted] = exprs.emplace(index, simplify(term));
+        if (!inserted) {
+            assert(it->second == term);
+        }
     }
 
 protected:
