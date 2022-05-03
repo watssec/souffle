@@ -100,7 +100,11 @@ public:
                 if (analyzer.is_rule) {
                     continue;
                 }
-                // TODO: add fact
+
+                // prepare the exprs
+                const auto sequence = analyzer.create_sequence();
+                build_exprs_by_sequence(backend, sequence);
+                backend.fact(analyzer.root);
             }
         }
     }
@@ -136,7 +140,10 @@ private:
             if (!analyzer.is_rule) {
                 continue;
             }
-            // TODO: create exprs
+
+            // prepare the exprs
+            const auto sequence = analyzer.create_sequence();
+            build_exprs_by_sequence(backend, sequence);
             defs.push_back(analyzer.root);
         }
 

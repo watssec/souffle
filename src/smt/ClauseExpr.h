@@ -337,6 +337,11 @@ public:
         }
     }
 
+public:
+    std::vector<const Expr*> create_sequence() const {
+        return visit_exprs(root);
+    }
+
 private:
     /// Create a new index
     ExprIndex new_index() {
@@ -563,6 +568,21 @@ private:
 
         // catch all
         throw new std::runtime_error("Unsupported terms");
+    }
+
+private:
+    void visit_exprs_recursive(const ExprIndex& index, std::vector<const Expr*>& sequence) const {
+        const auto& expr = exprs.at(index);
+        for (const auto& child : expr->children()) {
+            visit_exprs_recursive(child, sequence);
+        }
+        sequence.push_back(expr.get());
+    }
+
+    std::vector<const Expr*> visit_exprs(const ExprIndex& index) const {
+        std::vector<const Expr*> sequence;
+        visit_exprs_recursive(index, sequence);
+        return sequence;
     }
 };
 

@@ -226,21 +226,6 @@ protected:
 };
 
 /**
- * Holds the sequence of AST reconstruction
- */
-class ConstructionOrder {
-    friend ClauseTermAnalyzer;
-
-public:
-    const std::vector<const Term*> head;
-    const std::vector<std::vector<const Term*>> body;
-
-protected:
-    ConstructionOrder(std::vector<const Term*> head_, std::vector<std::vector<const Term*>> body_)
-            : head(std::move(head_)), body(std::move(body_)) {}
-};
-
-/**
  * A registry of terms appeared in one clause
  */
 class ClauseTermAnalyzer {
@@ -301,15 +286,6 @@ public:
             }
         }
         return result;
-    }
-
-    ConstructionOrder create_sequence() const {
-        const auto head_seq = visit_terms(head);
-        std::vector<std::vector<const Term*>> body_seqs;
-        for (const auto& item : body) {
-            body_seqs.emplace_back(visit_terms(item));
-        }
-        return ConstructionOrder(head_seq, body_seqs);
     }
 
 private:
@@ -599,21 +575,6 @@ private:
             terms.erase(key);
             terms.emplace(key, new_term);
         }
-    }
-
-private:
-    void visit_terms_recursive(const TermIndex& index, std::vector<const Term*>& sequence) const {
-        const auto& term = terms.at(index);
-        for (const auto& child : term->children()) {
-            visit_terms_recursive(child, sequence);
-        }
-        sequence.push_back(term.get());
-    }
-
-    std::vector<const Term*> visit_terms(const TermIndex& index) const {
-        std::vector<const Term*> sequence;
-        visit_terms_recursive(index, sequence);
-        return sequence;
     }
 };
 
