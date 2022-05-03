@@ -73,11 +73,11 @@ public:
                 for (const auto& index : scc.nodes) {
                     const auto& rel = relations.retrieve_details(index);
                     const auto defs = prepare_relation_definitions(backend, rel);
-                    // only register definitions when there exists associated rules
-                    // otherwise it remains a declaration
-                    if (!defs.empty()) {
-                        backend.mkRelDefRecursive(rel.index, rel.params, defs);
+                    if (defs.empty()) {
+                        // only register definitions when there exists associated rules
+                        continue;
                     }
+                    backend.mkRelDefRecursive(rel.index, rel.params, defs);
                 }
             } else {
                 assert(scc.nodes.size() == 1);
@@ -114,11 +114,10 @@ private:
         // quickly scan for definitions
         bool has_def = false;
         for (const auto& analyzer : clauses.mapping.at(rel.index)) {
-            if (!analyzer.is_rule) {
-                continue;
+            if (analyzer.is_rule) {
+                has_def = true;
+                break;
             }
-            has_def = true;
-            break;
         }
 
         // shortcut if there is no rules associated with this relation
