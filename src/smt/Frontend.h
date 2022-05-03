@@ -72,17 +72,21 @@ public:
                 // register definitions
                 for (const auto& index : scc.nodes) {
                     const auto& rel = relations.retrieve_details(index);
+
+                    backend.initDef();
                     const auto defs = prepare_relation_definitions(backend, rel);
-                    if (defs.empty()) {
+                    if (!defs.empty()) {
                         // only register definitions when there exists associated rules
-                        continue;
+                        backend.mkRelDefRecursive(rel.index, rel.params, defs);
                     }
-                    backend.mkRelDefRecursive(rel.index, rel.params, defs);
+                    backend.finiDef();
                 }
             } else {
                 assert(scc.nodes.size() == 1);
                 const auto& index = *scc.nodes.begin();
                 const auto& rel = relations.retrieve_details(index);
+
+                backend.initDef();
                 const auto defs = prepare_relation_definitions(backend, rel);
                 if (defs.empty()) {
                     // make a declaration when there does not exist any associated rules
@@ -91,6 +95,7 @@ public:
                     // make a definition when there exists rules for this relation
                     backend.mkRelDefSimple(rel.index, rel.params, defs);
                 }
+                backend.finiDef();
             }
         }
 
@@ -125,9 +130,6 @@ private:
             return {};
         }
 
-        // create definitions
-        backend.initDef();
-
         // register params
         for (const auto& [name, type] : rel.params) {
             backend.mkVarParam(name, type);
@@ -146,7 +148,6 @@ private:
             defs.push_back(analyzer.root);
         }
 
-        backend.finiDef();
         return defs;
     }
 
