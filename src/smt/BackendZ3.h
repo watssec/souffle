@@ -121,6 +121,7 @@ protected:
 
 #ifdef SMT_DEBUG
     std::map<RelationIndex, Z3_ast> rec_fun_defs;
+    std::set<std::string> ident_vars;
     std::ofstream file_smt;
 #endif
 
@@ -487,6 +488,12 @@ public:
 
     void mkExprIdent(const ExprIndex& index, const TypeIndex& type, const std::string& ident) override {
         registerExpr(index, Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, ident.c_str()), types[type]->sort));
+#ifdef SMT_DEBUG
+        if (ident_vars.insert(ident).second) {
+            file_smt << "(declare-const " << ident << " " << Z3_sort_to_string(ctx, types[type]->sort) << ")"
+                     << std::endl;
+        }
+#endif
     };
 
     void mkExprADTCtor(const ExprIndex& index, const TypeIndex& adt, const std::string& branch,
@@ -751,6 +758,9 @@ private:
 public:
     void fact(const ExprIndex& expr) override {
         facts.push_back(exprs[expr]);
+#ifdef SMT_DEBUG
+        file_smt << "(assert " << Z3_ast_to_string(ctx, exprs[expr]) << ")" << std::endl;
+#endif
     }
 
     QueryResult query(const RelationIndex& index) override {
@@ -771,7 +781,9 @@ public:
         Z3_solver_push(ctx, solver);
         Z3_solver_assert(ctx, solver, needle);
 #ifdef SMT_DEBUG
-        file_smt << Z3_solver_to_string(ctx, solver) << std::endl;
+        file_smt << "; query" << std::endl;
+        file_smt << "(assert " << Z3_ast_to_string(ctx, needle) << ")" << std::endl;
+        file_smt << "(check-sat)" << std::endl;
 #endif
         result = Z3_solver_check(ctx, solver);
         Z3_solver_pop(ctx, solver, 1);
