@@ -645,8 +645,13 @@ public:
 
     QueryResult query(const RelationIndex& index) override {
         // check that all facts are consistent
-        auto result = Z3_solver_check_assumptions(ctx, solver, facts.size(), facts.data());
+        Z3_solver_push(ctx, solver);
+        for (const auto& fact : facts) {
+            Z3_solver_assert(ctx, solver, fact);
+        }
+        auto result = Z3_solver_check(ctx, solver);
         assert(result == Z3_L_TRUE);
+        Z3_solver_pop(ctx, solver, 1);
 
         // prove that the facts implies the relation
         auto lhs = Z3_mk_and(ctx, facts.size(), facts.data());
