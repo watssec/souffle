@@ -167,8 +167,8 @@ public:  // SCC
             for (auto node : component) {
                 scc.insert(node->get_data());
             }
-            bool is_cyclic = scc.size() != 1 || graph.at(*scc.begin()).empty();
-            result.emplace_back(scc, is_cyclic);
+            bool acyclic = scc.size() == 1 && graph.at(*scc.begin()).empty();
+            result.emplace_back(scc, !acyclic);
         }
         return result;
     }
