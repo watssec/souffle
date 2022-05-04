@@ -382,7 +382,7 @@ private:
 
                 assert(adt_decl.branches.size() == 1);
                 const auto& branch_decl = adt_decl.branches[0];
-                assert(branch_decl.name == "");
+                assert(branch_decl.name == "default");
 
                 // cascade down to arguments
                 const auto& sub_args = arg_term->getArguments();

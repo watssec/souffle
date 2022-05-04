@@ -282,7 +282,7 @@ private:
                 }
 
                 // construct the default branch and the ADT
-                ADTBranch default_branch("", field_decls);
+                ADTBranch default_branch("default", field_decls);
                 decls.emplace_back(type_record->getName().toString(), std::vector({default_branch}));
             } else if (auto type_adt = dynamic_cast<const ast::analysis::AlgebraicDataType*>(type_item)) {
                 auto ast_adt = dynamic_cast<const ast::AlgebraicDataType*>(ast_item);
