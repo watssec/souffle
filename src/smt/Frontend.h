@@ -81,6 +81,14 @@ public:
                     }
                     backend.finiDef();
                 }
+
+#ifdef SMT_DEBUG
+                std::vector<RelationInfo> rels;
+                for (const auto& index : scc.nodes) {
+                    rels.emplace_back(relations.retrieve_details(index));
+                }
+                backend.mkRelSCC(rels);
+#endif
             } else {
                 assert(scc.nodes.size() == 1);
                 const auto& index = *scc.nodes.begin();

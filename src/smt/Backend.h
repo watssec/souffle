@@ -62,6 +62,9 @@ public:
     virtual void mkRelDefRecursive(const RelationIndex& index,
             const std::vector<std::pair<std::string, TypeIndex>>& params,
             const std::vector<ExprIndex>& defs) = 0;
+#ifdef SMT_DEBUG
+    virtual void mkRelSCC(const std::vector<RelationInfo>& relations) = 0;
+#endif
 
     // contexts
     virtual void initDef() = 0;

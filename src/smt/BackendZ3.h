@@ -8,6 +8,9 @@
 
 #pragma once
 
+#include <fstream>
+#include <iostream>
+
 #include <z3.h>
 
 #include "smt/Backend.h"
@@ -116,6 +119,11 @@ protected:
     // per-quantifier
     std::map<std::string, Z3_ast> vars_quant;
 
+#ifdef SMT_DEBUG
+    std::map<RelationIndex, Z3_ast> rec_fun_defs;
+    std::ofstream file_smt;
+#endif
+
 protected:
     explicit BackendZ3(Z3_config cfg) {
         // enable parallel solving
@@ -127,10 +135,22 @@ protected:
         // preset sorts
         sort_number = Z3_mk_int_sort(ctx);
         sort_unsigned = Z3_mk_bv_sort(ctx, RAM_DOMAIN_SIZE);
+
+#ifdef SMT_DEBUG
+        // prepare the file
+        Z3_set_ast_print_mode(ctx, Z3_ast_print_mode::Z3_PRINT_SMTLIB2_COMPLIANT);
+        file_smt.open("proof.smt2", std::ios::out | std::ios::trunc);
+#endif
     }
 
 public:
     ~BackendZ3() {
+#ifdef SMT_DEBUG
+        // save the dump
+        file_smt.close();
+#endif
+
+        // clear the context
         Z3_del_context(ctx);
     }
 
@@ -146,7 +166,11 @@ private:
 protected:
     // simplification
     virtual Z3_ast simplify(Z3_ast term) {
+#ifdef SMT_DEBUG
+        return term;
+#else
         return Z3_simplify(ctx, term);
+#endif
     }
 
 public:
@@ -163,6 +187,11 @@ public:
         const auto& [_, inserted] = types.emplace(index,
                 new SortIdentZ3(Z3_mk_uninterpreted_sort(ctx, Z3_mk_string_symbol(ctx, name.c_str()))));
         assert(inserted);
+
+#ifdef SMT_DEBUG
+        // smt representation
+        file_smt << "(declare-sort " << name << " 0)" << std::endl;
+#endif
     }
     void mkTypeRecords(const ADTGroup& group) override {
         // holds all constructors to be re-claimed
@@ -254,6 +283,43 @@ public:
         for (unsigned k = 0; k < decl_size; k++) {
             Z3_del_constructor_list(ctx, decl_lists[k]);
         }
+
+#ifdef SMT_DEBUG
+        file_smt << "(declare-datatypes" << std::endl;
+
+        // declarations
+        file_smt << "\t(" << std::endl;
+        for (const auto& [_, adt] : group.adts) {
+            file_smt << "\t\t(" << adt.name << " 0)" << std::endl;
+        }
+        file_smt << "\t)" << std::endl;
+
+        // definitions
+        file_smt << "\t(" << std::endl;
+        for (const auto& [_, adt] : group.adts) {
+            file_smt << "\t\t; " << adt.name << std::endl;
+            file_smt << "\t\t(" << std::endl;
+            for (const auto& branch : adt.branches) {
+                file_smt << "\t\t\t(" << branch.name;
+                for (const auto& field : branch.fields) {
+                    const char* field_type_name;
+                    if (std::holds_alternative<size_t>(field.type)) {
+                        field_type_name = group.adts.at(std::get<size_t>(field.type)).second.name.c_str();
+                    } else {
+                        auto field_type_index = std::get<TypeIndex>(field.type);
+                        field_type_name = Z3_sort_to_string(ctx, types[field_type_index]->sort);
+                    }
+                    file_smt << " (" << field.name << " " << field_type_name << ")";
+                }
+                file_smt << ")" << std::endl;
+            }
+            file_smt << "\t\t)" << std::endl;
+        }
+        file_smt << "\t)" << std::endl;
+
+        // end of group
+        file_smt << ")" << std::endl;
+#endif
     }
 
     // relations
@@ -267,7 +333,16 @@ public:
                 Z3_mk_bool_sort(ctx));
         const auto& [_, inserted] = rel_decls.emplace(index, fun);
         assert(inserted);
-    };
+
+#ifdef SMT_DEBUG
+        // smt representation
+        file_smt << "(declare-fun " << name << " (";
+        for (const auto& [_param_name, type] : params) {
+            file_smt << " " << Z3_sort_to_string(ctx, types[type]->sort);
+        }
+        file_smt << " ) Bool)" << std::endl;
+#endif
+    }
 
     void mkRelDefSimple(const RelationIndex& index,
             const std::vector<std::pair<std::string, TypeIndex>>& params,
@@ -304,7 +379,7 @@ public:
                 domain_sorts, Z3_mk_bool_sort(ctx));
         const auto& [_, inserted] = rel_decls.emplace(index, fun);
         assert(inserted);
-    };
+    }
 
     void mkRelDefRecursive(const RelationIndex& index,
             const std::vector<std::pair<std::string, TypeIndex>>& params,
@@ -328,7 +403,42 @@ public:
 
         // insert into registry
         Z3_add_rec_def(ctx, rel_decls[index], params.size(), param_asts.data(), body_ast);
+
+#ifdef SMT_DEBUG
+        const auto [_, inserted] = rec_fun_defs.emplace(index, body_ast);
+        assert(inserted);
+#endif
     }
+
+#ifdef SMT_DEBUG
+    void mkRelSCC(const std::vector<RelationInfo>& relations) override {
+        file_smt << "(define-funs-rec" << std::endl;
+
+        // declarations
+        size_t counter = 0;
+        file_smt << "\t(" << std::endl;
+        for (const auto& rel : relations) {
+            file_smt << "\t\t(" << rel.name << " (";
+            for (const auto& [param_name, param_type] : rel.params) {
+                file_smt << " (" << param_name << "!" << counter++ << " "
+                         << Z3_sort_to_string(ctx, types[param_type]->sort) << ")";
+            }
+            file_smt << " ) Bool)" << std::endl;
+        }
+        file_smt << "\t)" << std::endl;
+
+        // definitions
+        file_smt << "\t(" << std::endl;
+        for (const auto& rel : relations) {
+            file_smt << "\t\t; " << rel.name << std::endl;
+            file_smt << "\t\t" << Z3_ast_to_string(ctx, rec_fun_defs[rel.index]) << std::endl;
+        }
+        file_smt << "\t)" << std::endl;
+
+        // end of group
+        file_smt << ")" << std::endl;
+    }
+#endif
 
     // context
     void initDef() override {
@@ -660,6 +770,9 @@ public:
 
         Z3_solver_push(ctx, solver);
         Z3_solver_assert(ctx, solver, needle);
+#ifdef SMT_DEBUG
+        file_smt << Z3_solver_to_string(ctx, solver) << std::endl;
+#endif
         result = Z3_solver_check(ctx, solver);
         Z3_solver_pop(ctx, solver, 1);
 
