@@ -118,6 +118,9 @@ protected:
 
 protected:
     explicit BackendZ3(Z3_config cfg) {
+        // enable parallel solving
+        Z3_global_param_set("parallel.enable", "true");
+
         ctx = Z3_mk_context(cfg);
         Z3_del_config(cfg);
 
@@ -571,9 +574,9 @@ public:
             const auto& [var_name, var_type] = vars[i];
             const auto it = vars_quant.find(var_name);
             assert(it != vars_param.end());
-
-            quant_var_sorts[i] = types[var_type]->sort;
-            quant_var_names[i] = Z3_mk_string_symbol(ctx, var_name.c_str());
+            // reverse it
+            quant_var_sorts[vars_num - 1 - i] = types[var_type]->sort;
+            quant_var_names[vars_num - 1 - i] = Z3_mk_string_symbol(ctx, var_name.c_str());
         }
 
         // create the expression
@@ -594,9 +597,9 @@ public:
             const auto& [var_name, var_type] = vars[i];
             const auto it = vars_quant.find(var_name);
             assert(it != vars_param.end());
-
-            quant_var_sorts[i] = types[var_type]->sort;
-            quant_var_names[i] = Z3_mk_string_symbol(ctx, var_name.c_str());
+            // reverse it
+            quant_var_sorts[vars_num - 1 - i] = types[var_type]->sort;
+            quant_var_names[vars_num - 1 - i] = Z3_mk_string_symbol(ctx, var_name.c_str());
         }
 
         // create the expression
@@ -621,6 +624,7 @@ public:
         Z3_params_set_bool(ctx, params, Z3_mk_string_symbol(ctx, "induction"), true);
         Z3_params_set_bool(ctx, params, Z3_mk_string_symbol(ctx, "ematching"), false);
         Z3_params_set_bool(ctx, params, Z3_mk_string_symbol(ctx, "mbqi"), true);
+        Z3_params_set_uint(ctx, params, Z3_mk_string_symbol(ctx, "threads"), 8);
         Z3_solver_set_params(ctx, solver, params);
     }
     ~BackendZ3Rec() {
