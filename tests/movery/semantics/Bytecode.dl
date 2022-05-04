@@ -15,7 +15,7 @@ HasType(r, BOOL) :- OpLoadBool(r, _).
 .decl OpLoadInt(r: Variable, constant: Z)
 HasType(r, INT) :- OpLoadInt(r, _).
 
-.decl OpLoadBitvec(r: Variable, size: unsigned, constant: I)
+.decl OpLoadBitvec(r: Variable, size: number, constant: I)
 HasType(r, BITVEC(size)) :- OpLoadBitvec(r, size, _).
 
 // unary operations
@@ -25,7 +25,7 @@ HasType(r, BOOL) :- OpNot(r, in), HasType(in, BOOL).
 .decl OpNeg(r: Variable, in: Variable)
 HasType(r, INT) :- OpNeg(r, in), HasType(in, INT).
 
-.decl OpBitCast(r: Variable, into: unsigned, in: Variable)
+.decl OpBitCast(r: Variable, into: number, in: Variable)
 HasType(r, BITVEC(into)) :- OpBitCast(r, into, in), HasType(in, BITVEC(_)).
 
 // binary operations

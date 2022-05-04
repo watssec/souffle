@@ -15,7 +15,7 @@
 .type PrimitiveType =
       Bool {}
     | Int {}
-    | Bitvec {size: unsigned}
+    | Bitvec {size: number}
 
 #define _BOOL $Primitive($Bool())
 #define BOOL $Value(_BOOL)
