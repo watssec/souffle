@@ -612,6 +612,7 @@ public:
 class BackendZ3Rec : public BackendZ3 {
 protected:
     Z3_solver solver;
+    std::vector<Z3_ast> facts;
 
 public:
     BackendZ3Rec() : BackendZ3(mkConfig()) {
@@ -639,53 +640,36 @@ private:
 
 public:
     void fact(const ExprIndex& expr) override {
-        Z3_solver_assert(ctx, solver, exprs[expr]);
+        facts.push_back(exprs[expr]);
     }
 
     QueryResult query(const RelationIndex& index) override {
-        // check the positive case
-        auto positive = rel_defs[index]->get_body();
+        // check that all facts are consistent
+        auto result = Z3_solver_check_assumptions(ctx, solver, facts.size(), facts.data());
+        assert(result == Z3_L_TRUE);
+
+        // prove that the facts implies the relation
+        auto lhs = Z3_mk_and(ctx, facts.size(), facts.data());
+        auto rhs = rel_defs[index]->get_body();
+        auto needle = simplify(Z3_mk_not(ctx, Z3_mk_implies(ctx, lhs, rhs)));
 
         Z3_solver_push(ctx, solver);
-        Z3_solver_assert(ctx, solver, positive);
-        auto result_p = Z3_solver_check(ctx, solver);
+        Z3_solver_assert(ctx, solver, needle);
+        result = Z3_solver_check(ctx, solver);
         Z3_solver_pop(ctx, solver, 1);
 
-        switch (result_p) {
+        switch (result) {
             case Z3_L_UNDEF: {
                 return QueryResult::UNKNOWN;
             }
             case Z3_L_FALSE: {
-                return QueryResult::FAIL;
-            }
-            case Z3_L_TRUE: {
-                // expected
-                break;
-            }
-        }
-
-        // check the negative case
-        auto negative = Z3_mk_not(ctx, positive);
-
-        Z3_solver_push(ctx, solver);
-        Z3_solver_assert(ctx, solver, negative);
-        auto result_n = Z3_solver_check(ctx, solver);
-        Z3_solver_pop(ctx, solver, 1);
-
-        switch (result_n) {
-            case Z3_L_UNDEF: {
-                return QueryResult::UNKNOWN;
-            }
-            case Z3_L_FALSE: {
-                // expected
-                break;
+                return QueryResult::PASS;
             }
             case Z3_L_TRUE: {
                 return QueryResult::FAIL;
             }
         }
-
-        return QueryResult::PASS;
+        assert(false);
     }
 };
 
