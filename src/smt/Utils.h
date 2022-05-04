@@ -75,7 +75,9 @@ public:
         stack_.clear();
         strongly_connected_.clear();
         for (auto& v : graph.vertexes_) {
-            if (v.index_ == -1) strong_connect(&v);
+            if (v.index_ == -1) {
+                strong_connect(&v);
+            }
         }
         return strongly_connected_;
     }
@@ -103,7 +105,9 @@ private:
                 stack_.pop_back();
                 w->on_stack_ = false;
                 c.push_back(w);
-                if (w == v) break;
+                if (w == v) {
+                    break;
+                }
             }
         }
     }
@@ -151,11 +155,11 @@ public:  // SCC
     std::list<SCC<T>> deriveSCC() const {
         algorithm::tarjan::graph<T> g;
         std::map<T, algorithm::tarjan::vertex<T>*> v;
-        for (const auto [key, _] : graph) {
+        for (const auto& [key, _] : graph) {
             v[key] = g.add_vertex(key);
         }
-        for (const auto [key, neighbors] : graph) {
-            for (const auto n : neighbors) {
+        for (const auto& [key, neighbors] : graph) {
+            for (const auto& n : neighbors) {
                 v[key]->add_neighbour(v[n]);
             }
         }
@@ -167,7 +171,17 @@ public:  // SCC
             for (auto node : component) {
                 scc.insert(node->get_data());
             }
-            bool acyclic = scc.size() == 1 && graph.at(*scc.begin()).empty();
+
+            // mark whether this scc contains a cycle
+            bool acyclic = scc.size() == 1;
+            if (acyclic) {
+                for (const T& neighbor : graph.at(*scc.begin())) {
+                    if (scc.find(neighbor) != scc.end()) {
+                        acyclic = false;
+                        break;
+                    }
+                }
+            }
             result.emplace_back(scc, !acyclic);
         }
         return result;
