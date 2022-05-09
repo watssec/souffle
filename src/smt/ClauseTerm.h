@@ -261,12 +261,8 @@ public:
         return result;
     }
 
-    TermIndex get_head() const {
-        return head;
-    }
-
-    const std::vector<TermIndex>& get_body() const {
-        return body;
+    bool is_fact() const {
+        return body.empty();
     }
 
 private:
