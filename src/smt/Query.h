@@ -24,6 +24,10 @@ private:
 
 public:
     explicit QueryRegistry(const ast::TranslationUnit& unit) {
+#ifdef SMT_DEBUG
+        std::cout << "[query] analysis started" << std::endl;
+#endif
+
         const auto& program = unit.getProgram();
         for (const auto* directive : program.getDirectives()) {
             if (directive->getType() != ast::DirectiveType::output) {
@@ -33,6 +37,10 @@ public:
             const auto& name = directive->getQualifiedName();
             const auto [_, inserted] = queries.emplace(name.toString());
             assert(inserted);
+
+#ifdef SMT_DEBUG
+            std::cout << "[query] found a query predicate: " << name << std::endl;
+#endif
 
             // check that a query relation has zero arity
             for (const auto* rel : program.getRelations()) {
@@ -52,6 +60,10 @@ public:
                 }
             }
         }
+
+#ifdef SMT_DEBUG
+        std::cout << "[query] analysis completed" << std::endl;
+#endif
     }
 
 public:

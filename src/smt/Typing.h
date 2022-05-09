@@ -147,6 +147,10 @@ protected:
 
 public:
     explicit TypeRegistry(const ast::TranslationUnit& unit) {
+#ifdef SMT_DEBUG
+        std::cout << "[typing] analysis started" << std::endl;
+#endif
+
         // collect information
         const auto& program = unit.getProgram();
         const auto& type_env =
@@ -155,11 +159,25 @@ public:
         // register types, including the mutually recursive ADTs
         type_check(program, type_env);
         const auto adt_dep_graph = build_adt_dep_graph();
+#ifdef SMT_DEBUG
+        std::cout << "[typing] SCC registration sequence" << std::endl;
+#endif
         for (const auto& [scc, _] : adt_dep_graph.deriveSCC()) {
             // NOTE: the SCCs are iterated over in a topological order
             assert(!scc.empty());
+#ifdef SMT_DEBUG
+            std::cout << "[typing] SCC: [" << std::endl;
+            for (const auto* ty : scc) {
+                std::cout << "  " << *ty << std::endl;
+            }
+            std::cout << "]" << std::endl;
+#endif
             register_type_records(scc);
         }
+
+#ifdef SMT_DEBUG
+        std::cout << "[typing] analysis completed" << std::endl;
+#endif
     }
 
 public:

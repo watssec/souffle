@@ -8,4 +8,6 @@
 
 #pragma once
 
+#define SMT_DEBUG
+
 #include "smt/Frontend.h"

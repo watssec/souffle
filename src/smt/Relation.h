@@ -62,9 +62,12 @@ public:
     RelationRegistry(const ast::TranslationUnit& unit, const TypeRegistry& typeRegistry_,
             const QueryRegistry& queryRegistry_)
             : typeRegistry(typeRegistry_), queryRegistry(queryRegistry_) {
-        const auto& program = unit.getProgram();
+#ifdef SMT_DEBUG
+        std::cout << "[relation] analysis started" << std::endl;
+#endif
 
         // register relations
+        const auto& program = unit.getProgram();
         for (const auto rel : program.getRelations()) {
             if (!rel->getFunctionalDependencies().empty()) {
                 // the "choice" features is not supported yet
@@ -79,6 +82,10 @@ public:
                 continue;
             }
 
+#ifdef SMT_DEBUG
+            std::cout << "[relation] analyzing relation: " << rel_name << std::endl;
+#endif
+
             // collect parameters
             std::vector<std::pair<std::string, TypeIndex>> params;
             for (const auto attr : rel->getAttributes()) {
@@ -87,6 +94,10 @@ public:
             }
             register_relation(std::move(rel_name), params);
         }
+
+#ifdef SMT_DEBUG
+        std::cout << "[relation] analysis completed" << std::endl;
+#endif
     }
 
 public:
