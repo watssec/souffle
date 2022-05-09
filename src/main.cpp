@@ -682,9 +682,11 @@ int main(int argc, char** argv) {
         for (auto& item : Global::config().getMany("smt")) {
             smt::Frontend frontend(*astTranslationUnit);
             if (item == "MUZ") {
-                // TODO: implement
+                smt::BackendZ3MuZ backend;
+                frontend.populate_backend(backend);
             } else if (item == "Z3") {
-                // TODO: implement
+                smt::BackendZ3Horn backend;
+                frontend.populate_backend(backend);
             } else if (item == "CVC") {
                 // TODO: implement
             } else {

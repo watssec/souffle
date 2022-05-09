@@ -236,6 +236,23 @@ public:
     }
 
 public:
+    TypeIndex get_index_for_number() const {
+        return type_number;
+    }
+
+    TypeIndex get_index_for_unsigned() const {
+        return type_unsigned;
+    }
+
+    const std::map<std::string, TypeIndex>& get_sequence_for_idents() const {
+        return type_idents;
+    }
+
+    const std::vector<ADTBuilderGroup>& get_sequence_for_adts() const {
+        return adt_sequence;
+    }
+
+public:
     /// Retrieve a type by its name, primitive or user-defined. Panic if nonexistent.
     TypeIndex retrieve_type(const std::string& name) const {
         auto result = retrieve_type_or_invalid(name);
