@@ -18,6 +18,9 @@
 .decl IsType(var: Variable, type: Type)
 IsType(var, type) :- count : {HasType(var, _)} = 1, HasType(var, type).
 
+.decl IsTypeError(var: Variable)
+IsTypeError(var) :- HasType(var, t1), HasType(var, t2), t1 != t2.
+
 //
 // constant loading
 //
@@ -43,13 +46,18 @@ HasExpr($LoadBitvec("v_bitvec_0", 0, $H())).
 HasExpr($LoadBitvec("v_bitvec1_0", 1, $B0($H()))).
 HasExpr($LoadBitvec("v_bitvec1_1", 1, $B1($H()))).
 
+// violations
+HasExpr($LoadBool("v_mix_bool_number", $False())).
+HasExpr($LoadNumber("v_mix_bool_number", $N0())).
+
 // test procedures
 PassTypeCheckUnitTest() :-
     IsType("v_bool_1", BOOL),
     IsType("v_number_1", NUMBER),
     IsType("v_bitvec_0", BITVEC(0)),
     IsType("v_bitvec1_0", BITVEC(1)),
-    IsType("v_bitvec1_1", BITVEC(1)).
+    IsType("v_bitvec1_1", BITVEC(1)),
+    IsTypeError("v_mix_bool_number").
 
 .output PassTypeCheckUnitTest
 #endif
