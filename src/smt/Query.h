@@ -58,9 +58,9 @@ public:
             }
 
             // check that a query relation has zero facts
-            const auto& rel_analyzers = clauseRegistry.get_terms(rel_index);
+            const auto& rel_analyzers = clauseRegistry.get_analyzers(rel_index);
             for (const auto& analyzer : rel_analyzers) {
-                if (analyzer.is_fact()) {
+                if (analyzer.get_body().empty()) {
                     throw std::runtime_error("Query must have zero facts: " + name);
                 }
             }

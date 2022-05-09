@@ -16,7 +16,6 @@ namespace souffle::smt {
 
 // forward declarations
 class ClauseTermAnalyzer;
-class ClauseRegistry;
 
 /**
  * An index that uniquely identifies a term in a clause
@@ -198,12 +197,40 @@ public:
     TermCounter(TermIndex index_, std::vector<TermIndex> children_) : TermVariadic(index_, children_) {}
 };
 
+class ClauseVars {
+    friend ClauseTermAnalyzer;
+
+public:
+    const std::map<std::string, TypeIndex> vars_named;
+    const std::map<const ast::UnnamedVariable*, TypeIndex> vars_unnamed;
+    const std::map<const ast::UnnamedVariable*, std::string> anon_names;
+
+protected:
+    ClauseVars(std::map<std::string, TypeIndex> vars_named_,
+            std::map<const ast::UnnamedVariable*, TypeIndex> vars_unnamed_)
+            : vars_named(std::move(vars_named_)), vars_unnamed(std::move(vars_unnamed_)),
+              anon_names(create_anon_names(vars_named, vars_unnamed)) {}
+
+private:
+    static std::map<const ast::UnnamedVariable*, std::string> create_anon_names(
+            const std::map<std::string, TypeIndex>& vars_named,
+            const std::map<const ast::UnnamedVariable*, TypeIndex>& vars_unnamed) {
+        std::map<const ast::UnnamedVariable*, std::string> result;
+        unsigned counter = 0;
+        for (const auto& [key, val] : vars_unnamed) {
+            std::string name = "$anon" + std::to_string(counter);
+            auto it = vars_named.find(name);
+            assert(it == vars_named.end());
+            result.emplace(key, name);
+        }
+        return result;
+    }
+};
+
 /**
  * A registry of terms appeared in one clause
  */
 class ClauseTermAnalyzer {
-    friend ClauseRegistry;
-
 private:
     // environment
     const ast::analysis::TypeAnalysis& typing;
@@ -261,8 +288,24 @@ public:
         return result;
     }
 
-    bool is_fact() const {
-        return body.empty();
+    TermIndex get_head() const {
+        return head;
+    }
+
+    const std::vector<TermIndex>& get_body() const {
+        return body;
+    }
+
+    ClauseVars get_vars() const {
+        return ClauseVars(vars_named, vars_unnamed);
+    }
+
+    std::vector<const Term*> get_term_sequence(const TermIndex& index) const {
+        return visit_terms(index);
+    }
+
+    size_t get_counter() const {
+        return counter;
     }
 
 private:

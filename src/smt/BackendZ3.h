@@ -29,6 +29,15 @@ public:
     SortRecordZ3(std::map<std::string, Variant> variants_) : variants(std::move(variants_)) {}
 };
 
+class ClauseZ3 {
+public:
+    const Z3_ast term;
+    const bool is_quantified;
+
+public:
+    ClauseZ3(Z3_ast term_, bool is_quantified_) : term(term_), is_quantified(is_quantified_) {}
+};
+
 /**
  * The backend of SMT modeling based on Z3
  */
@@ -43,6 +52,12 @@ protected:
     std::map<TypeIndex, SortRecordZ3> adts;
     std::map<RelationIndex, Z3_func_decl> relations;
 
+    // per-clause
+    std::map<std::string, Z3_ast> vars;
+    std::vector<std::pair<Z3_symbol, Z3_sort>> vars_decl;
+    std::map<TermIndex, Z3_ast> terms;
+    std::unique_ptr<ClauseZ3> clause;
+
 protected:
     explicit BackendZ3(Z3_config cfg) {
         ctx = Z3_mk_context(cfg);
@@ -56,6 +71,13 @@ protected:
 public:
     ~BackendZ3() {
         Z3_del_context(ctx);
+    }
+
+private:
+    // terms
+    void registerTerm(const TermIndex& index, Z3_ast term) {
+        const auto& [_, inserted] = terms.emplace(index, term);
+        assert(inserted);
     }
 
 public:
@@ -180,6 +202,227 @@ public:
         const auto& [_, inserted] = relations.emplace(index, fun);
         assert(inserted);
     };
+
+    // terms
+    void mkTermVarRef(const TermIndex& index, const std::string& name) override {
+        registerTerm(index, vars.at(name));
+    }
+
+    void mkTermConstBool(const TermIndex& index, bool value) override {
+        registerTerm(index, value ? Z3_mk_true(ctx) : Z3_mk_false(ctx));
+    }
+    void mkTermConstNumber(const TermIndex& index, int64_t value) override {
+        registerTerm(index, Z3_mk_int(ctx, value, sort_number));
+    }
+    void mkTermConstUnsigned(const TermIndex& index, uint64_t value) override {
+        registerTerm(index, Z3_mk_int(ctx, value, sort_unsigned));
+    }
+
+    void mkTermIdent(const TermIndex& index, const TypeIndex& type, const std::string& ident) override {
+        registerTerm(index, Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, ident.c_str()), types.at(type)));
+    };
+
+    void mkTermCtor(const TermIndex& index, const TypeIndex& adt, const std::string& branch,
+            const std::vector<TermIndex>& args) override {
+        const auto& details = adts.at(adt);
+        const auto& variant = details.variants.at(branch);
+
+        Z3_ast subs[args.size()];
+        for (unsigned i = 0; i < args.size(); i++) {
+            subs[i] = terms.at(args[i]);
+        }
+        registerTerm(index, Z3_mk_app(ctx, variant.ctor, args.size(), subs));
+    }
+
+    void mkTermAtom(const TermIndex& index, const RelationIndex& relation,
+            const std::vector<TermIndex>& args) override {
+        const auto rel = relations.at(relation);
+        Z3_ast subs[args.size()];
+
+        for (unsigned i = 0; i < args.size(); i++) {
+            subs[i] = terms.at(args[i]);
+        }
+        registerTerm(index, Z3_mk_app(ctx, rel, args.size(), subs));
+    };
+    void mkTermNegation(const TermIndex& index, const TermIndex& term) override {
+        registerTerm(index, Z3_mk_not(ctx, terms.at(term)));
+    };
+
+    void mkTermFunctor(const TermIndex& index, const FunctorOp& op, const TermIndex& lhs,
+            const TermIndex& rhs) override {
+        const auto& lhs_term = terms.at(lhs);
+        const auto& rhs_term = terms.at(rhs);
+        Z3_ast result;
+        switch (op) {
+                // number
+            case FunctorOp::ADD: {
+                result = Z3_mk_add(ctx, 2, new Z3_ast[2]{lhs_term, rhs_term});
+                break;
+            }
+            case FunctorOp::SUB: {
+                result = Z3_mk_sub(ctx, 2, new Z3_ast[2]{lhs_term, rhs_term});
+                break;
+            }
+            case FunctorOp::MUL: {
+                result = Z3_mk_mul(ctx, 2, new Z3_ast[2]{lhs_term, rhs_term});
+                break;
+            }
+            case FunctorOp::DIV: {
+                result = Z3_mk_div(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case FunctorOp::MOD: {
+                result = Z3_mk_mod(ctx, lhs_term, rhs_term);
+                break;
+            }
+                // unsigned
+            case FunctorOp::UADD: {
+                result = Z3_mk_bvadd(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case FunctorOp::USUB: {
+                result = Z3_mk_bvsub(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case FunctorOp::UMUL: {
+                result = Z3_mk_bvmul(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case FunctorOp::UDIV: {
+                result = Z3_mk_bvudiv(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case FunctorOp::UMOD: {
+                result = Z3_mk_bvurem(ctx, lhs_term, rhs_term);
+                break;
+            }
+                // others
+            default: {
+                throw std::runtime_error("Operation not supported");
+            }
+        }
+        registerTerm(index, result);
+    }
+    void mkTermConstraint(const TermIndex& index, const BinaryConstraintOp& op, const TermIndex& lhs,
+            const TermIndex& rhs) override {
+        const auto& lhs_term = terms.at(lhs);
+        const auto& rhs_term = terms.at(rhs);
+        Z3_ast result;
+        switch (op) {
+                // equality
+            case BinaryConstraintOp::EQ: {
+                result = Z3_mk_eq(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case BinaryConstraintOp::NE: {
+                result = Z3_mk_not(ctx, Z3_mk_eq(ctx, lhs_term, rhs_term));
+                break;
+            }
+
+                // number
+            case BinaryConstraintOp::LT: {
+                result = Z3_mk_lt(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case BinaryConstraintOp::LE: {
+                result = Z3_mk_le(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case BinaryConstraintOp::GE: {
+                result = Z3_mk_ge(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case BinaryConstraintOp::GT: {
+                result = Z3_mk_gt(ctx, lhs_term, rhs_term);
+                break;
+            }
+
+                // unsigned
+            case BinaryConstraintOp::ULT: {
+                result = Z3_mk_bvult(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case BinaryConstraintOp::ULE: {
+                result = Z3_mk_bvule(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case BinaryConstraintOp::UGE: {
+                result = Z3_mk_bvuge(ctx, lhs_term, rhs_term);
+                break;
+            }
+            case BinaryConstraintOp::UGT: {
+                result = Z3_mk_bvugt(ctx, lhs_term, rhs_term);
+                break;
+            }
+                // others
+            default: {
+                throw std::runtime_error("Operation not supported");
+            }
+        }
+        registerTerm(index, result);
+    }
+
+    // clause
+    void initClause() override {
+        assert(vars.empty());
+        assert(vars_decl.empty());
+        assert(terms.empty());
+        assert(clause == nullptr);
+    }
+
+    void finiClause() override {
+        vars.clear();
+        vars_decl.clear();
+        terms.clear();
+        clause = nullptr;
+    }
+
+    void mkVar(const std::string& name, const TypeIndex& type) override {
+        Z3_sort var_sort = types.at(type);
+        Z3_symbol var_name = Z3_mk_string_symbol(ctx, name.c_str());
+
+        const auto& [_, inserted] = vars.emplace(name, Z3_mk_bound(ctx, vars_decl.size(), var_sort));
+        assert(inserted);
+
+        // update the var decls in reverse order
+        vars_decl.emplace(vars_decl.begin(), var_name, var_sort);
+    }
+
+    void mkFact(const TermIndex& head) override {
+        // a fact is never quantified
+        assert(vars_decl.empty());
+        clause = std::make_unique<ClauseZ3>(terms.at(head), false);
+    }
+
+    void mkRule(const TermIndex& head, const std::vector<TermIndex>& body) override {
+        assert(!body.empty());
+
+        // build the implication
+        Z3_ast head_atom = terms.at(head);
+        Z3_ast items[body.size()];
+        for (unsigned i = 0; i < body.size(); i++) {
+            items[i] = terms.at(body[i]);
+        }
+        Z3_ast implication = Z3_mk_implies(ctx, Z3_mk_and(ctx, body.size(), items), head_atom);
+
+        // first check if this is quantified
+        if (vars_decl.empty()) {
+            clause = std::make_unique<ClauseZ3>(implication, false);
+            return;
+        }
+
+        // handle quantified case
+        size_t vars_num = vars_decl.size();
+        Z3_sort forall_var_sorts[vars_num];
+        Z3_symbol forall_var_names[vars_num];
+        for (unsigned i = 0; i < vars_decl.size(); i++) {
+            forall_var_names[i] = vars_decl[i].first;
+            forall_var_sorts[i] = vars_decl[i].second;
+        }
+        Z3_ast forall =
+                Z3_mk_forall(ctx, 0, 0, nullptr, vars_num, forall_var_sorts, forall_var_names, implication);
+        clause = std::make_unique<ClauseZ3>(forall, true);
+    }
 };
 
 class BackendZ3MuZ : public BackendZ3 {
@@ -213,6 +456,21 @@ public:
         BackendZ3::mkRelation(index, name, domains);
         Z3_fixedpoint_register_relation(ctx, fp, relations.at(index));
     }
+
+    void mkFact(const TermIndex& head) override {
+        BackendZ3::mkFact(head);
+        assert(!clause->is_quantified);
+        Z3_fixedpoint_assert(ctx, fp, clause->term);
+    }
+
+    void mkRule(const TermIndex& head, const std::vector<TermIndex>& body) override {
+        BackendZ3::mkRule(head, body);
+        if (clause->is_quantified) {
+            Z3_fixedpoint_add_rule(ctx, fp, clause->term, nullptr);
+        } else {
+            Z3_fixedpoint_assert(ctx, fp, clause->term);
+        }
+    }
 };
 
 class BackendZ3Horn : public BackendZ3 {
@@ -240,6 +498,16 @@ private:
     static inline Z3_config mkConfig() {
         auto cfg = Z3_mk_config();
         return cfg;
+    }
+
+public:
+    void mkFact(const TermIndex& head) override {
+        BackendZ3::mkFact(head);
+        Z3_solver_assert(ctx, solver, clause->term);
+    }
+    void mkRule(const TermIndex& head, const std::vector<TermIndex>& body) override {
+        BackendZ3::mkRule(head, body);
+        Z3_solver_assert(ctx, solver, clause->term);
     }
 };
 

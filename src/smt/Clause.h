@@ -63,7 +63,7 @@ public:
             const auto rel_index = relationRegistry.retrieve_relation(rel_name);
             const auto& analyzer = mapping[rel_index].emplace_back(
                     clause, type_analysis, typeRegistry, relationRegistry, counter);
-            counter = analyzer.counter;
+            counter = analyzer.get_counter();
 
             // populate the edges in the dep graph
             const auto main = analyzer.get_main();
@@ -90,7 +90,7 @@ public:
     }
 
 public:
-    const std::vector<ClauseTermAnalyzer>& get_terms(const RelationIndex& index) const {
+    const std::vector<ClauseTermAnalyzer>& get_analyzers(const RelationIndex& index) const {
         return mapping.at(index);
     }
 
