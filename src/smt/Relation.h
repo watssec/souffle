@@ -9,7 +9,6 @@
 #pragma once
 
 #include "smt/Common.h"
-#include "smt/Query.h"
 #include "smt/Typing.h"
 
 namespace souffle::smt {

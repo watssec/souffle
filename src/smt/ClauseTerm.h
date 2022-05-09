@@ -193,6 +193,11 @@ public:
             : TermBinary(index_, lhs_, rhs_), op(op_) {}
 };
 
+struct TermCounter : public TermVariadic {
+public:
+    TermCounter(TermIndex index_, std::vector<TermIndex> children_) : TermVariadic(index_, children_) {}
+};
+
 /**
  * A registry of terms appeared in one clause
  */
@@ -279,9 +284,6 @@ private:
         // filter out unsupported cases
         if (dynamic_cast<const ast::TypeCast*>(arg)) {
             throw std::runtime_error("Type casts are not supported yet");
-        }
-        if (dynamic_cast<const ast::Aggregator*>(arg)) {
-            throw std::runtime_error("Aggregators are not supported yet");
         }
         if (dynamic_cast<const ast::Counter*>(arg)) {
             throw std::runtime_error("Counters are not supported yet");
@@ -411,6 +413,22 @@ private:
             throw std::runtime_error("Unknown term type");
         }
 
+        // aggregator
+        if (const auto arg_aggr = dynamic_cast<const ast::Aggregator*>(arg)) {
+            if (arg_aggr->getBaseOperator() != AggregateOp::COUNT) {
+                throw std::runtime_error("Aggregators other than count are not supported yet");
+            }
+            assert(arg_aggr->getTargetExpression() == nullptr);
+            const auto aggr_body = arg_aggr->getBodyLiterals();
+            assert(aggr_body.size() >= 1);
+
+            std::vector<TermIndex> constraints;
+            for (const auto literal : aggr_body) {
+                constraints.push_back(analyze_clause_literal(literal));
+            }
+            return register_term<TermCounter>(constraints);
+        }
+
         // catch all
         throw std::runtime_error("Unknown argument type");
     }
@@ -434,44 +452,39 @@ private:
         return register_term<TermAtom>(index, child_terms);
     }
 
+    TermIndex analyze_clause_literal(const ast::Literal* literal) {
+        if (dynamic_cast<const ast::FunctionalConstraint*>(literal)) {
+            throw std::runtime_error("Functional constraints not supported yet");
+        }
+
+        if (auto literal_bool = dynamic_cast<const ast::BooleanConstraint*>(literal)) {
+            return register_term<TermConstBool>(literal_bool->isTrue());
+        }
+
+        if (auto literal_bin = dynamic_cast<const ast::BinaryConstraint*>(literal)) {
+            const auto lhs = analyze_clause_argument(literal_bin->getLHS());
+            const auto rhs = analyze_clause_argument(literal_bin->getRHS());
+            const auto op = typing.getPolymorphicOperator(*literal_bin);
+            return register_term<TermConstraint>(op, lhs, rhs);
+        }
+
+        if (auto literal_atom = dynamic_cast<const ast::Atom*>(literal)) {
+            return analyze_clause_atom(literal_atom);
+        }
+        if (auto literal_negation = dynamic_cast<const ast::Negation*>(literal)) {
+            const auto sub = analyze_clause_atom(literal_negation->getAtom());
+            return register_term<TermNegation>(sub);
+        }
+
+        // we should have covered all literal types
+        throw std::runtime_error("Unknown literal type");
+    }
+
     /// Analyze one clause, perform sanity checks while collecting information
     void analyze_clause(const ast::Clause* clause) {
-        // head
         head = analyze_clause_atom(clause->getHead());
-
-        // body
         for (const auto* literal : clause->getBodyLiterals()) {
-            if (dynamic_cast<const ast::FunctionalConstraint*>(literal)) {
-                throw std::runtime_error("Functional constraints not supported yet");
-            }
-
-            if (auto literal_bool = dynamic_cast<const ast::BooleanConstraint*>(literal)) {
-                const auto term = register_term<TermConstBool>(literal_bool->isTrue());
-                body.push_back(term);
-                continue;
-            }
-            if (auto literal_bin = dynamic_cast<const ast::BinaryConstraint*>(literal)) {
-                const auto lhs = analyze_clause_argument(literal_bin->getLHS());
-                const auto rhs = analyze_clause_argument(literal_bin->getRHS());
-                const auto op = typing.getPolymorphicOperator(*literal_bin);
-                const auto term = register_term<TermConstraint>(op, lhs, rhs);
-                body.push_back(term);
-                continue;
-            }
-            if (auto literal_atom = dynamic_cast<const ast::Atom*>(literal)) {
-                const auto term = analyze_clause_atom(literal_atom);
-                body.push_back(term);
-                continue;
-            }
-            if (auto literal_negation = dynamic_cast<const ast::Negation*>(literal)) {
-                const auto sub = analyze_clause_atom(literal_negation->getAtom());
-                const auto term = register_term<TermNegation>(sub);
-                body.push_back(term);
-                continue;
-            }
-
-            // we should have covered all literal types
-            throw std::runtime_error("Unknown literal type");
+            body.push_back(analyze_clause_literal(literal));
         }
     }
 
