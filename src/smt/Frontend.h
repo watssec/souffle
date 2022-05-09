@@ -8,10 +8,8 @@
 
 #pragma once
 
-#include <tuple>
-#include <vector>
-
 #include "smt/Clause.h"
+#include "smt/Query.h"
 #include "smt/Relation.h"
 #include "smt/Typing.h"
 
@@ -26,26 +24,14 @@ namespace souffle::smt {
 class Frontend {
 private:
     TypeRegistry types;
+    QueryRegistry queries;
     RelationRegistry relations;
     ClauseRegistry clauses;
-    std::vector<RelationIndex> queries;
 
 public:
     explicit Frontend(const ast::TranslationUnit& unit)
-            : types(unit), relations(unit, types), clauses(unit, types, relations) {
-        // prepare queries
-        const auto& program = unit.getProgram();
-        for (const auto* directive : program.getDirectives()) {
-            if (directive->getType() != ast::DirectiveType::output) {
-                throw std::runtime_error("Only the `output` directive is supported now");
-            }
-            const auto rel = relations.retrieve_relation(directive->getQualifiedName().toString());
-
-            // TODO: a current limitation, we only handle PASS/FAIL relations
-            assert(relations.retrieve_details(rel).params.empty());
-            queries.emplace_back(rel);
-        }
-    };
+            : types(unit), queries(unit), relations(unit, types, queries),
+              clauses(unit, types, queries, relations) {}
 };
 
 }  // namespace souffle::smt

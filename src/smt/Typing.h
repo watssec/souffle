@@ -22,15 +22,7 @@
 
 #pragma once
 
-#include <map>
-#include <optional>
-#include <set>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <variant>
-#include <vector>
-
+#include "smt/Common.h"
 #include "smt/Utils.h"
 
 namespace souffle::smt {
@@ -42,7 +34,6 @@ constexpr std::string_view BUILTIN_TYPE_SYMBOL = "symbol";
 
 // forward declarations
 class TypeRegistry;
-class Frontend;
 
 /**
  * An index that uniquely identifies a type
@@ -135,8 +126,6 @@ public:
  * A registry of types appeared
  */
 class TypeRegistry {
-    friend Frontend;
-
 private:
     // counter
     size_t counter = 3;
@@ -145,7 +134,7 @@ private:
     std::map<std::string, std::tuple<const ast::analysis::Type*, const ast::Type*>> adt_registry;
 
 protected:
-    // built-int types
+    // built-in types
     TypeIndex type_number{1};
     TypeIndex type_unsigned{2};
 

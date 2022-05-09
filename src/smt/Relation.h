@@ -8,20 +8,14 @@
 
 #pragma once
 
-#include <map>
-#include <optional>
-#include <string>
-#include <utility>
-#include <vector>
-
+#include "smt/Common.h"
+#include "smt/Query.h"
 #include "smt/Typing.h"
 
 namespace souffle::smt {
 
 // forward declarations
 class RelationRegistry;
-class ClauseRegistry;
-class Frontend;
 
 /**
  * An index that uniquely identifies a relation
@@ -52,23 +46,22 @@ public:
  * A registry of relations appeared
  */
 class RelationRegistry {
-    friend Frontend;
-    friend ClauseRegistry;
-
 private:
     // counter
     size_t counter = 1;
 
     // environment
     const TypeRegistry& typeRegistry;
+    const QueryRegistry& queryRegistry;
 
 protected:
     // registry
     std::map<std::string, RelationInfo> mapping{};
 
 public:
-    RelationRegistry(const ast::TranslationUnit& unit, const TypeRegistry& typeRegistry_)
-            : typeRegistry(typeRegistry_) {
+    RelationRegistry(const ast::TranslationUnit& unit, const TypeRegistry& typeRegistry_,
+            const QueryRegistry& queryRegistry_)
+            : typeRegistry(typeRegistry_), queryRegistry(queryRegistry_) {
         const auto& program = unit.getProgram();
 
         // register relations
@@ -79,13 +72,20 @@ public:
                         "Functional constraints not supported: " + rel->getQualifiedName().toString());
             }
 
+            auto rel_name = rel->getQualifiedName().toString();
+
+            // ignore relations that are marked as queries
+            if (queryRegistry.is_query(rel_name)) {
+                continue;
+            }
+
             // collect parameters
             std::vector<std::pair<std::string, TypeIndex>> params;
             for (const auto attr : rel->getAttributes()) {
                 auto type = typeRegistry.retrieve_type(attr->getTypeName().toString());
                 params.emplace_back(attr->getName(), type);
             }
-            register_relation(rel->getQualifiedName().toString(), params);
+            register_relation(std::move(rel_name), params);
         }
     }
 
@@ -105,6 +105,11 @@ public:
             }
         }
         assert(false);
+    }
+
+    /// Expose all relations.
+    const std::map<std::string, RelationInfo>& all_relations() const {
+        return mapping;
     }
 
 private:

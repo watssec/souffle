@@ -8,14 +8,7 @@
 
 #pragma once
 
-#include <map>
-#include <memory>
-#include <optional>
-#include <set>
-#include <string>
-#include <utility>
-#include <vector>
-
+#include "smt/Common.h"
 #include "smt/Relation.h"
 #include "smt/Typing.h"
 
