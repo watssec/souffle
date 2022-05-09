@@ -52,16 +52,14 @@ private:
 
     // environment
     const TypeRegistry& typeRegistry;
-    const QueryRegistry& queryRegistry;
 
 protected:
     // registry
     std::map<std::string, RelationInfo> mapping{};
 
 public:
-    RelationRegistry(const ast::TranslationUnit& unit, const TypeRegistry& typeRegistry_,
-            const QueryRegistry& queryRegistry_)
-            : typeRegistry(typeRegistry_), queryRegistry(queryRegistry_) {
+    RelationRegistry(const ast::TranslationUnit& unit, const TypeRegistry& typeRegistry_)
+            : typeRegistry(typeRegistry_) {
 #ifdef SMT_DEBUG
         std::cout << "[relation] analysis started" << std::endl;
 #endif
@@ -76,16 +74,9 @@ public:
             }
 
             auto rel_name = rel->getQualifiedName().toString();
-
-            // ignore relations that are marked as queries
-            if (queryRegistry.is_query(rel_name)) {
-                continue;
-            }
-
 #ifdef SMT_DEBUG
             std::cout << "[relation] analyzing relation: " << rel_name << std::endl;
 #endif
-
             // collect parameters
             std::vector<std::pair<std::string, TypeIndex>> params;
             for (const auto attr : rel->getAttributes()) {

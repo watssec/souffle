@@ -29,8 +29,13 @@ namespace souffle::smt {
 
 // constants
 constexpr std::string_view BUILTIN_TYPE_NUMBER = "number";
+constexpr std::string_view BUILTIN_TYPE_NUMBER_CONSTANT = "__numberConstant";
+
 constexpr std::string_view BUILTIN_TYPE_UNSIGNED = "unsigned";
+constexpr std::string_view BUILTIN_TYPE_UNSIGNED_CONSTANT = "__unsignedConstant";
+
 constexpr std::string_view BUILTIN_TYPE_SYMBOL = "symbol";
+constexpr std::string_view BUILTIN_TYPE_SYMBOL_CONSTANT = "__symbolConstant";
 
 // forward declarations
 class TypeRegistry;
@@ -221,7 +226,13 @@ private:
         if (name == BUILTIN_TYPE_NUMBER) {
             return type_number;
         }
+        if (name == BUILTIN_TYPE_NUMBER_CONSTANT) {
+            return type_number;
+        }
         if (name == BUILTIN_TYPE_UNSIGNED) {
+            return type_unsigned;
+        }
+        if (name == BUILTIN_TYPE_UNSIGNED_CONSTANT) {
             return type_unsigned;
         }
 
