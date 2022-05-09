@@ -45,6 +45,20 @@ public:
         for (const auto& group : types.get_sequence_for_adts()) {
             backend.mkTypeRecords(group);
         }
+
+        // relations
+        for (const auto& scc : clauses.get_relations_sequence()) {
+            for (const auto& rel : scc.nodes) {
+                const auto& details = relations.retrieve_details(rel);
+
+                // register the relation
+                std::vector<TypeIndex> param_types;
+                for (const auto& [_, param_type] : details.params) {
+                    param_types.push_back(param_type);
+                }
+                backend.mkRelation(rel, details.name, param_types);
+            }
+        }
     }
 };
 

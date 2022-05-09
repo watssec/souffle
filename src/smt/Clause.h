@@ -14,15 +14,10 @@
 
 namespace souffle::smt {
 
-// forward declarations
-class Frontend;
-
 /**
  * A registry of clauses appeared in the whole program
  */
 class ClauseRegistry {
-    friend Frontend;
-
 private:
     // environment
     const TypeRegistry& typeRegistry;
@@ -97,6 +92,11 @@ public:
 public:
     const std::vector<ClauseTermAnalyzer>& get_terms(const RelationIndex& index) const {
         return mapping.at(index);
+    }
+
+public:
+    const std::list<SCC<RelationIndex>>& get_relations_sequence() const {
+        return sequence;
     }
 };
 

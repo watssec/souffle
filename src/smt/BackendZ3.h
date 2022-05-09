@@ -41,6 +41,7 @@ protected:
     // per-program
     std::map<TypeIndex, Z3_sort> types;
     std::map<TypeIndex, SortRecordZ3> adts;
+    std::map<RelationIndex, Z3_func_decl> relations;
 
 protected:
     explicit BackendZ3(Z3_config cfg) {
@@ -166,6 +167,19 @@ public:
             Z3_del_constructor_list(ctx, decl_lists[k]);
         }
     }
+
+    // relations
+    void mkRelation(const RelationIndex& index, const std::string& name,
+            const std::vector<TypeIndex>& domains) override {
+        Z3_sort domain_sorts[domains.size()];
+        for (unsigned i = 0; i < domains.size(); i++) {
+            domain_sorts[i] = types.at(domains[i]);
+        }
+        auto fun = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx, name.c_str()), domains.size(), domain_sorts,
+                Z3_mk_bool_sort(ctx));
+        const auto& [_, inserted] = relations.emplace(index, fun);
+        assert(inserted);
+    };
 };
 
 class BackendZ3MuZ : public BackendZ3 {
@@ -191,6 +205,13 @@ private:
     static inline Z3_config mkConfig() {
         auto cfg = Z3_mk_config();
         return cfg;
+    }
+
+public:
+    void mkRelation(const RelationIndex& index, const std::string& name,
+            const std::vector<TypeIndex>& domains) override {
+        BackendZ3::mkRelation(index, name, domains);
+        Z3_fixedpoint_register_relation(ctx, fp, relations.at(index));
     }
 };
 
