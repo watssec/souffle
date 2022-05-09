@@ -15,8 +15,8 @@
 
 .decl HasType(var: Variable, type: Type)
 
-#define IS_TYPE(var, type) count : {HasType(var, _)} = 1, HasType(var, type)
-#define IS_TYPE_ERROR(var) count : {HasType(var, _)} != 1
+.decl IsType(var: Variable, type: Type)
+IsType(var, type) :- count : {HasType(var, _)} = 1, HasType(var, type).
 
 //
 // constant loading
@@ -45,11 +45,11 @@ HasExpr($LoadBitvec("v_bitvec1_1", 1, $B1($H()))).
 
 // test procedures
 PassTypeCheckUnitTest() :-
-    IS_TYPE("v_bool_1", BOOL),
-    IS_TYPE("v_number_1", NUMBER),
-    IS_TYPE("v_bitvec_0", BITVEC(0)),
-    IS_TYPE("v_bitvec1_0", BITVEC(1)),
-    IS_TYPE("v_bitvec1_1", BITVEC(1)).
+    IsType("v_bool_1", BOOL),
+    IsType("v_number_1", NUMBER),
+    IsType("v_bitvec_0", BITVEC(0)),
+    IsType("v_bitvec1_0", BITVEC(1)),
+    IsType("v_bitvec1_1", BITVEC(1)).
 
 .output PassTypeCheckUnitTest
 #endif
