@@ -1,19 +1,16 @@
 /*
- * @File Typing.dl
- *
- * Typing of the language
+ * Declarations of all types in the language
  */
 
-#ifndef _TYPING_
-#define _TYPING_
+#ifndef _DECL_TYPE_
+#define _DECL_TYPE_
 
 #include "Basis.dl"
 
-/*
- * Definition of types
- */
-
+//
 // primitives
+//
+
 .type TypePrimitive =
       Bool {}
     | Number {}
@@ -28,8 +25,15 @@
 #define _BITVEC(bits) $Primitive($Bitvec(bits))
 #define BITVEC(bits) $Value(_BITVEC(bits))
 
+//
 // collections
+//
+
 .type TypeVec = [
+    elem: TypeValue
+]
+
+.type TypeSet = [
     elem: TypeValue
 ]
 
@@ -40,15 +44,22 @@
 
 .type TypeCollection =
       Vec {t: TypeVec}
+    | Set {t: TypeSet}
     | Map {t: TypeMap}
 
 #define _VEC(elem) $Collection($Vec([elem]))
 #define VEC(elem) $Value(_VEC(elem))
 
+#define _SET(elem) $Collection($Set([elem]))
+#define SET(elem) $Value(_SET(elem))
+
 #define _MAP(key, value) $Collection($Map([key, value]))
 #define MAP(key, value) $Value(_MAP(key, value))
 
+//
 // records
+//
+
 .type TypeTuple =
       TupleUnit {}
     | TupleCons {type: TypeValue, rest: TypeTuple}
@@ -88,21 +99,30 @@
 #define _TUPLE(type) $Record($Tuple(type))
 #define TUPLE(type) $Value(_TUPLE(type))
 
+//
 // generic
+//
+
 .type TypeParameterName <: symbol
 
 .type TypeGeneric = [
     name: TypeParameterName
 ]
 
+//
 // value
+//
+
 .type TypeValue =
       Primitive {t: TypePrimitive}
     | Collection {t: TypeCollection}
     | Record {t: TypeRecord}
     | Generic {t: TypeGeneric}
 
+//
 // reference
+//
+
 .type TypeMutRef = [
     base: TypeValue
 ]
@@ -115,18 +135,12 @@
       MutRef {t: TypeMutRef}
     | ImmRef {t: TypeImmRef}
 
+//
 // overall
+//
+
 .type Type =
       Value {t: TypeValue}
     | Reference {t: TypeReference}
 
-/*
- * Type checking rules
- */
-
-.decl HasType(var: Variable, type: Type)
-
-#define IS_TYPE(var, type) count : {HasType(var, _)} = 1, HasType(var, type)
-#define IS_TYPE_ERROR(var) count : {HasType(var, _)} != 1
-
-#endif /* _TYPING_ */
+#endif /* _DECL_TYPE_ */

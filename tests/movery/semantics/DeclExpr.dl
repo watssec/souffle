@@ -1,0 +1,18 @@
+/*
+ * Declarations of all expressions in the language
+ */
+
+#ifndef _DECL_EXPR_
+#define _DECL_EXPR_
+
+#include "Basis.dl"
+
+.type Expr =
+    // constant loading
+      LoadBool {r: Variable, constant: B}
+    | LoadNumber {r: Variable, constant: N}
+    | LoadBitvec {r: Variable, size: number, constant: I}
+
+.decl HasExpr(expr: Expr)
+
+#endif /* _DECL_EXPR_ */

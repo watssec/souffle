@@ -1,0 +1,57 @@
+/*
+ * A pass to type check the input program
+ */
+
+#ifndef _PASS_TYPE_CHECK_
+#define _PASS_TYPE_CHECK_
+
+#include "Basis.dl"
+#include "DeclType.dl"
+#include "DeclExpr.dl"
+
+//
+// type checking rule
+//
+
+.decl HasType(var: Variable, type: Type)
+
+#define IS_TYPE(var, type) count : {HasType(var, _)} = 1, HasType(var, type)
+#define IS_TYPE_ERROR(var) count : {HasType(var, _)} != 1
+
+//
+// constant loading
+//
+
+HasType(r, BOOL) :- HasExpr($LoadBool(r, _)).
+
+HasType(r, NUMBER) :- HasExpr($LoadNumber(r, _)).
+
+HasType(r, BITVEC(size)) :- HasExpr($LoadBitvec(r, size, _)).
+
+// unit tests (if enabled)
+#ifdef UNIT_TEST
+.decl PassTypeCheckUnitTest()
+
+// bool
+HasExpr($LoadBool("v_bool_1", $True())).
+
+// number
+HasExpr($LoadNumber("v_number_1", $N0())).
+
+// bitvec
+HasExpr($LoadBitvec("v_bitvec_0", 0, $H())).
+HasExpr($LoadBitvec("v_bitvec1_0", 1, $B0($H()))).
+HasExpr($LoadBitvec("v_bitvec1_1", 1, $B1($H()))).
+
+// test procedures
+PassTypeCheckUnitTest() :-
+    IS_TYPE("v_bool_1", BOOL),
+    IS_TYPE("v_number_1", NUMBER),
+    IS_TYPE("v_bitvec_0", BITVEC(0)),
+    IS_TYPE("v_bitvec1_0", BITVEC(1)),
+    IS_TYPE("v_bitvec1_1", BITVEC(1)).
+
+.output PassTypeCheckUnitTest
+#endif
+
+#endif /* _PASS_TYPE_CHECK_ */
