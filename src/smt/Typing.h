@@ -114,6 +114,15 @@ public:
         }
         return ADT(name, branches_fixed);
     }
+
+    const ADTBranch& get_branch(const std::string& branch_name) const {
+        for (const auto& branch : branches) {
+            if (branch.name == branch_name) {
+                return branch;
+            }
+        }
+        assert(false);
+    }
 };
 
 /**
