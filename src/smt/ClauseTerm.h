@@ -261,6 +261,14 @@ public:
         return result;
     }
 
+    TermIndex get_head() const {
+        return head;
+    }
+
+    const std::vector<TermIndex>& get_body() const {
+        return body;
+    }
+
 private:
     /// Create a new index
     TermIndex new_index() {

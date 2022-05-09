@@ -93,6 +93,11 @@ public:
         std::cout << "[clause] analysis completed" << std::endl;
 #endif
     }
+
+public:
+    const std::vector<ClauseTermAnalyzer>& get_terms(const RelationIndex& index) const {
+        return mapping.at(index);
+    }
 };
 
 }  // namespace souffle::smt
