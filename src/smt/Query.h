@@ -54,9 +54,17 @@ public:
             // check that a query relation has zero facts
             for (const auto* clause : program.getClauses()) {
                 if (clause->getHead()->getQualifiedName() == name) {
-                    if (clause->getBodyLiterals().empty()) {
+                    const auto body = clause->getBodyLiterals();
+                    if (body.empty()) {
                         throw std::runtime_error("Query must have zero facts: " + name.toString());
                     }
+#ifdef SMT_DEBUG
+                    std::cout << "[query] conditions for " << name << ": [" << std::endl;
+                    for (const auto* literal : body) {
+                        std::cout << "  " << typeid(*literal).name() << " | " << *literal << std::endl;
+                    }
+                    std::cout << "]" << std::endl;
+#endif
                 }
             }
         }
