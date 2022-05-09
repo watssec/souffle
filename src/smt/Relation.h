@@ -75,7 +75,7 @@ public:
 
             auto rel_name = rel->getQualifiedName().toString();
 #ifdef SMT_DEBUG
-            std::cout << "[relation] analyzing relation: " << rel_name << std::endl;
+            std::cout << "[relation] analyzing: " << rel_name << std::endl;
 #endif
             // collect parameters
             std::vector<std::pair<std::string, TypeIndex>> params;

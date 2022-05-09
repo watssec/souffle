@@ -26,7 +26,6 @@ class ClauseRegistry {
 private:
     // environment
     const TypeRegistry& typeRegistry;
-    const QueryRegistry& queryRegistry;
     const RelationRegistry& relationRegistry;
 
 protected:
@@ -38,9 +37,12 @@ protected:
 
 public:
     ClauseRegistry(const ast::TranslationUnit& unit, const TypeRegistry& typeRegistry_,
-            const QueryRegistry& queryRegistry_, const RelationRegistry& relationRegistry_)
-            : typeRegistry(typeRegistry_), queryRegistry(queryRegistry_),
-              relationRegistry(relationRegistry_) {
+            const RelationRegistry& relationRegistry_)
+            : typeRegistry(typeRegistry_), relationRegistry(relationRegistry_) {
+#ifdef SMT_DEBUG
+        std::cout << "[clause] analysis started" << std::endl;
+#endif
+
         // add rules and their dependencies
         Graph<RelationIndex> dep_graph;
 
@@ -58,16 +60,13 @@ public:
         const auto& program = unit.getProgram();
         const auto& type_analysis = unit.getAnalysis<ast::analysis::TypeAnalysis>();
         for (const auto clause : program.getClauses()) {
-            // check if this clause is about a relation
-            const auto rel_name = clause->getHead()->getQualifiedName().toString();
-            if (rels.find(rel_name) == rels.end()) {
-                assert(queryRegistry.is_query(rel_name));
-                continue;
-            }
-
+#ifdef SMT_DEBUG
+            std::cout << "[clause] analyzing: " << *clause << std::endl;
+#endif
             // analyze the clause
-            const auto relation = relationRegistry.retrieve_relation(rel_name);
-            const auto& analyzer = mapping[relation].emplace_back(
+            const auto rel_name = clause->getHead()->getQualifiedName().toString();
+            const auto rel_index = relationRegistry.retrieve_relation(rel_name);
+            const auto& analyzer = mapping[rel_index].emplace_back(
                     clause, type_analysis, typeRegistry, relationRegistry, counter);
             counter = analyzer.counter;
 
@@ -80,6 +79,10 @@ public:
 
         // derive the relation registration sequence
         sequence = dep_graph.deriveSCC();
+
+#ifdef SMT_DEBUG
+        std::cout << "[clause] analysis completed" << std::endl;
+#endif
     }
 };
 

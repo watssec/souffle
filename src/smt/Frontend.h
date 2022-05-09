@@ -30,7 +30,7 @@ private:
 
 public:
     explicit Frontend(const ast::TranslationUnit& unit)
-            : types(unit), queries(unit), relations(unit, types), clauses(unit, types, queries, relations) {}
+            : types(unit), queries(unit), relations(unit, types), clauses(unit, types, relations) {}
 };
 
 }  // namespace souffle::smt
