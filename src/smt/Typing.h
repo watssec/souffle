@@ -56,11 +56,23 @@ protected:
 struct ADTField {
 public:
     const std::string name;
+    const TypeIndex type;
+
+public:
+    ADTField(std::string name_, TypeIndex type_) : name(std::move(name_)), type(type_) {}
+};
+
+/**
+ * Builder of an ADT field for the SMT backend
+ */
+struct ADTFieldBuilder {
+public:
+    const std::string name;
     const std::variant<TypeIndex, size_t> type;
 
 public:
-    ADTField(std::string _name, TypeIndex _type) : name(std::move(_name)), type(_type) {}
-    ADTField(std::string _name, size_t _type) : name(std::move(_name)), type(_type) {}
+    ADTFieldBuilder(std::string name_, TypeIndex type_) : name(std::move(name_)), type(type_) {}
+    ADTFieldBuilder(std::string name_, size_t type_) : name(std::move(name_)), type(type_) {}
 
 public:
     ADTField fix_sort_index(const std::vector<TypeIndex>& fixup) const {
@@ -81,8 +93,21 @@ public:
     const std::vector<ADTField> fields;
 
 public:
-    ADTBranch(std::string _name, std::vector<ADTField> _fields)
-            : name(std::move(_name)), fields(std::move(_fields)) {}
+    ADTBranch(std::string name_, std::vector<ADTField> fields_)
+            : name(std::move(name_)), fields(std::move(fields_)) {}
+};
+
+/**
+ * Builder of an ADT branch declaration for the SMT backend
+ */
+struct ADTBranchBuilder {
+public:
+    const std::string name;
+    const std::vector<ADTFieldBuilder> fields;
+
+public:
+    ADTBranchBuilder(std::string name_, std::vector<ADTFieldBuilder> fields_)
+            : name(std::move(name_)), fields(std::move(fields_)) {}
 
 public:
     ADTBranch fix_sort_index(const std::vector<TypeIndex>& fixup) const {
@@ -99,22 +124,15 @@ public:
  */
 struct ADT {
 public:
+    const TypeIndex index;
     const std::string name;
     const std::vector<ADTBranch> branches;
 
 public:
-    ADT(std::string _name, std::vector<ADTBranch> _branches)
-            : name(std::move(_name)), branches(std::move(_branches)) {}
+    ADT(TypeIndex index_, std::string name_, std::vector<ADTBranch> branches_)
+            : index(index_), name(std::move(name_)), branches(std::move(branches_)) {}
 
 public:
-    ADT fix_sort_index(const std::vector<TypeIndex>& fixup) const {
-        std::vector<ADTBranch> branches_fixed;
-        for (const auto& branch : branches) {
-            branches_fixed.push_back(branch.fix_sort_index(fixup));
-        }
-        return ADT(name, branches_fixed);
-    }
-
     const ADTBranch& get_branch(const std::string& branch_name) const {
         for (const auto& branch : branches) {
             if (branch.name == branch_name) {
@@ -126,14 +144,37 @@ public:
 };
 
 /**
- * A group of mutually recursive ADTs
+ * Builder of an ADT definition for the SMT backend
  */
-struct ADTGroup {
+struct ADTBuilder {
 public:
-    const std::vector<std::pair<TypeIndex, ADT>> adts;
+    const TypeIndex index;
+    const std::string name;
+    const std::vector<ADTBranchBuilder> branches;
 
 public:
-    explicit ADTGroup(std::vector<std::pair<TypeIndex, ADT>> _adts) : adts(std::move(_adts)) {}
+    ADTBuilder(TypeIndex index_, std::string name_, std::vector<ADTBranchBuilder> branches_)
+            : index(index_), name(std::move(name_)), branches(std::move(branches_)) {}
+
+public:
+    ADT fix_sort_index(const std::vector<TypeIndex>& fixup) const {
+        std::vector<ADTBranch> branches_fixed;
+        for (const auto& branch : branches) {
+            branches_fixed.push_back(branch.fix_sort_index(fixup));
+        }
+        return ADT(index, name, branches_fixed);
+    }
+};
+
+/**
+ * A group of mutually recursive ADTs
+ */
+struct ADTBuilderGroup {
+public:
+    const std::vector<ADTBuilder> adts;
+
+public:
+    explicit ADTBuilderGroup(std::vector<ADTBuilder> adts_) : adts(std::move(adts_)) {}
 };
 
 /**
@@ -154,10 +195,10 @@ protected:
 
     // user-defined types
     std::map<std::string, TypeIndex> type_idents{};
-    std::map<std::string, std::pair<TypeIndex, ADT>> type_records{};
+    std::map<std::string, ADT> type_records{};
 
     // adt registration sequence
-    std::vector<ADTGroup> adt_sequence{};
+    std::vector<ADTBuilderGroup> adt_sequence{};
 
 public:
     explicit TypeRegistry(const ast::TranslationUnit& unit) {
@@ -215,8 +256,8 @@ public:
     /// Retrieve the details of an ADT type
     const ADT& retrieve_adt(const TypeIndex& index) const {
         for (const auto& [key, val] : type_records) {
-            if (val.first == index) {
-                return val.second;
+            if (val.index == index) {
+                return val;
             }
         }
         assert(false);
@@ -252,7 +293,7 @@ private:
         }
         const auto it_record = type_records.find(name);
         if (it_record != type_records.end()) {
-            return it_record->second.first;
+            return it_record->second.index;
         }
 
         // unable to find
@@ -286,7 +327,7 @@ private:
         }
 
         // construct the ADT group
-        std::vector<ADT> decls;
+        std::vector<ADTBuilder> decls;
         for (auto [type_item, ast_item] : ordered) {
             if (auto type_record = dynamic_cast<const ast::analysis::RecordType*>(type_item)) {
                 auto ast_record = dynamic_cast<const ast::RecordType*>(ast_item);
@@ -295,7 +336,7 @@ private:
                 const auto& type_fields = type_record->getFields();
                 const auto& ast_fields = ast_record->getFields();
 
-                std::vector<ADTField> field_decls;
+                std::vector<ADTFieldBuilder> field_decls;
                 for (unsigned i = 0; i < type_fields.size(); i++) {
                     const auto* field_type = type_fields[i];
                     auto existing_type = retrieve_type_or_invalid(field_type->getName().toString());
@@ -309,8 +350,9 @@ private:
                 }
 
                 // construct the default branch and the ADT
-                ADTBranch default_branch("default", field_decls);
-                decls.emplace_back(type_record->getName().toString(), std::vector({default_branch}));
+                ADTBranchBuilder default_branch("default", field_decls);
+                decls.emplace_back(
+                        new_index(), type_record->getName().toString(), std::vector({default_branch}));
             } else if (auto type_adt = dynamic_cast<const ast::analysis::AlgebraicDataType*>(type_item)) {
                 auto ast_adt = dynamic_cast<const ast::AlgebraicDataType*>(ast_item);
 
@@ -318,7 +360,7 @@ private:
                 const auto& type_branches = type_adt->getBranches();
                 const auto& ast_branches = ast_adt->getBranches();
 
-                std::vector<ADTBranch> branch_decls;
+                std::vector<ADTBranchBuilder> branch_decls;
                 for (const auto& type_branch : type_branches) {
                     auto iter = std::find_if(
                             ast_branches.cbegin(), ast_branches.cend(), [type_branch](const auto ast_branch) {
@@ -330,7 +372,7 @@ private:
                     const auto& type_fields = type_branch.types;
                     const auto& ast_fields = ast_branch->getFields();
 
-                    std::vector<ADTField> field_decls;
+                    std::vector<ADTFieldBuilder> field_decls;
                     for (unsigned i = 0; i < type_fields.size(); i++) {
                         const auto* field_type = type_fields[i];
                         auto existing_type = retrieve_type_or_invalid(field_type->getName().toString());
@@ -348,36 +390,24 @@ private:
                 }
 
                 // construct the ADT
-                decls.emplace_back(type_adt->getName().toString(), branch_decls);
+                decls.emplace_back(new_index(), type_adt->getName().toString(), branch_decls);
             } else {
                 assert(false);
             }
         }
 
-        // build the ADT sorts
+        // fixup the ADT unnamed types and register them into the registry
         std::vector<TypeIndex> fixup;
         for (const auto& decl : decls) {
-            const auto [it, inserted] = type_records.emplace(decl.name, std::make_pair(new_index(), decl));
-            assert(inserted);
-            fixup.push_back(it->second.first);
+            fixup.emplace_back(decl.index);
         }
-
-        // fixup the ADT unnamed types
         for (const auto& decl : decls) {
-            auto [index, adt_old] = type_records.at(decl.name);
-            type_records.erase(decl.name);
-
-            auto adt_new = adt_old.fix_sort_index(fixup);
-            const auto [_, inserted] = type_records.emplace(decl.name, std::make_pair(index, adt_new));
+            const auto [it, inserted] = type_records.emplace(decl.name, decl.fix_sort_index(fixup));
             assert(inserted);
         }
 
         // save the decls into registration sequence
-        std::vector<std::pair<TypeIndex, ADT>> indexed_decls;
-        for (unsigned i = 0; i < decls.size(); i++) {
-            indexed_decls.emplace_back(fixup[i], decls[i]);
-        }
-        adt_sequence.emplace_back(indexed_decls);
+        adt_sequence.emplace_back(std::move(decls));
     }
 
 private:

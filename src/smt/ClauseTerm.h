@@ -542,8 +542,7 @@ private:
                         // found the child, retrieve its type declaration
                         const auto& adt = typeRegistry.retrieve_adt(term_ctor->adt);
                         const auto& branch = adt.get_branch(term_ctor->branch);
-                        const auto& ident_name =
-                                typeRegistry.retrieve_ident(std::get<TypeIndex>(branch.fields[pos].type));
+                        const auto& ident_name = typeRegistry.retrieve_ident(branch.fields[pos].type);
                         auto ident_type = typeRegistry.retrieve_type(ident_name);
 
                         // host the information in another dat structure
