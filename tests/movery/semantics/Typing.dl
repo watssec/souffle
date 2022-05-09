@@ -124,10 +124,7 @@
 
 .decl HasType(var: Variable, type: Type)
 
-.decl TypingChecked(var: Variable)
-TypingChecked(var) :- count : {HasType(var, _)} = 1.
-
-.decl IsType(var: Variable, type: Type)
-IsType(var, type) :- HasType(var, type), TypingChecked(var).
+#define IS_TYPE(var, type) count : {HasType(var, _)} = 1, HasType(var, type)
+#define IS_TYPE_ERROR(var) count : {HasType(var, _)} != 1
 
 #endif /* _TYPING_ */

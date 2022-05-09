@@ -33,6 +33,7 @@
 
 // program elements
 .type Variable <: symbol
+
 DEF_LIST(Variable)
 
 #endif /* _BASIS_ */
