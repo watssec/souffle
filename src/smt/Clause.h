@@ -79,6 +79,15 @@ public:
 
         // derive the relation registration sequence
         sequence = dep_graph.deriveSCC();
+#ifdef SMT_DEBUG
+        for (const auto& scc : sequence) {
+            std::cout << "[clause] relation cluster [" << std::endl;
+            for (const auto& rel : scc.nodes) {
+                std::cout << "  " << relationRegistry.retrieve_details(rel).name << std::endl;
+            }
+            std::cout << "]" << std::endl;
+        }
+#endif
 
 #ifdef SMT_DEBUG
         std::cout << "[clause] analysis completed" << std::endl;

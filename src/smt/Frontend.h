@@ -24,13 +24,13 @@ namespace souffle::smt {
 class Frontend {
 private:
     TypeRegistry types;
-    QueryRegistry queries;
     RelationRegistry relations;
     ClauseRegistry clauses;
+    QueryRegistry queries;
 
 public:
     explicit Frontend(const ast::TranslationUnit& unit)
-            : types(unit), queries(unit), relations(unit, types), clauses(unit, types, relations) {}
+            : types(unit), relations(unit, types), clauses(unit, types, relations), queries(unit) {}
 };
 
 }  // namespace souffle::smt
