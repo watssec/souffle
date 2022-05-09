@@ -1,4 +1,6 @@
 /*
+ * @File Language.dl
+ *
  * Complete semantic definition of the language
  */
 
@@ -8,15 +10,5 @@
 #include "Basis.dl"
 #include "Typing.dl"
 #include "Bytecode.dl"
-
-#ifdef UNIT_TEST
-.init BytecodeUnitTestInstance = BytecodeUnitTest
-
-.decl Test()
-Test() :-
-    BytecodeUnitTestInstance.Test().
-
-.output Test
-#endif
 
 #endif /* _LANGUAGE_ */

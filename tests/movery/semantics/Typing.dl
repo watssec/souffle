@@ -1,4 +1,6 @@
 /*
+ * @File Typing.dl
+ *
  * Typing of the language
  */
 
@@ -12,7 +14,7 @@
  */
 
 // primitives
-.type PrimitiveType =
+.type TypePrimitive =
       Bool {}
     | Number {}
     | Bitvec {size: number}
@@ -27,18 +29,18 @@
 #define BITVEC(bits) $Value(_BITVEC(bits))
 
 // collections
-.type VecType = [
-    elem: ValueType
+.type TypeVec = [
+    elem: TypeValue
 ]
 
-.type MapType = [
-    key: ValueType,
-    value: ValueType
+.type TypeMap = [
+    key: TypeValue,
+    value: TypeValue
 ]
 
-.type CollectionType =
-      Vec {t: VecType}
-    | Map {t: MapType}
+.type TypeCollection =
+      Vec {t: TypeVec}
+    | Map {t: TypeMap}
 
 #define _VEC(elem) $Collection($Vec([elem]))
 #define VEC(elem) $Value(_VEC(elem))
@@ -47,18 +49,18 @@
 #define MAP(key, value) $Value(_MAP(key, value))
 
 // records
-.type TupleType =
+.type TypeTuple =
       TupleUnit {}
-    | TupleCons {type: ValueType, rest: TupleType}
+    | TupleCons {type: TypeValue, rest: TypeTuple}
 
 .type FieldName <: symbol
 .type StructName <: symbol
 
 .type StructFields =
       FieldUnit {}
-    | FieldCons {type: ValueType, name: FieldName, rest: StructFields}
+    | FieldCons {type: TypeValue, name: FieldName, rest: StructFields}
 
-.type StructType = [
+.type TypeStruct = [
     name: StructName,
     fields: StructFields
 ]
@@ -68,17 +70,17 @@
 
 .type UnionEnums =
       EnumUnit {}
-    | EnumCons {type: ValueType, name: EnumName, rest: UnionEnums}
+    | EnumCons {type: TypeValue, name: EnumName, rest: UnionEnums}
 
-.type UnionType = [
+.type TypeUnion = [
     name: UnionName,
     enums: UnionEnums
 ]
 
-.type RecordType =
-      Tuple {t: TupleType}
-    | Struct {t: StructType}
-    | Union {t: UnionType}
+.type TypeRecord =
+      Tuple {t: TypeTuple}
+    | Struct {t: TypeStruct}
+    | Union {t: TypeUnion}
 
 #define _UNIT $Record($Tuple($TupleUnit()))
 #define UNIT $Value(_UNIT)
@@ -89,34 +91,34 @@
 // generic
 .type TypeParameterName <: symbol
 
-.type GenericType = [
+.type TypeGeneric = [
     name: TypeParameterName
 ]
 
 // value
-.type ValueType =
-      Primitive {t: PrimitiveType}
-    | Collection {t: CollectionType}
-    | Record {t: RecordType}
-    | Generic {t: GenericType}
+.type TypeValue =
+      Primitive {t: TypePrimitive}
+    | Collection {t: TypeCollection}
+    | Record {t: TypeRecord}
+    | Generic {t: TypeGeneric}
 
 // reference
-.type MutRefType = [
-    base: ValueType
+.type TypeMutRef = [
+    base: TypeValue
 ]
 
-.type ImmRefType = [
-    base: ValueType
+.type TypeImmRef = [
+    base: TypeValue
 ]
 
-.type ReferenceType =
-      MutRef {t: MutRefType}
-    | ImmRef {t: ImmRefType}
+.type TypeReference =
+      MutRef {t: TypeMutRef}
+    | ImmRef {t: TypeImmRef}
 
 // overall
 .type Type =
-      Value {t: ValueType}
-    | Reference {t: ReferenceType}
+      Value {t: TypeValue}
+    | Reference {t: TypeReference}
 
 /*
  * Type checking rules

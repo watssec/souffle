@@ -1,4 +1,6 @@
 /*
+ * @File Bytecode.dl
+ *
  * Bytecode of the language
  */
 
@@ -8,219 +10,52 @@
 #include "Basis.dl"
 #include "Typing.dl"
 
+/*
+ * Definition of bytecode operations
+ */
+
+.type Expr =
+      LoadBool {r: Variable, constant: B}
+    | LoadNumber {r: Variable, constant: N}
+    | LoadBitvec {r: Variable, size: number, constant: I}
+
+.decl HasExpr(expr: Expr)
+
+/*
+ * Typing rules
+ */
+
 // constant loading
-.decl OpLoadBool(r: Variable, constant: B)
-HasType(r, BOOL) :- OpLoadBool(r, _).
+HasType(r, BOOL) :- HasExpr($LoadBool(r, _)).
 
-.decl OpLoadNumber(r: Variable, constant: N)
-HasType(r, NUMBER) :- OpLoadNumber(r, _).
+HasType(r, NUMBER) :- HasExpr($LoadNumber(r, _)).
 
-.decl OpLoadBitvec(r: Variable, size: number, constant: I)
-HasType(r, BITVEC(size)) :- OpLoadBitvec(r, size, _).
-
-// unary operations
-.decl OpNot(r: Variable, in: Variable)
-HasType(r, BOOL) :- OpNot(r, in), HasType(in, BOOL).
-
-.decl OpNeg(r: Variable, in: Variable)
-HasType(r, NUMBER) :- OpNeg(r, in), HasType(in, NUMBER).
-
-.decl OpBitCast(r: Variable, into: number, in: Variable)
-HasType(r, BITVEC(into)) :- OpBitCast(r, into, in), HasType(in, BITVEC(_)).
-
-// binary operations
-.decl OpAnd(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BOOL) :- OpAnd(r, lhs, rhs), HasType(lhs, BOOL), HasType(rhs, BOOL).
-
-.decl OpOr(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BOOL) :- OpOr(r, lhs, rhs), HasType(lhs, BOOL), HasType(rhs, BOOL).
-
-.decl OpXor(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BOOL) :- OpXor(r, lhs, rhs), HasType(lhs, BOOL), HasType(rhs, BOOL).
-
-.decl OpAdd(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, NUMBER) :- OpAdd(r, lhs, rhs), HasType(lhs, NUMBER), HasType(rhs, NUMBER).
-
-.decl OpSub(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, NUMBER) :- OpSub(r, lhs, rhs), HasType(lhs, NUMBER), HasType(rhs, NUMBER).
-
-.decl OpMul(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, NUMBER) :- OpMul(r, lhs, rhs), HasType(lhs, NUMBER), HasType(rhs, NUMBER).
-
-.decl OpDiv(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, NUMBER) :- OpDiv(r, lhs, rhs), HasType(lhs, NUMBER), HasType(rhs, NUMBER).
-
-.decl OpMod(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, NUMBER) :- OpMod(r, lhs, rhs), HasType(lhs, NUMBER), HasType(rhs, NUMBER).
-
-.decl OpLt(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BOOL) :- OpLt(r, lhs, rhs), HasType(lhs, NUMBER), HasType(rhs, NUMBER).
-
-.decl OpLe(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BOOL) :- OpLe(r, lhs, rhs), HasType(lhs, NUMBER), HasType(rhs, NUMBER).
-
-.decl OpGe(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BOOL) :- OpGe(r, lhs, rhs), HasType(lhs, NUMBER), HasType(rhs, NUMBER).
-
-.decl OpGt(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BOOL) :- OpGt(r, lhs, rhs), HasType(lhs, NUMBER), HasType(rhs, NUMBER).
-
-.decl OpBitAnd(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BITVEC(size)) :- OpBitAnd(r, lhs, rhs), HasType(lhs, BITVEC(size)), HasType(rhs, BITVEC(size)).
-
-.decl OpBitOr(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BITVEC(size)) :- OpBitOr(r, lhs, rhs), HasType(lhs, BITVEC(size)), HasType(rhs, BITVEC(size)).
-
-.decl OpBitXor(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BITVEC(size)) :- OpBitXor(r, lhs, rhs), HasType(lhs, BITVEC(size)), HasType(rhs, BITVEC(size)).
-
-.decl OpBitShl(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BITVEC(size)) :- OpBitShl(r, lhs, rhs), HasType(lhs, BITVEC(size)), HasType(rhs, NUMBER).
-
-.decl OpBitShr(r: Variable, lhs: Variable, rhs: Variable)
-HasType(r, BITVEC(size)) :- OpBitShr(r, lhs, rhs), HasType(lhs, BITVEC(size)), HasType(rhs, NUMBER).
-
-// vector operations
-.decl OpVecEmpty(r: Variable, elem: ValueType)
-HasType(r, VEC(elem)) :- OpVecEmpty(r, elem).
-
-// map operations
-.decl OpMapEmpty(r: Variable, key: ValueType, value: ValueType)
-HasType(r, MAP(key, value)) :- OpMapEmpty(r, key, value).
-
-// tuple operations
-.decl _MkTuple(type: TupleType, items: LIST_OF(Variable))
-_MkTuple($TupleUnit(), LIST_UNIT_OF(Variable)).
-_MkTuple($TupleCons(t_item, t_rest), LIST_CONS_OF(Variable, v_item, v_rest)) :-
-    HasType(v_item, $Value(t_item)),
-    _MkTuple(t_rest, v_rest).
-
-.decl OpPackTuple(r: Variable, items: VariableList)
-HasType(r, TUPLE(type)) :- OpPackTuple(r, items), _MkTuple(type, items).
+HasType(r, BITVEC(size)) :- HasExpr($LoadBitvec(r, size, _)).
 
 // unit tests (if enabled)
 #ifdef UNIT_TEST
-.comp BytecodeUnitTest {
-    .decl Test()
+.decl BytecodeUnitTest()
 
-    // bool
-    OpLoadBool("v_bool_1", $True()).
+// bool
+HasExpr($LoadBool("v_bool_1", $True())).
 
-    OpNot("v_bool_2", "v_bool_1").
-    OpAnd("v_bool_3", "v_bool_1", "v_bool_2").
-    OpOr("v_bool_4", "v_bool_1", "v_bool_2").
-    OpXor("v_bool_5", "v_bool_1", "v_bool_2").
+// number
+HasExpr($LoadNumber("v_int_1", $N0())).
 
-    // number
-    OpLoadNumber("v_int_1", $N0()).
+// bitvec
+HasExpr($LoadBitvec("v_bv0", 0, $H())).
+HasExpr($LoadBitvec("v_bv1_0", 1, $B0($H()))).
+HasExpr($LoadBitvec("v_bv1_1", 1, $B1($H()))).
 
-    OpNeg("v_int_2", "v_int_1").
-    OpAdd("v_int_3", "v_int_1", "v_int_2").
-    OpSub("v_int_4", "v_int_1", "v_int_2").
-    OpMul("v_int_5", "v_int_1", "v_int_2").
-    OpDiv("v_int_6", "v_int_1", "v_int_2").
-    OpMod("v_int_7", "v_int_1", "v_int_2").
+// test procedures
+BytecodeUnitTest() :-
+    IS_TYPE("v_bool_1", BOOL),
+    IS_TYPE("v_int_1", NUMBER),
+    IS_TYPE("v_bv0", BITVEC(0)),
+    IS_TYPE("v_bv1_0", BITVEC(1)),
+    IS_TYPE("v_bv1_1", BITVEC(1)).
 
-    OpLt("v_int_compare_1", "v_int_1", "v_int_2").
-    OpLe("v_int_compare_2", "v_int_1", "v_int_2").
-    OpGe("v_int_compare_3", "v_int_1", "v_int_2").
-    OpGt("v_int_compare_4", "v_int_1", "v_int_2").
-
-    // bitvec
-    OpLoadBitvec("v_bv0", 0, $H()).
-    OpLoadBitvec("v_bv1_0", 1, $B0($H())).
-    OpLoadBitvec("v_bv1_1", 1, $B1($H())).
-
-    OpBitAnd("v_bv1_2", "v_bv1_0", "v_bv1_1").
-    OpBitOr("v_bv1_3", "v_bv1_0", "v_bv1_1").
-    OpBitXor("v_bv1_4", "v_bv1_0", "v_bv1_1").
-
-    OpBitShl("v_bv1_5", "v_bv1_0", "v_int_1").
-    OpBitShr("v_bv1_6", "v_bv1_1", "v_int_1").
-
-    OpBitCast("v_bv2_0", 2, "v_bv1_0").
-    OpBitCast("v_bv1_7", 1, "v_bv2_0").
-
-    // vec
-    OpVecEmpty("v_vec_bool_0", _BOOL).
-    OpVecEmpty("v_vec_vec_bool_0", _VEC(_BOOL)).
-
-    // map
-    OpMapEmpty("v_map_int_bool_0", _NUMBER, _BOOL).
-    OpMapEmpty("v_map_recursive", _MAP(_NUMBER, _BOOL), _MAP(_BOOL, _NUMBER)).
-
-    // tuple
-    OpPackTuple("v_unit_0", LIST_0(Variable)).
-
-    // violations
-    OpLoadBool("v_mix_bool_int", $False()).
-    OpLoadNumber("v_mix_bool_int", $N0()).
-
-    OpLoadBool("v_mix_bool_bv0", $False()).
-    OpLoadBitvec("v_mix_bool_bv0", 0, $H()).
-
-    OpLoadNumber("v_mix_int_bv0", $N0()).
-    OpLoadBitvec("v_mix_int_bv0", 0, $H()).
-
-    OpLoadBitvec("v_mix_bv0_bv1", 0, $H()).
-    OpLoadBitvec("v_mix_bv0_bv1", 1, $B0($H())).
-
-    OpNot("v_not_int", "v_int_1").
-    OpNeg("v_neg_bool", "v_bool_1").
-    OpBitCast("v_cast_int", 1, "v_int_1").
-
-    OpAnd("v_and_bool_int", "v_bool_1", "v_int_1").
-    OpMul("v_mul_bool_int", "v_bool_1", "v_int_1").
-    OpLt("v_lt_int_bv", "v_int_1", "v_bv0").
-    OpBitXor("v_xor_bv0_bv1", "v_bv0", "v_bv1_0").
-    OpBitShr("v_shr_bv1_bv1", "v_bv1_0", "v_bv1_1").
-
-    // test procedures
-    Test() :-
-        IsType("v_bool_1", BOOL),
-        IsType("v_bool_2", BOOL),
-        IsType("v_bool_3", BOOL),
-        IsType("v_bool_4", BOOL),
-        IsType("v_bool_5", BOOL),
-        IsType("v_int_1", NUMBER),
-        IsType("v_int_2", NUMBER),
-        IsType("v_int_3", NUMBER),
-        IsType("v_int_4", NUMBER),
-        IsType("v_int_5", NUMBER),
-        IsType("v_int_6", NUMBER),
-        IsType("v_int_7", NUMBER),
-        IsType("v_int_compare_1", BOOL),
-        IsType("v_int_compare_2", BOOL),
-        IsType("v_int_compare_3", BOOL),
-        IsType("v_int_compare_4", BOOL),
-        IsType("v_bv0", BITVEC(0)),
-        IsType("v_bv1_0", BITVEC(1)),
-        IsType("v_bv1_1", BITVEC(1)),
-        IsType("v_bv1_2", BITVEC(1)),
-        IsType("v_bv1_3", BITVEC(1)),
-        IsType("v_bv1_4", BITVEC(1)),
-        IsType("v_bv1_5", BITVEC(1)),
-        IsType("v_bv1_6", BITVEC(1)),
-        IsType("v_bv2_0", BITVEC(2)),
-        IsType("v_bv1_7", BITVEC(1)),
-        IsType("v_vec_bool_0", VEC(_BOOL)),
-        IsType("v_vec_vec_bool_0", VEC(_VEC(_BOOL))),
-        IsType("v_map_int_bool_0", MAP(_NUMBER, _BOOL)),
-        IsType("v_map_recursive", MAP(_MAP(_NUMBER, _BOOL), _MAP(_BOOL, _NUMBER))),
-        IsType("v_unit_0", UNIT),
-        !TypingChecked("v_mix_bool_int"),
-        !TypingChecked("v_mix_bool_bv0"),
-        !TypingChecked("v_mix_int_bv0"),
-        !TypingChecked("v_mix_bv0_bv1"),
-        !TypingChecked("v_not_int"),
-        !TypingChecked("v_neg_bool"),
-        !TypingChecked("v_cast_int"),
-        !TypingChecked("v_and_bool_int"),
-        !TypingChecked("v_mul_bool_int"),
-        !TypingChecked("v_lt_int_bv"),
-        !TypingChecked("v_xor_bv0_bv1"),
-        !TypingChecked("v_shr_bv1_bv1").
-}
+.output BytecodeUnitTest
 #endif
 
 #endif /* _BYTECODE_ */
