@@ -308,6 +308,165 @@ public:
         return counter;
     }
 
+#ifdef SMT_DEBUG
+public:
+    void print_term(std::ostream& stm, const ClauseVars& vars, const TermIndex& index) const {
+        const auto* term = terms.at(index).get();
+
+        // constants
+        if (auto term_const_bool = dynamic_cast<const TermConstBool*>(term)) {
+            stm << term_const_bool->value;
+            return;
+        }
+        if (auto term_const_number = dynamic_cast<const TermConstNumber*>(term)) {
+            stm << term_const_number->value << "i";
+            return;
+        }
+        if (auto term_const_unsigned = dynamic_cast<const TermConstUnsigned*>(term)) {
+            stm << term_const_unsigned->value << "i";
+            return;
+        }
+
+        // variables
+        if (auto term_var_named = dynamic_cast<const TermVarNamed*>(term)) {
+            stm << term_var_named->name;
+            return;
+        }
+        if (auto term_var_unnamed = dynamic_cast<const TermVarUnnamed*>(term)) {
+            auto it = vars.vars_unnamed.find(term_var_unnamed->ptr);
+            assert(it != vars.vars_unnamed.end());
+            stm << vars.anon_names.at(it->first);
+            return;
+        }
+
+        // identifier
+        if (auto term_ident = dynamic_cast<const TermIdent*>(term)) {
+            stm << '"' << term_ident->value << '"' << '_'
+                << typeRegistry.retrieve_ident(term_ident->type.value());
+            return;
+        }
+
+        // recursive nodes
+        if (auto term_ctor = dynamic_cast<const TermCtor*>(term)) {
+            stm << typeRegistry.retrieve_adt(term_ctor->adt).name << '$' << term_ctor->branch << '{';
+            for (const auto& arg : term_ctor->args) {
+                stm << ' ';
+                print_term(stm, vars, arg);
+            }
+            stm << " }";
+            return;
+        }
+
+        if (auto term_atom = dynamic_cast<const TermAtom*>(term)) {
+            stm << relationRegistry.retrieve_details(term_atom->relation).name << '(';
+            for (const auto& arg : term_atom->args) {
+                stm << ' ';
+                print_term(stm, vars, arg);
+            }
+            stm << " )";
+            return;
+        }
+        if (auto term_negation = dynamic_cast<const TermNegation*>(term)) {
+            stm << '!';
+            print_term(stm, vars, term_negation->child);
+            return;
+        }
+
+        if (auto term_functor = dynamic_cast<const TermFunctorOp*>(term)) {
+            const char* op_repr;
+            switch (term_functor->op) {
+                case FunctorOp::ADD:
+                case FunctorOp::UADD: {
+                    op_repr = "+";
+                    break;
+                }
+                case FunctorOp::SUB:
+                case FunctorOp::USUB: {
+                    op_repr = "-";
+                    break;
+                }
+                case FunctorOp::MUL:
+                case FunctorOp::UMUL: {
+                    op_repr = "*";
+                    break;
+                }
+                case FunctorOp::DIV:
+                case FunctorOp::UDIV: {
+                    op_repr = "/";
+                    break;
+                }
+                case FunctorOp::MOD:
+                case FunctorOp::UMOD: {
+                    op_repr = "%";
+                    break;
+                }
+                    // others
+                default: {
+                    throw std::runtime_error("Operation not supported");
+                }
+            }
+            print_term(stm, vars, term_functor->lhs);
+            stm << ' ' << op_repr << ' ';
+            print_term(stm, vars, term_functor->rhs);
+            return;
+        }
+        if (auto term_constraint = dynamic_cast<const TermConstraint*>(term)) {
+            const char* op_repr;
+            switch (term_constraint->op) {
+                case BinaryConstraintOp::EQ: {
+                    op_repr = "==";
+                    break;
+                }
+                case BinaryConstraintOp::NE: {
+                    op_repr = "!=";
+                    break;
+                }
+                case BinaryConstraintOp::LT:
+                case BinaryConstraintOp::ULT: {
+                    op_repr = "<";
+                    break;
+                }
+                case BinaryConstraintOp::LE:
+                case BinaryConstraintOp::ULE: {
+                    op_repr = "<=";
+                    break;
+                }
+                case BinaryConstraintOp::GE:
+                case BinaryConstraintOp::UGE: {
+                    op_repr = ">=";
+                    break;
+                }
+                case BinaryConstraintOp::GT:
+                case BinaryConstraintOp::UGT: {
+                    op_repr = ">";
+                    break;
+                }
+                    // others
+                default: {
+                    throw std::runtime_error("Operation not supported");
+                }
+            }
+            print_term(stm, vars, term_constraint->lhs);
+            stm << ' ' << op_repr << ' ';
+            print_term(stm, vars, term_constraint->rhs);
+            return;
+        }
+
+        if (auto term_counter = dynamic_cast<const TermCounter*>(term)) {
+            stm << "count : [";
+            for (const auto& arg : term_counter->args) {
+                stm << ' ';
+                print_term(stm, vars, arg);
+            }
+            stm << " ]";
+            return;
+        }
+
+        // catch all
+        throw new std::runtime_error("Unsupported terms");
+    }
+#endif
+
 private:
     /// Create a new index
     TermIndex new_index() {

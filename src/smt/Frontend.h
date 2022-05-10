@@ -50,7 +50,9 @@ public:
         for (const auto& scc : clauses.get_relations_sequence()) {
             for (const auto& rel : scc.nodes) {
                 const auto& details = relations.retrieve_details(rel);
-
+#ifdef SMT_DEBUG
+                std::cout << "[frontend] populating relation: " << details.name << " {" << std::endl;
+#endif
                 // register the relation
                 std::vector<TypeIndex> param_types;
                 for (const auto& [_, param_type] : details.params) {
@@ -69,11 +71,17 @@ public:
 
                     // when this is a fact
                     if (body.empty()) {
+                        // build the terms
                         const auto head_index = analyzer.get_head();
                         const auto head_terms = analyzer.get_term_sequence(head_index);
                         build_terms_by_sequence(backend, vars, head_terms);
 
                         // register the fact
+#ifdef SMT_DEBUG
+                        std::cout << "  FACT: ";
+                        analyzer.print_term(std::cout, vars, head_index);
+                        std::cout << std::endl;
+#endif
                         backend.mkFact(head_index);
                     }
 
@@ -98,12 +106,26 @@ public:
                         build_terms_by_sequence(backend, vars, head_terms);
 
                         // register the rule
+#ifdef SMT_DEBUG
+                        std::cout << "  RULE: ";
+                        analyzer.print_term(std::cout, vars, head_index);
+                        std::cout << " [" << std::endl;
+                        for (const auto& body_index : body) {
+                            std::cout << "    ";
+                            analyzer.print_term(std::cout, vars, body_index);
+                            std::cout << std::endl;
+                        }
+                        std::cout << "  ]" << std::endl;
+#endif
                         backend.mkRule(head_index, body);
                     }
 
                     // mark the end of clause definition
                     backend.finiClause();
                 }
+#ifdef SMT_DEBUG
+                std::cout << "}" << std::endl;
+#endif
             }
         }
     }
