@@ -173,6 +173,11 @@ private:
                 continue;
             }
 
+            if (auto term_counter = dynamic_cast<const TermCounter*>(term)) {
+                backend.mkTermCount(index, term_counter->args);
+                continue;
+            }
+
             // catch all
             throw new std::runtime_error("Unsupported terms");
         }

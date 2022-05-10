@@ -73,7 +73,7 @@ public:
         Z3_del_context(ctx);
     }
 
-private:
+protected:
     // terms
     void registerTerm(const TermIndex& index, Z3_ast term) {
         const auto& [_, inserted] = terms.emplace(index, term);
@@ -471,6 +471,23 @@ public:
             Z3_fixedpoint_assert(ctx, fp, clause->term);
         }
     }
+
+    void mkTermCount(const TermIndex& index, const std::vector<TermIndex>& args) override {
+        Z3_ast conds[args.size()];
+        for (size_t i = 0; i < args.size(); i++) {
+            conds[i] = terms.at(args[i]);
+        }
+        auto predicate = Z3_mk_and(ctx, args.size(), conds);
+
+        auto r = Z3_fixedpoint_query(ctx, fp, predicate);
+        std::cout << r << std::endl;
+        auto s = Z3_fixedpoint_get_answer(ctx, fp);
+        std::cout << Z3_ast_to_string(ctx, s) << std::endl;
+
+        // TODO: fix it
+        registerTerm(index, Z3_mk_false(ctx));
+        assert(false);
+    }
 };
 
 class BackendZ3Horn : public BackendZ3 {
@@ -505,9 +522,30 @@ public:
         BackendZ3::mkFact(head);
         Z3_solver_assert(ctx, solver, clause->term);
     }
+
     void mkRule(const TermIndex& head, const std::vector<TermIndex>& body) override {
         BackendZ3::mkRule(head, body);
         Z3_solver_assert(ctx, solver, clause->term);
+    }
+
+    void mkTermCount(const TermIndex& index, const std::vector<TermIndex>& args) override {
+        Z3_ast conds[args.size()];
+        for (size_t i = 0; i < args.size(); i++) {
+            conds[i] = terms.at(args[i]);
+        }
+        auto predicate = Z3_mk_and(ctx, args.size(), conds);
+
+        Z3_solver_push(ctx, solver);
+        Z3_solver_assert(ctx, solver, predicate);
+        auto r = Z3_solver_check(ctx, solver);
+        std::cout << r << std::endl;
+        auto s = Z3_solver_get_model(ctx, solver);
+        std::cout << Z3_model_to_string(ctx, s) << std::endl;
+        Z3_solver_pop(ctx, solver, 1);
+
+        // TODO: fix it
+        registerTerm(index, Z3_mk_false(ctx));
+        assert(false);
     }
 };
 

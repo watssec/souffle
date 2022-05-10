@@ -51,6 +51,8 @@ public:
     virtual void mkTermConstraint(const TermIndex& index, const BinaryConstraintOp& op, const TermIndex& lhs,
             const TermIndex& rhs) = 0;
 
+    virtual void mkTermCount(const TermIndex& index, const std::vector<TermIndex>& args) = 0;
+
     // clause
     virtual void initClause() = 0;
     virtual void finiClause() = 0;
