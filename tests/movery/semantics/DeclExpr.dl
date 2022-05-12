@@ -12,6 +12,8 @@
       LoadBool {r: Variable, constant: B}
     | LoadNumber {r: Variable, constant: N}
     | LoadBitvec {r: Variable, size: number, constant: I}
+    // tuple
+    | PackTuple {r: Variable, items: LIST_OF(Variable)}
 
 .decl HasExpr(expr: Expr)
 
