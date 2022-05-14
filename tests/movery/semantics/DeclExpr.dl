@@ -17,11 +17,4 @@
 
 .decl HasExpr(expr: Expr)
 
-.decl IsVarDefined(var: Variable)
-
-IsVarDefined(var) :- HasExpr($LoadBool(var, _)).
-IsVarDefined(var) :- HasExpr($LoadNumber(var, _)).
-IsVarDefined(var) :- HasExpr($LoadBitvec(var, _, _)).
-IsVarDefined(var) :- HasExpr($PackTuple(var, _)).
-
 #endif /* _DECL_EXPR_ */

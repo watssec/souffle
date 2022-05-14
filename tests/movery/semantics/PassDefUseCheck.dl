@@ -1,0 +1,98 @@
+/*
+ * A pass to check the variable defs and uses in the program
+ *
+ * - Each variable must be defined once and only once by one expression
+ * - Each variable must be used once and only once by one expression
+ */
+
+#ifndef _PASS_DEF_USE_CHECK_
+#define _PASS_DEF_USE_CHECK_
+
+#include "Basis.dl"
+#include "DeclExpr.dl"
+
+//
+// checking rule
+//
+
+.decl HasDef(var: Variable, expr: Expr)
+
+.decl _HasMoreThanOneDef(var: Variable)
+_HasMoreThanOneDef(var) :-
+    HasDef(var, e1),
+    HasDef(var, e2),
+    e1 != e2.
+
+.decl IsDef(var: Variable, expr: Expr)
+IsDef(var, expr) :-
+    HasDef(var, expr),
+    !_HasMoreThanOneDef(var).
+
+.decl IsDefUseChecked(var: Variable)
+IsDefUseChecked(var) :-
+    IsDef(var, _).
+
+//
+// constant loading
+//
+
+HasDef(var, $LoadBool(var, constant)) :-
+    HasExpr($LoadBool(var, constant)).
+
+HasDef(var, $LoadNumber(var, constant)) :-
+    HasExpr($LoadNumber(var, constant)).
+
+HasDef(var, $LoadBitvec(var, size, constant)) :-
+    HasExpr($LoadBitvec(var, size, constant)).
+
+//
+// tuple
+//
+
+HasDef(var, $PackTuple(var, items)) :-
+    HasExpr($PackTuple(var, items)).
+
+// unit tests (if enabled)
+#ifdef UNIT_TEST
+.decl PassDefUseTest(
+#ifndef SMT
+    result: number
+#endif
+)
+
+// bool
+HasExpr($LoadBool("v_bool_1", $True())).
+
+// number
+HasExpr($LoadNumber("v_number_1", $N0())).
+
+// bitvec
+HasExpr($LoadBitvec("v_bitvec_0", 0, $H())).
+HasExpr($LoadBitvec("v_bitvec1_0", 1, $B0($H()))).
+HasExpr($LoadBitvec("v_bitvec1_1", 1, $B1($H()))).
+
+// tuple
+HasExpr($PackTuple("v_tuple_unit", LIST_UNIT_OF(Variable))).
+
+// violations
+HasExpr($LoadBool("v_bool_mix", $False())).
+HasExpr($LoadBool("v_bool_mix", $True())).
+
+// test procedures
+PassDefUseTest(
+#ifndef SMT
+    0
+#endif
+) :-
+    IsDefUseChecked("v_bool_1"),
+    IsDefUseChecked("v_number_1"),
+    IsDefUseChecked("v_bitvec_0"),
+    IsDefUseChecked("v_bitvec1_0"),
+    IsDefUseChecked("v_bitvec1_1"),
+    IsDefUseChecked("v_tuple_unit"),
+    !IsDefUseChecked("v_bool_mix").
+
+.output PassDefUseTest
+#endif
+
+#endif /* _PASS_DEF_USE_CHECK_ */

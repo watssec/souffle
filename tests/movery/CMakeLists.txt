@@ -12,6 +12,7 @@ function(MOVERY_TEST_WITH_SMT CATEGORY NAME SMT)
             $<TARGET_FILE:souffle>
             "--smt=${SMT}"
             "--macro=UNIT_TEST"
+            "--macro=SMT"
             ${CMAKE_CURRENT_SOURCE_DIR}/${CATEGORY}/${NAME}.dl)
 endfunction()
 
@@ -20,6 +21,8 @@ function(MOVERY_TEST_WITH_SOUFFLE CATEGORY NAME)
             COMMAND
             $<TARGET_FILE:souffle>
             "--macro=UNIT_TEST"
+            "-D"
+            "-"
             ${CMAKE_CURRENT_SOURCE_DIR}/${CATEGORY}/${NAME}.dl)
 endfunction()
 
@@ -30,4 +33,4 @@ function(MOVERY_TEST CATEGORY NAME)
     movery_test_with_souffle(${CATEGORY} ${NAME})
 endfunction()
 
-movery_test(semantics PassTypeCheck)
+movery_test(semantics PassDefUseCheck)

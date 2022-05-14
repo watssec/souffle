@@ -35,14 +35,6 @@ HasType(r, BITVEC(size)) :- HasExpr($LoadBitvec(r, size, _)).
 // tuple
 //
 
-.decl _TupleVarUnique(var: Variable, vars: LIST_OF(Variable))
-_TupleVarUnique(var, LIST_UNIT_OF(Variable)) :- IsVarDefined(var).
-_TupleVarUnique(var, LIST_CONS_OF(Variable, v_item, v_rest)) :-
-    IsVarDefined(var),
-    IsVarDefined(v_item),
-    var != v_item,
-    _TupleVarUnique(var, v_rest).
-
 .decl _MkTuple(items: LIST_OF(Variable), type: TypeTuple)
 _MkTuple(LIST_UNIT_OF(Variable), $TupleUnit()).
 _MkTuple(LIST_CONS_OF(Variable, v_item, v_rest), $TupleCons(t_item, t_rest)) :-
