@@ -1,8 +1,10 @@
 /*
  * A pass to check the variable defs and uses in the program
  *
- * - Each variable must be defined once and only once by one expression
- * - Each variable must be used once and only once by one expression
+ * - Each variable must be defined *once and only once* by
+     one (expression, position) pair
+ * - Each variable must be used *once and only once* by
+     one (expression, position) pair
  */
 
 #ifndef _PASS_DEF_USE_CHECK_
@@ -15,42 +17,79 @@
 // checking rule
 //
 
-.decl HasDef(var: Variable, expr: Expr)
+.decl HasDef(var: Variable, expr: Expr, pos: number)
 
 .decl _HasMoreThanOneDef(var: Variable)
 _HasMoreThanOneDef(var) :-
-    HasDef(var, e1),
-    HasDef(var, e2),
+    HasDef(var, e1, _),
+    HasDef(var, e2, _),
     e1 != e2.
+_HasMoreThanOneDef(var) :-
+    HasDef(var, expr, p1),
+    HasDef(var, expr, p2),
+    p1 != p2.
 
-.decl IsDef(var: Variable, expr: Expr)
-IsDef(var, expr) :-
-    HasDef(var, expr),
+.decl IsDef(var: Variable, expr: Expr, pos: number)
+IsDef(var, expr, pos) :-
+    HasDef(var, expr, pos),
     !_HasMoreThanOneDef(var).
+
+.decl HasUse(var: Variable, expr: Expr, pos: number)
+
+.decl _HasMoreThanOneUse(var: Variable)
+_HasMoreThanOneUse(var) :-
+    HasUse(var, e1, _),
+    HasUse(var, e2, _),
+    e1 != e2.
+_HasMoreThanOneUse(var) :-
+    HasUse(var, expr, p1),
+    HasUse(var, expr, p2),
+    p1 != p2.
+
+.decl IsUse(var: Variable, expr: Expr, pos: number)
+IsUse(var, expr, pos) :-
+    HasUse(var, expr, pos),
+    !_HasMoreThanOneUse(var).
 
 .decl IsDefUseChecked(var: Variable)
 IsDefUseChecked(var) :-
-    IsDef(var, _).
+    IsDef(var, _, _),
+    IsUse(var, _, _).
 
 //
 // constant loading
 //
 
-HasDef(var, $LoadBool(var, constant)) :-
+HasDef(var, $LoadBool(var, constant), 0) :-
     HasExpr($LoadBool(var, constant)).
 
-HasDef(var, $LoadNumber(var, constant)) :-
+HasDef(var, $LoadNumber(var, constant), 0) :-
     HasExpr($LoadNumber(var, constant)).
 
-HasDef(var, $LoadBitvec(var, size, constant)) :-
+HasDef(var, $LoadBitvec(var, size, constant), 0) :-
     HasExpr($LoadBitvec(var, size, constant)).
 
 //
-// tuple
+// record construction
 //
 
-HasDef(var, $PackTuple(var, items)) :-
-    HasExpr($PackTuple(var, items)).
+HasDef(var, $PackTupleUnit(var), 0) :-
+    HasExpr($PackTupleUnit(var)).
+
+HasDef(var, $PackTupleCons(var, head, tail), 0) :-
+    HasExpr($PackTupleCons(var, head, tail)).
+
+HasUse(var, $PackTupleCons(r, var, tail), 0) :-
+    HasExpr($PackTupleCons(r, var, tail)).
+HasUse(var, $PackTupleCons(r, head, var), 0) :-
+    HasExpr($PackTupleCons(r, head, var)).
+
+//
+// operational
+//
+
+HasUse(var, $Drop(var), 0) :-
+    HasExpr($Drop(var)).
 
 // unit tests (if enabled)
 #ifdef UNIT_TEST
@@ -62,17 +101,23 @@ HasDef(var, $PackTuple(var, items)) :-
 
 // bool
 HasExpr($LoadBool("v_bool_1", $True())).
+HasExpr($Drop("v_bool_1")).
 
 // number
 HasExpr($LoadNumber("v_number_1", $N0())).
+HasExpr($Drop("v_number_1")).
 
 // bitvec
 HasExpr($LoadBitvec("v_bitvec_0", 0, $H())).
+HasExpr($Drop("v_bitvec_0")).
 HasExpr($LoadBitvec("v_bitvec1_0", 1, $B0($H()))).
+HasExpr($Drop("v_bitvec1_0")).
 HasExpr($LoadBitvec("v_bitvec1_1", 1, $B1($H()))).
+HasExpr($Drop("v_bitvec1_1")).
 
 // tuple
-HasExpr($PackTuple("v_tuple_unit", LIST_UNIT_OF(Variable))).
+HasExpr($PackTupleUnit("v_tuple_unit")).
+HasExpr($Drop("v_tuple_unit")).
 
 // violations
 HasExpr($LoadBool("v_bool_mix", $False())).
