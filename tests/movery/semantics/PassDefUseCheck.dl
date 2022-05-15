@@ -119,6 +119,11 @@ HasExpr($Drop("v_bitvec1_1")).
 HasExpr($PackTupleUnit("v_tuple_unit")).
 HasExpr($Drop("v_tuple_unit")).
 
+HasExpr($PackTupleUnit("v_tuple_unit_bool_0")).
+HasExpr($LoadBool("v_tuple_unit_bool_1", $True())).
+HasExpr($PackTupleCons("v_tuple_unit_bool", "v_tuple_unit_bool_0", "v_tuple_unit_bool_1")).
+HasExpr($Drop("v_tuple_unit_bool")).
+
 // violations
 HasExpr($LoadBool("v_bool_mix", $False())).
 HasExpr($LoadBool("v_bool_mix", $True())).
@@ -135,6 +140,9 @@ PassDefUseTest(
     IsDefUseChecked("v_bitvec1_0"),
     IsDefUseChecked("v_bitvec1_1"),
     IsDefUseChecked("v_tuple_unit"),
+    IsDefUseChecked("v_tuple_unit_bool_0"),
+    IsDefUseChecked("v_tuple_unit_bool_1"),
+    IsDefUseChecked("v_tuple_unit_bool"),
     !IsDefUseChecked("v_bool_mix").
 
 .output PassDefUseTest
