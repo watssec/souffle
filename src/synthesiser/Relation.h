@@ -134,6 +134,7 @@ public:
             : Relation(ramRel, indexSelection) {}
 
     void computeIndices() override;
+    std::string getTypeNamespace();
     std::string getTypeName() override;
     void generateTypeStruct(GenDb& db) override;
 };
@@ -144,6 +145,7 @@ public:
             : Relation(ramRel, indexSelection) {}
 
     void computeIndices() override;
+    std::string getTypeNamespace();
     std::string getTypeName() override;
     void generateTypeStruct(GenDb& db) override;
 };

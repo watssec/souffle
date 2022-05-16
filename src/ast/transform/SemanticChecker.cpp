@@ -403,8 +403,10 @@ bool isConstantArgument(const Argument* arg) {
 
     if (isA<ast::Variable>(arg) || isA<UnnamedVariable>(arg)) {
         return false;
-    } else if (isA<UserDefinedFunctor>(arg)) {
-        return false;
+    } else if (const auto* udf = as<UserDefinedFunctor>(arg)) {
+        // if all argument of functor are constant, then
+        // assume functor returned value is constant.
+        return all_of(udf->getArguments(), isConstantArgument);
     } else if (isA<Counter>(arg)) {
         return false;
     } else if (auto* typeCast = as<ast::TypeCast>(arg)) {

@@ -10,6 +10,8 @@ if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     add_subdirectory(pragma2)
 endif()
 
+add_subdirectory(functor_fact)
+
 
 function(positive_test NAME)
     souffle_positive_test(${NAME} semantic ${ARGN})
@@ -250,3 +252,4 @@ positive_test(inherit_instance)
 positive_test(inherit_instance_override)
 positive_test(instantiate_from_inherited)
 positive_test(instantiate_from_inherited_override)
+souffle_positive_functor_test(functor_fact CATEGORY semantic)

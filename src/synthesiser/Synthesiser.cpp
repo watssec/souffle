@@ -185,8 +185,6 @@ void Synthesiser::generateRelationTypeStruct(GenDb& db, Own<Relation> relationTy
     typeCache.insert(name);
 
     // Generate the type struct for the relation
-    std::stringstream decl;
-    std::stringstream def;
     relationType->generateTypeStruct(db);
 }
 
