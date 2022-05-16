@@ -699,8 +699,8 @@ void IndirectRelation::generateTypeStruct(GenDb& db) {
             std::size_t attrib = ind[i];
             const auto& typecast = typecasts[attrib];
             decl << "(" << typecast << "((*a)[" << attrib << "]) <" << typecast << " ((*b)[" << attrib
-                << "])) ? -1 : ((" << typecast << "((*a)[" << attrib << "]) > " << typecast << "((*b)["
-                << attrib << "])) ? 1 :(";
+                 << "])) ? -1 : ((" << typecast << "((*a)[" << attrib << "]) > " << typecast << "((*b)["
+                 << attrib << "])) ? 1 :(";
             if (i + 1 < ind.size()) {
                 gencmp(i + 1);
             } else {
@@ -717,8 +717,8 @@ void IndirectRelation::generateTypeStruct(GenDb& db) {
             const auto& typecast = typecasts[attrib];
             decl << typecast << " ((*a)[" << attrib << "]) < " << typecast << "((*b)[" << attrib << "])";
             if (i + 1 < ind.size()) {
-                decl << "|| ((" << typecast << "((*a)[" << attrib << "]) == " << typecast << "((*b)[" << attrib
-                    << "]) && (";
+                decl << "|| ((" << typecast << "((*a)[" << attrib << "]) == " << typecast << "((*b)["
+                     << attrib << "]) && (";
                 genless(i + 1);
                 decl << ")))";
             }
@@ -756,7 +756,7 @@ void IndirectRelation::generateTypeStruct(GenDb& db) {
     }
     decl << "using iterator = iterator_" << masterIndex << ";\n";
     def << "using iterator = Type::iterator;\n";
-    
+
     // Create a struct storing the context hints for each index
     decl << "struct context {\n";
     for (std::size_t i = 0; i < numIndexes; i++) {
@@ -849,8 +849,10 @@ void IndirectRelation::generateTypeStruct(GenDb& db) {
     def << "}\n";
 
     // empty lowerUpperRange method
-    decl << "range<iterator> lowerUpperRange_0(const t_tuple& lower, const t_tuple& upper, context& h) const;\n";
-    def << "range<iterator> Type::lowerUpperRange_0(const t_tuple& lower, const t_tuple& upper, context& h) const "
+    decl << "range<iterator> lowerUpperRange_0(const t_tuple& lower, const t_tuple& upper, context& h) "
+            "const;\n";
+    def << "range<iterator> Type::lowerUpperRange_0(const t_tuple& lower, const t_tuple& upper, context& h) "
+           "const "
            "{\n";
     def << "return range<iterator>(ind_" << masterIndex << ".begin(),ind_" << masterIndex << ".end());\n";
     def << "}\n";
@@ -1063,7 +1065,7 @@ void BrieRelation::generateTypeStruct(GenDb& db) {
         decl << "public:\n";
         decl << "    iterator_" << i << "() = default;\n";
         decl << "    iterator_" << i << "(const nested_iterator& iter) : nested(iter), value(orderOut_" << i
-            << "(*iter)) {}\n";
+             << "(*iter)) {}\n";
         decl << "    iterator_" << i << "(const iterator_" << i << "& other) = default;\n";
         decl << "    iterator_" << i << "& operator=(const iterator_" << i << "& other) = default;\n";
 
@@ -1183,7 +1185,8 @@ void BrieRelation::generateTypeStruct(GenDb& db) {
     }
 
     // empty lowerUpperRange method
-    decl << "range<iterator> lowerUpperRange_0(const t_tuple& lower, const t_tuple& upper, context& h) const;\n";
+    decl << "range<iterator> lowerUpperRange_0(const t_tuple& lower, const t_tuple& upper, context& h) "
+            "const;\n";
     def << "range<iterator> Type::lowerUpperRange_0(const t_tuple& lower, const t_tuple& upper, context& h)"
         << " const {\n";
     def << "return range<iterator>(ind_" << masterIndex << ".begin(),ind_" << masterIndex << ".end());\n";
