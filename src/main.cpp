@@ -303,7 +303,7 @@ public:
         return Stream;
     }
 
-    bool endInput() {
+    bool endInput() override {
         const int Status = pclose(Stream);
         Stream = nullptr;
         if (Status == -1) {
