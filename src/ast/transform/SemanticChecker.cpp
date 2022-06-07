@@ -21,6 +21,7 @@
 #include "GraphUtils.h"
 #include "RelationTag.h"
 #include "ast/Aggregator.h"
+#include "ast/IntrinsicAggregator.h"
 #include "ast/AlgebraicDataType.h"
 #include "ast/Argument.h"
 #include "ast/Atom.h"
@@ -688,7 +689,7 @@ void SemanticCheckerImpl::checkIO() {
  *
  **/
 static const std::vector<SrcLocation> usesInvalidWitness(
-        TranslationUnit& tu, const Clause& clause, const Aggregator& aggregate) {
+        TranslationUnit& tu, const Clause& clause, const IntrinsicAggregator& aggregate) {
     std::vector<SrcLocation> invalidWitnessLocations;
 
     if (aggregate.getBaseOperator() == AggregateOp::MIN || aggregate.getBaseOperator() == AggregateOp::MAX) {
@@ -735,7 +736,7 @@ void SemanticCheckerImpl::checkWitnessProblem() {
     // an aggregate where it doesn't make sense to use it, i.e.
     // count, sum, mean
     visit(program, [&](const Clause& clause) {
-        visit(clause, [&](const Aggregator& agg) {
+        visit(clause, [&](const IntrinsicAggregator& agg) {
             for (auto&& invalidArgument : usesInvalidWitness(tu, clause, agg)) {
                 report.addError(
                         "Witness problem: argument grounded by an aggregator's inner scope is used "

@@ -9,6 +9,8 @@ set(SOUFFLE_SOURCES
     FunctorOps.cpp
     Global.cpp
     ast/Aggregator.cpp
+    ast/IntrinsicAggregator.cpp
+    ast/UserDefinedAggregator.cpp
     ast/AlgebraicDataType.cpp
     ast/AliasType.cpp
     ast/Atom.cpp

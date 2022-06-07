@@ -18,6 +18,7 @@
 
 #include "AggregateOp.h"
 #include "ast/Aggregator.h"
+#include "ast/IntrinsicAggregator.h"
 #include "ast/Argument.h"
 #include "ast/Atom.h"
 #include "ast/Clause.h"
@@ -123,7 +124,7 @@ TEST(AstPrint, Counter) {
 TEST(AstPrint, AggregatorMin) {
     auto atom = mk<Atom>("B");
     atom->addArgument(mk<Variable>("x"));
-    auto min = mk<Aggregator>(AggregateOp::MIN, mk<Variable>("x"));
+    auto min = mk<IntrinsicAggregator>(AggregateOp::MIN, mk<Variable>("x"));
 
     VecOwn<Literal> body;
     body.push_back(mk<Atom>("B"));
@@ -140,7 +141,7 @@ TEST(AstPrint, AggregatorMin) {
 TEST(AstPrint, AggregatorMax) {
     auto atom = mk<Atom>("B");
     atom->addArgument(mk<Variable>("x"));
-    auto max = mk<Aggregator>(AggregateOp::MAX, mk<Variable>("x"));
+    auto max = mk<IntrinsicAggregator>(AggregateOp::MAX, mk<Variable>("x"));
 
     VecOwn<Literal> body;
     body.push_back(std::move(atom));
@@ -156,7 +157,7 @@ TEST(AstPrint, AggregatorMax) {
 TEST(AstPrint, AggregatorCount) {
     auto atom = mk<Atom>("B");
     atom->addArgument(mk<Variable>("x"));
-    auto count = mk<Aggregator>(AggregateOp::COUNT);
+    auto count = mk<IntrinsicAggregator>(AggregateOp::COUNT);
 
     VecOwn<Literal> body;
     body.push_back(std::move(atom));
@@ -172,7 +173,7 @@ TEST(AstPrint, AggregatorCount) {
 TEST(AstPrint, AggregatorSum) {
     auto atom = mk<Atom>("B");
     atom->addArgument(mk<Variable>("x"));
-    auto sum = mk<Aggregator>(AggregateOp::SUM, mk<Variable>("x"));
+    auto sum = mk<IntrinsicAggregator>(AggregateOp::SUM, mk<Variable>("x"));
 
     VecOwn<Literal> body;
     body.push_back(std::move(atom));

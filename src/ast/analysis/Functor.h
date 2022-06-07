@@ -18,6 +18,7 @@
 
 #include "ast/FunctorDeclaration.h"
 #include "ast/TranslationUnit.h"
+#include "ast/UserDefinedAggregator.h"
 #include "souffle/TypeAttribute.h"
 #include <iosfwd>
 #include <unordered_map>
@@ -50,7 +51,9 @@ public:
     std::size_t getFunctorArity(UserDefinedFunctor const& functor) const;
     QualifiedName const& getFunctorReturnType(const UserDefinedFunctor& functor) const;
     bool isStatefulFunctor(const UserDefinedFunctor& functor) const;
+    bool isStatefulFunctor(const UserDefinedAggregator& aggregator) const;
     const FunctorDeclaration& getFunctorDeclaration(const UserDefinedFunctor& functor) const;
+    const FunctorDeclaration& getFunctorDeclaration(const UserDefinedAggregator& aggregator) const;
 
     /** Return whether a UDF is stateful */
     bool isStateful(const UserDefinedFunctor& udf) const;

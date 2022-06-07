@@ -21,6 +21,8 @@
 #include "ram/AbstractExistenceCheck.h"
 #include "ram/AbstractOperator.h"
 #include "ram/Aggregate.h"
+#include "ram/Aggregator.h"
+#include "ram/UserDefinedAggregator.h"
 #include "ram/AutoIncrement.h"
 #include "ram/BinRelationStatement.h"
 #include "ram/Break.h"

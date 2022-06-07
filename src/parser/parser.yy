@@ -36,7 +36,8 @@
 %code requires {
     #include "AggregateOp.h"
     #include "FunctorOps.h"
-    #include "ast/Aggregator.h"
+    #include "ast/IntrinsicAggregator.h"
+    #include "ast/UserDefinedAggregator.h"
     #include "ast/AliasType.h"
     #include "ast/AlgebraicDataType.h"
     #include "ast/Argument.h"
@@ -221,6 +222,7 @@
 %token L_OR                      "lor"
 %token L_XOR                     "lxor"
 %token L_NOT                     "lnot"
+%token FOLD                      "fold"
 
 /* -- Non-Terminal Types -- */
 %type <Mov<RuleBody>>                          aggregate_body
@@ -1056,7 +1058,17 @@ arg
     {
       $$ = mk<ast::IntrinsicFunctor>(@$, ">>>", $1, $3);
     }
-
+    /* -- User-defined aggregators -- */
+  | AT AT IDENT arg_list[rest] COLON arg[first] COMMA aggregate_body
+    {
+      auto bodies = $aggregate_body->toClauseBodies();
+      if (bodies.size() != 1) {
+        driver.error("ERROR: disjunctions in aggregation clauses are currently not supported");
+      }
+      auto expr = $rest.empty() ? nullptr : std::move($rest[0]);
+      auto body = (bodies.size() == 1) ? clone(bodies[0]->getBodyLiterals()) : VecOwn<ast::Literal> {};
+      $$ = mk<ast::UserDefinedAggregator>($IDENT, std::move($first), std::move(expr), std::move(body), @$);
+    }
     /* -- aggregators -- */
   | aggregate_func arg_list COLON aggregate_body
     {
@@ -1072,7 +1084,7 @@ arg
       }
       auto expr = $arg_list.empty() ? nullptr : std::move($arg_list[0]);
       auto body = (bodies.size() == 1) ? clone(bodies[0]->getBodyLiterals()) : VecOwn<ast::Literal> {};
-      $$ = mk<ast::Aggregator>($aggregate_func, std::move(expr), std::move(body), @$);
+      $$ = mk<ast::IntrinsicAggregator>($aggregate_func, std::move(expr), std::move(body), @$);
     }
   ;
 

@@ -17,6 +17,7 @@
 #pragma once
 
 #include "AggregateOp.h"
+#include "ast/Aggregator.h"
 #include "ast/Argument.h"
 #include "ast/Literal.h"
 #include "parser/SrcLocation.h"
@@ -36,37 +37,37 @@ namespace souffle::ast {
  * Aggregates over a sub-query using an aggregate operator
  * and an expression.
  */
-class Aggregator : public Argument {
+class UserDefinedAggregator : public Aggregator {
 public:
-    Aggregator(Own<Argument> expr = {}, VecOwn<Literal> body = {}, SrcLocation loc = {});
+    UserDefinedAggregator(std::string name, Own<Argument> init = {}, Own<Argument> expr = {}, VecOwn<Literal> body = {},
+            SrcLocation loc = {});
 
-    /** Return target expression */
-    const Argument* getTargetExpression() const {
-        return targetExpression.get();
+    std::string getBaseOperatorName() const override {
+        return name;
     }
 
-    Argument* getTargetExpression() {
-        return targetExpression.get();
+    const Argument* getInit() const {
+        return initValue.get();
     }
-
-    /** Return body literals */
-    std::vector<Literal*> getBodyLiterals() const;
-
-    /** Set body literals */
-    void setBodyLiterals(VecOwn<Literal> bodyLiterals);
 
     void apply(const NodeMapper& map) override;
-
-    virtual std::string getBaseOperatorName() const = 0;
 
 protected:
     NodeVec getChildren() const override;
 
-    /** Aggregate expression */
-    Own<Argument> targetExpression;
+    void print(std::ostream& os) const override;
 
-    /** Body literal of sub-query */
-    VecOwn<Literal> body;
+
+private:
+    bool equal(const Node& node) const override;
+
+    UserDefinedAggregator* cloning() const override;
+
+private:
+    /** Aggregate (base type) operator */
+    std::string name;
+
+    Own<Argument> initValue;
 };
 
 }  // namespace souffle::ast

@@ -45,10 +45,10 @@ namespace souffle::ram {
  */
 class IndexAggregate : public IndexOperation, public AbstractAggregate {
 public:
-    IndexAggregate(Own<Operation> nested, AggregateOp fun, std::string rel, Own<Expression> expression,
+    IndexAggregate(Own<Operation> nested, Own<Aggregator> fun, std::string rel, Own<Expression> expression,
             Own<Condition> condition, RamPattern queryPattern, std::size_t ident)
             : IndexOperation(rel, ident, std::move(queryPattern), std::move(nested)),
-              AbstractAggregate(fun, std::move(expression), std::move(condition)) {}
+              AbstractAggregate(std::move(fun), std::move(expression), std::move(condition)) {}
 
     IndexAggregate* cloning() const override {
         RamPattern pattern;
@@ -58,7 +58,7 @@ public:
         for (const auto& i : queryPattern.second) {
             pattern.second.emplace_back(i->cloning());
         }
-        return new IndexAggregate(clone(getOperation()), function, relation, clone(expression),
+        return new IndexAggregate(clone(getOperation()), clone(function), relation, clone(expression),
                 clone(condition), std::move(pattern), getTupleId());
     }
 

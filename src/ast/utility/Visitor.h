@@ -17,6 +17,8 @@
 #pragma once
 
 #include "ast/Aggregator.h"
+#include "ast/IntrinsicAggregator.h"
+#include "ast/UserDefinedAggregator.h"
 #include "ast/AlgebraicDataType.h"
 #include "ast/AliasType.h"
 #include "ast/Argument.h"
@@ -94,7 +96,8 @@ struct Visitor : souffle::detail::VisitorBase<R, NodeType, Params...> {
         SOUFFLE_VISITOR_FORWARD(TypeCast)
         SOUFFLE_VISITOR_FORWARD(RecordInit)
         SOUFFLE_VISITOR_FORWARD(BranchInit)
-        SOUFFLE_VISITOR_FORWARD(Aggregator)
+        SOUFFLE_VISITOR_FORWARD(IntrinsicAggregator)
+        SOUFFLE_VISITOR_FORWARD(UserDefinedAggregator)
 
         // literals
         SOUFFLE_VISITOR_FORWARD(Atom)
@@ -151,6 +154,8 @@ struct Visitor : souffle::detail::VisitorBase<R, NodeType, Params...> {
     SOUFFLE_VISITOR_LINK(Term, Argument)
 
     SOUFFLE_VISITOR_LINK(Aggregator, Argument)
+    SOUFFLE_VISITOR_LINK(IntrinsicAggregator, Aggregator)
+    SOUFFLE_VISITOR_LINK(UserDefinedAggregator, Aggregator)
 
     SOUFFLE_VISITOR_LINK(Argument, Node);
 

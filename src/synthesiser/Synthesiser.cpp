@@ -21,6 +21,7 @@
 #include "RelationTag.h"
 #include "ram/AbstractParallel.h"
 #include "ram/Aggregate.h"
+#include "ram/Aggregator.h"
 #include "ram/AutoIncrement.h"
 #include "ram/Break.h"
 #include "ram/Call.h"
@@ -82,6 +83,7 @@
 #include "ram/UndefValue.h"
 #include "ram/UnpackRecord.h"
 #include "ram/UnsignedConstant.h"
+#include "ram/UserDefinedAggregator.h"
 #include "ram/UserDefinedOperator.h"
 #include "ram/analysis/Index.h"
 #include "ram/utility/Utils.h"
@@ -1087,6 +1089,164 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             PRINT_END_COMMENT(out);
         }
 
+        std::string initValue(const Aggregator& aggregator) {
+            if (const auto* ia = as<ram::IntrinsicAggregator>(aggregator)) {
+                switch (ia->getFunction()) {
+                    case AggregateOp::MIN:
+                        return "MAX_RAM_SIGNED";
+                    case AggregateOp::FMIN:
+                        return "MAX_RAM_FLOAT";
+                    case AggregateOp::UMIN:
+                        return "MAX_RAM_UNSIGNED";
+                    case AggregateOp::MAX:
+                        return "MIN_RAM_SIGNED";
+                    case AggregateOp::FMAX:
+                        return "MIN_RAM_FLOAT";
+                    case AggregateOp::UMAX:
+                        return "MIN_RAM_UNSIGNED";
+                    case AggregateOp::COUNT:
+                    case AggregateOp::MEAN:
+                    case AggregateOp::FSUM:
+                    case AggregateOp::USUM:
+                    case AggregateOp::SUM:
+                        return "0";
+                }
+            } else if (const auto* uda = as<ram::UserDefinedAggregator>(aggregator)) {
+                assert(uda);
+                std::stringstream ss;
+                dispatch(*uda->getInitValue(), ss);
+                return ss.str();
+            }
+            fatal("Unhandled aggregate operation");
+        }
+
+        void updateRes(std::ostream& out, const AbstractAggregate& aggregate) {
+            const auto& aggregator = aggregate.getAggregator();
+            if (const auto* ia = as<ram::IntrinsicAggregator>(aggregator)) {
+                AggregateOp aggregateFun = ia->getFunction();
+                std::string type = getType(aggregator);
+                switch (aggregateFun) {
+                    case AggregateOp::FMIN:
+                    case AggregateOp::UMIN:
+                    case AggregateOp::MIN:
+                        out << "res0 = std::min(res0,ramBitCast<" << type << ">(";
+                        dispatch(aggregate.getExpression(), out);
+                        out << "));\n";
+                        break;
+                    case AggregateOp::FMAX:
+                    case AggregateOp::UMAX:
+                    case AggregateOp::MAX:
+                        out << "res0 = std::max(res0,ramBitCast<" << type << ">(";
+                        dispatch(aggregate.getExpression(), out);
+                        out << "));\n";
+                        break;
+                    case AggregateOp::COUNT: out << "++res0\n;"; break;
+                    case AggregateOp::FSUM:
+                    case AggregateOp::USUM:
+                    case AggregateOp::SUM:
+                        out << "res0 += "
+                            << "ramBitCast<" << type << ">(";
+                        dispatch(aggregate.getExpression(), out);
+                        out << ");\n";
+                        break;
+
+                    case AggregateOp::MEAN:
+                        out << "res0 += "
+                            << "ramBitCast<RamFloat>(";
+                        dispatch(aggregate.getExpression(), out);
+                        out << ");\n";
+                        out << "++res1;\n";
+                        break;
+                }
+            } else  if (const auto* uda = as<ram::UserDefinedAggregator>(aggregator)) {
+                out << "res0 = functors::" << uda->getName() << "(";
+                if (uda->isStateful()) {
+                    out << "&symTable, &recordTable, ";
+                }
+                out << "res0, ";
+                dispatch(aggregate.getExpression(), out);
+                out << ");\n";
+            }
+        }
+
+        bool shouldRunNested(const Aggregator& aggregator) {
+            if (const auto* ia = as<ram::IntrinsicAggregator>(aggregator)) {
+                switch (ia->getFunction()) {
+                    case AggregateOp::COUNT:
+                    case AggregateOp::FSUM:
+                    case AggregateOp::USUM:
+                    case AggregateOp::SUM:
+                        return true;
+                    default:
+                        return false;
+                }
+            } else  if (isA<ram::UserDefinedAggregator>(aggregator)) {
+                return false;
+            }
+            fatal("Unhandled aggregate operation");
+        }
+
+        std::string getType(const Aggregator& aggregator) {
+            auto str = [&](souffle::TypeAttribute ta) {
+                switch (ta) {
+                    case TypeAttribute::Signed: return "RamSigned";
+                    case TypeAttribute::Unsigned: return "RamUnsigned";
+                    case TypeAttribute::Float: return "RamFloat";
+                    case TypeAttribute::Symbol:
+                    case TypeAttribute::ADT:
+                    case TypeAttribute::Record: return "RamDomain";
+                    default: return "RamDomain";
+                }
+            };
+            if (const auto* ia = as<ram::IntrinsicAggregator>(aggregator)) {
+                return str(getTypeAttributeAggregate(ia->getFunction()));
+            } else  if (const auto* uda = as<ram::UserDefinedAggregator>(aggregator)) {
+                return str(uda->getReturnType());
+            }
+            fatal("Unhandled aggregator");
+        }
+
+        std::tuple<std::string, std::string, int> reductionOperation(const Aggregator& aggregator) {
+            if (const auto* ia = as<ram::IntrinsicAggregator>(aggregator)) {
+                switch (ia->getFunction()) {
+                    case AggregateOp::MIN:
+                    case AggregateOp::FMIN:
+                    case AggregateOp::UMIN:
+                        return std::make_tuple("min", "", 200805);
+                    case AggregateOp::MAX:
+                    case AggregateOp::FMAX:
+                    case AggregateOp::UMAX:
+                        return std::make_tuple("max", "", 200805);
+                    case AggregateOp::MEAN:
+                    case AggregateOp::FSUM:
+                    case AggregateOp::USUM:
+                    case AggregateOp::COUNT:
+                    case AggregateOp::SUM:
+                        return std::make_tuple("+", "", 0);
+                    default: fatal("Unhandled aggregate operation");
+                }
+            } else  if (const auto* uda = as<ram::UserDefinedAggregator>(aggregator)) {
+                std::stringstream def;
+                std::string name = uda->getName();
+                def << "#pragma omp declare reduction("
+                    << "reduction_" << name << " : "
+                    << getType(aggregator) << " : \\\n";
+                // TODO: does not work for stateful functors
+                def << "omp_out = " << name << "(omp_out, omp_in) )\\\n";
+                def << "initializer (omp_priv=(omp_orig))\n";
+                return std::make_tuple("reduction_" + name, def.str(), 0);
+            }
+            fatal("Unhandled aggregator");
+        }
+
+        void ifIntrinsic(const ram::Aggregator& aggregator, AggregateOp op, std::function<void()> fn) {
+            if (const auto* ia = as<ram::IntrinsicAggregator>(aggregator)) {
+                if (ia->getFunction() == op) {
+                    fn();
+                };
+            }
+        }
+
         void visit_(type_identity<ParallelIndexAggregate>, const ParallelIndexAggregate& aggregate,
                 std::ostream& out) override {
             assert(aggregate.getTupleId() == 0 && "not outer-most loop");
@@ -1109,9 +1269,16 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             // get range to aggregate
             auto keys = isa->getSearchSignature(&aggregate);
 
+            const ram::Aggregator& aggregator = aggregate.getAggregator();
+
+            bool isCount = false;
+            ifIntrinsic(aggregator, AggregateOp::COUNT, [&]() {
+                isCount = true;
+            });
+
             // special case: counting number elements over an unrestricted predicate
-            if (aggregate.getFunction() == AggregateOp::COUNT && keys.empty() &&
-                    isTrue(&aggregate.getCondition())) {
+            if (isCount && keys.empty() &&
+                isTrue(&aggregate.getCondition())) {
                 // shortcut: use relation size
                 out << "env" << identifier << "[0] = " << relName << "->"
                     << "size();\n";
@@ -1122,79 +1289,26 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 return;
             }
 
-            out << "bool shouldRunNested = false;\n";
-
             // init result and reduction operation
-            std::string init;
-            switch (aggregate.getFunction()) {
-                case AggregateOp::MIN: init = "MAX_RAM_SIGNED"; break;
-                case AggregateOp::FMIN: init = "MAX_RAM_FLOAT"; break;
-                case AggregateOp::UMIN: init = "MAX_RAM_UNSIGNED"; break;
-                case AggregateOp::MAX: init = "MIN_RAM_SIGNED"; break;
-                case AggregateOp::FMAX: init = "MIN_RAM_FLOAT"; break;
-                case AggregateOp::UMAX: init = "MIN_RAM_UNSIGNED"; break;
-                case AggregateOp::COUNT:
-                    init = "0";
-                    out << "shouldRunNested = true;\n";
-                    break;
-                case AggregateOp::MEAN: init = "0"; break;
-                case AggregateOp::FSUM:
-                case AggregateOp::USUM:
-                case AggregateOp::SUM:
-                    init = "0";
-                    out << "shouldRunNested = true;\n";
-                    break;
-            }
+            std::string init = initValue(aggregator);
+            out << "bool shouldRunNested = " << (shouldRunNested(aggregator) ? "true" : "false") << ";\n";
 
             // Set reduction operation
             std::string op;
-            std::string omp_min_ver;
-            switch (aggregate.getFunction()) {
-                case AggregateOp::MIN:
-                case AggregateOp::FMIN:
-                case AggregateOp::UMIN: {
-                    op = "min";
-                    omp_min_ver = "200805";  // from OMP 3.0
-                    break;
-                }
+            std::string op_def;
+            int omp_min_ver;
+            std::tie(op, op_def, omp_min_ver) = reductionOperation(aggregator);
 
-                case AggregateOp::MAX:
-                case AggregateOp::FMAX:
-                case AggregateOp::UMAX: {
-                    op = "max";
-                    omp_min_ver = "200805";  // from OMP 3.0
-                    break;
-                }
-
-                case AggregateOp::MEAN:
-                case AggregateOp::FSUM:
-                case AggregateOp::USUM:
-                case AggregateOp::COUNT:
-                case AggregateOp::SUM: {
-                    omp_min_ver = "0";
-                    op = "+";
-                    break;
-                }
-                default: fatal("Unhandled aggregate operation");
-            }
             // res0 stores the aggregate result
             std::string sharedVariable = "res0";
 
-            std::string type;
-            switch (getTypeAttributeAggregate(aggregate.getFunction())) {
-                case TypeAttribute::Signed: type = "RamSigned"; break;
-                case TypeAttribute::Unsigned: type = "RamUnsigned"; break;
-                case TypeAttribute::Float: type = "RamFloat"; break;
+            std::string type = getType(aggregator);
 
-                case TypeAttribute::Symbol:
-                case TypeAttribute::ADT:
-                case TypeAttribute::Record: type = "RamDomain"; break;
-            }
             out << type << " res0 = " << init << ";\n";
-            if (aggregate.getFunction() == AggregateOp::MEAN) {
+            ifIntrinsic(aggregator, AggregateOp::MEAN, [&]() {
                 out << "RamUnsigned res1 = 0;\n";
                 sharedVariable += ", res1";
-            }
+            });
 
             out << preamble.str();
             out << "PARALLEL_START\n";
@@ -1202,6 +1316,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             if (keys.empty()) {
                 // OMP reduction is not available on all versions of OpenMP
                 out << "#if defined _OPENMP && _OPENMP >= " << omp_min_ver << "\n";
+                out << op_def << "\n";
                 out << "#pragma omp for reduction(" << op << ":" << sharedVariable << ")\n";
                 out << "#endif\n";
 
@@ -1228,6 +1343,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
                 // OMP reduction is not available on all versions of OpenMP
                 out << "#if defined _OPENMP && _OPENMP >= " << omp_min_ver << "\n";
+                out << op_def << "\n";
                 out << "#pragma omp for reduction(" << op << ":" << sharedVariable << ")\n";
                 out << "#endif\n";
 
@@ -1252,39 +1368,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "shouldRunNested = true;\n";
 
             // pick function
-            switch (aggregate.getFunction()) {
-                case AggregateOp::FMIN:
-                case AggregateOp::UMIN:
-                case AggregateOp::MIN:
-                    out << "res0 = std::min(res0,ramBitCast<" << type << ">(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << "));\n";
-                    break;
-                case AggregateOp::FMAX:
-                case AggregateOp::UMAX:
-                case AggregateOp::MAX:
-                    out << "res0 = std::max(res0,ramBitCast<" << type << ">(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << "));\n";
-                    break;
-                case AggregateOp::COUNT: out << "++res0\n;"; break;
-                case AggregateOp::FSUM:
-                case AggregateOp::USUM:
-                case AggregateOp::SUM:
-                    out << "res0 += "
-                        << "ramBitCast<" << type << ">(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << ");\n";
-                    break;
-
-                case AggregateOp::MEAN:
-                    out << "res0 += "
-                        << "ramBitCast<RamFloat>(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << ");\n";
-                    out << "++res1;\n";
-                    break;
-            }
+            updateRes(out, aggregate);
 
             // end if statement
             out << "}\n";
@@ -1300,11 +1384,11 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             // start single-threaded section
             out << "#pragma omp single\n{\n";
 
-            if (aggregate.getFunction() == AggregateOp::MEAN) {
+            ifIntrinsic(aggregator, AggregateOp::MEAN, [&]() {
                 out << "if (res1 != 0) {\n";
                 out << "res0 = res0 / res1;\n";
                 out << "}\n";
-            }
+            });
 
             // write result into environment tuple
             out << "env" << identifier << "[0] = ramBitCast(res0);\n";
@@ -1348,8 +1432,15 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             // get range to aggregate
             auto keys = isa->getSearchSignature(&aggregate);
 
+            const ram::Aggregator& aggregator = aggregate.getAggregator();
+
+            bool isCount = false;
+            ifIntrinsic(aggregator, AggregateOp::COUNT, [&]() {
+                isCount = true;
+            });
+
             // special case: counting number elements over an unrestricted predicate
-            if (aggregate.getFunction() == AggregateOp::COUNT && keys.empty() &&
+            if (isCount && keys.empty() &&
                     isTrue(&aggregate.getCondition())) {
                 // shortcut: use relation size
                 out << "env" << identifier << "[0] = " << relName << "->"
@@ -1359,45 +1450,17 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 return;
             }
 
-            out << "bool shouldRunNested = false;\n";
-
             // init result
-            std::string init;
-            switch (aggregate.getFunction()) {
-                case AggregateOp::MIN: init = "MAX_RAM_SIGNED"; break;
-                case AggregateOp::FMIN: init = "MAX_RAM_FLOAT"; break;
-                case AggregateOp::UMIN: init = "MAX_RAM_UNSIGNED"; break;
-                case AggregateOp::MAX: init = "MIN_RAM_SIGNED"; break;
-                case AggregateOp::FMAX: init = "MIN_RAM_FLOAT"; break;
-                case AggregateOp::UMAX: init = "MIN_RAM_UNSIGNED"; break;
-                case AggregateOp::COUNT:
-                    init = "0";
-                    out << "shouldRunNested = true;\n";
-                    break;
-                case AggregateOp::MEAN: init = "0"; break;
-                case AggregateOp::FSUM:
-                case AggregateOp::USUM:
-                case AggregateOp::SUM:
-                    init = "0";
-                    out << "shouldRunNested = true;\n";
-                    break;
-            }
+            std::string init = initValue(aggregator);
+            out << "bool shouldRunNested = " << (shouldRunNested(aggregator) ? "true" : "false") << ";\n";
 
-            std::string type;
-            switch (getTypeAttributeAggregate(aggregate.getFunction())) {
-                case TypeAttribute::Signed: type = "RamSigned"; break;
-                case TypeAttribute::Unsigned: type = "RamUnsigned"; break;
-                case TypeAttribute::Float: type = "RamFloat"; break;
+            std::string type = getType(aggregator);
 
-                case TypeAttribute::Symbol:
-                case TypeAttribute::ADT:
-                case TypeAttribute::Record: type = "RamDomain"; break;
-            }
             out << type << " res0 = " << init << ";\n";
 
-            if (aggregate.getFunction() == AggregateOp::MEAN) {
+            ifIntrinsic(aggregator, AggregateOp::MEAN, [&]() {
                 out << "RamUnsigned res1 = 0;\n";
-            }
+            });
 
             // check whether there is an index to use
             if (keys.empty()) {
@@ -1425,53 +1488,27 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "shouldRunNested = true;\n";
 
             // pick function
-            switch (aggregate.getFunction()) {
-                case AggregateOp::FMIN:
-                case AggregateOp::UMIN:
-                case AggregateOp::MIN:
-                    out << "res0 = std::min(res0,ramBitCast<" << type << ">(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << "));\n";
-                    if (isGuaranteedToBeMinimum(aggregate)) {
-                        out << "break;\n";
-                    }
-                    break;
-                case AggregateOp::FMAX:
-                case AggregateOp::UMAX:
-                case AggregateOp::MAX:
-                    out << "res0 = std::max(res0,ramBitCast<" << type << ">(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << "));\n";
-                    break;
-                case AggregateOp::COUNT: out << "++res0\n;"; break;
-                case AggregateOp::FSUM:
-                case AggregateOp::USUM:
-                case AggregateOp::SUM:
-                    out << "res0 += "
-                        << "ramBitCast<" << type << ">(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << ");\n";
-                    break;
+            updateRes(out, aggregate);
+            auto printBreak = [&]() {
+                if (isGuaranteedToBeMinimum(aggregate)) {
+                    out << "break;\n";
+                }
+            };
+            ifIntrinsic(aggregator, AggregateOp::FMIN, printBreak);
+            ifIntrinsic(aggregator, AggregateOp::UMIN, printBreak);
+            ifIntrinsic(aggregator, AggregateOp::MIN, printBreak);
 
-                case AggregateOp::MEAN:
-                    out << "res0 += "
-                        << "ramBitCast<RamFloat>(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << ");\n";
-                    out << "++res1;\n";
-                    break;
-            }
 
             out << "}\n";
 
             // end aggregator loop
             out << "}\n";
 
-            if (aggregate.getFunction() == AggregateOp::MEAN) {
+            ifIntrinsic(aggregator, AggregateOp::MEAN, [&]() {
                 out << "if (res1 != 0) {\n";
                 out << "res0 = res0 / res1;\n";
                 out << "}\n";
-            }
+            });
 
             // write result into environment tuple
             out << "env" << identifier << "[0] = ramBitCast(res0);\n";
@@ -1500,8 +1537,15 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             // declare environment variable
             out << "Tuple<RamDomain,1> env" << identifier << ";\n";
 
+            const ram::Aggregator& aggregator = aggregate.getAggregator();
+
+            bool isCount = false;
+            ifIntrinsic(aggregator, AggregateOp::COUNT, [&]() {
+                isCount = true;
+            });
+
             // special case: counting number elements over an unrestricted predicate
-            if (aggregate.getFunction() == AggregateOp::COUNT && isTrue(&aggregate.getCondition())) {
+            if (isCount && isTrue(&aggregate.getCondition())) {
                 // shortcut: use relation size
                 out << "env" << identifier << "[0] = " << relName << "->"
                     << "size();\n";
@@ -1512,83 +1556,25 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 return;
             }
 
-            out << "bool shouldRunNested = false;\n";
-
             // init result
-            std::string init;
-            switch (aggregate.getFunction()) {
-                case AggregateOp::MIN: init = "MAX_RAM_SIGNED"; break;
-                case AggregateOp::FMIN: init = "MAX_RAM_FLOAT"; break;
-                case AggregateOp::UMIN: init = "MAX_RAM_UNSIGNED"; break;
-                case AggregateOp::MAX: init = "MIN_RAM_SIGNED"; break;
-                case AggregateOp::FMAX: init = "MIN_RAM_FLOAT"; break;
-                case AggregateOp::UMAX: init = "MIN_RAM_UNSIGNED"; break;
-                case AggregateOp::COUNT:
-                    init = "0";
-                    out << "shouldRunNested = true;\n";
-                    break;
-
-                case AggregateOp::MEAN: init = "0"; break;
-
-                case AggregateOp::FSUM:
-                case AggregateOp::USUM:
-                case AggregateOp::SUM:
-                    init = "0";
-                    out << "shouldRunNested = true;\n";
-                    break;
-            }
+            std::string init = initValue(aggregator);
+            out << "bool shouldRunNested = " << (shouldRunNested(aggregator) ? "true" : "false") << ";\n";
 
             // Set reduction operation
             std::string op;
-            std::string omp_min_ver;
-            switch (aggregate.getFunction()) {
-                case AggregateOp::MIN:
-                case AggregateOp::FMIN:
-                case AggregateOp::UMIN: {
-                    op = "min";
-                    omp_min_ver = "200805";  // from OMP 3.0
-                    break;
-                }
+            std::string op_def;
+            int omp_min_ver;
+            std::tie(op, op_def, omp_min_ver) = reductionOperation(aggregator);
 
-                case AggregateOp::MAX:
-                case AggregateOp::FMAX:
-                case AggregateOp::UMAX: {
-                    op = "max";
-                    omp_min_ver = "200805";  // from OMP 3.0
-                    break;
-                }
+            std::string type = getType(aggregator);
 
-                case AggregateOp::MEAN:
-                case AggregateOp::FSUM:
-                case AggregateOp::USUM:
-                case AggregateOp::COUNT:
-                case AggregateOp::SUM: {
-                    op = "+";
-                    omp_min_ver = "0";
-                    break;
-                }
-
-                default: fatal("Unhandled aggregate operation");
-            }
-
-            char const* type = NULL;
-            switch (getTypeAttributeAggregate(aggregate.getFunction())) {
-                case TypeAttribute::Signed: type = "RamSigned"; break;
-                case TypeAttribute::Unsigned: type = "RamUnsigned"; break;
-                case TypeAttribute::Float: type = "RamFloat"; break;
-
-                case TypeAttribute::Symbol:
-                case TypeAttribute::ADT:
-                case TypeAttribute::Record: type = "RamDomain"; break;
-                default: assert(0);
-            }
             out << type << " res0 = " << init << ";\n";
 
             std::string sharedVariable = "res0";
-            if (aggregate.getFunction() == AggregateOp::MEAN) {
+            ifIntrinsic(aggregator, AggregateOp::MEAN, [&]() {
                 out << "RamUnsigned res1 = " << init << ";\n";
                 sharedVariable += ", res1";
-            }
+            });
 
             // create a partitioning of the relation to iterate over simeltaneously
             out << "auto part = " << relName << "->partition();\n";
@@ -1605,6 +1591,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
             // pragma statement
             out << "#if defined _OPENMP && _OPENMP >= " << omp_min_ver << "\n";
+            out << op_def << "\n";
             out << "#pragma omp for reduction(" << op << ":" << sharedVariable << ")\n";
             out << "#endif\n";
 
@@ -1627,37 +1614,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
             out << "shouldRunNested = true;\n";
             // pick function
-            switch (aggregate.getFunction()) {
-                case AggregateOp::FMIN:
-                case AggregateOp::UMIN:
-                case AggregateOp::MIN:
-                    out << "res0 = std::min(res0, ramBitCast<" << type << ">(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << "));\n";
-                    break;
-                case AggregateOp::FMAX:
-                case AggregateOp::UMAX:
-                case AggregateOp::MAX:
-                    out << "res0 = std::max(res0, ramBitCast<" << type << ">(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << "));\n";
-                    break;
-                case AggregateOp::COUNT: out << "++res0\n;"; break;
-                case AggregateOp::FSUM:
-                case AggregateOp::USUM:
-                case AggregateOp::SUM:
-                    out << "res0 += ramBitCast<" << type << ">(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << ");\n";
-                    break;
-
-                case AggregateOp::MEAN:
-                    out << "res0 += ramBitCast<RamFloat>(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << ");\n";
-                    out << "++res1;\n";
-                    break;
-            }
+            updateRes(out, aggregate);
 
             out << "}\n";
 
@@ -1669,11 +1626,11 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             // the rest shouldn't be run in parallel
             out << "#pragma omp single\n{\n";
 
-            if (aggregate.getFunction() == AggregateOp::MEAN) {
+            ifIntrinsic(aggregator, AggregateOp::MEAN, [&]() {
                 out << "if (res1 != 0) {\n";
                 out << "res0 = res0 / res1;\n";
                 out << "}\n";
-            }
+            });
 
             // write result into environment tuple
             out << "env" << identifier << "[0] = ramBitCast(res0);\n";
@@ -1696,8 +1653,15 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             // declare environment variable
             out << "Tuple<RamDomain,1> env" << identifier << ";\n";
 
+            const ram::Aggregator& aggregator = aggregate.getAggregator();
+
+            bool isCount = false;
+            ifIntrinsic(aggregator, AggregateOp::COUNT, [&]() {
+                isCount = true;
+            });
+
             // special case: counting number elements over an unrestricted predicate
-            if (aggregate.getFunction() == AggregateOp::COUNT && isTrue(&aggregate.getCondition())) {
+            if (isCount && isTrue(&aggregate.getCondition())) {
                 // shortcut: use relation size
                 out << "env" << identifier << "[0] = " << relName << "->"
                     << "size();\n";
@@ -1706,48 +1670,17 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 return;
             }
 
-            out << "bool shouldRunNested = false;\n";
-
             // init result
-            std::string init;
-            switch (aggregate.getFunction()) {
-                case AggregateOp::MIN: init = "MAX_RAM_SIGNED"; break;
-                case AggregateOp::FMIN: init = "MAX_RAM_FLOAT"; break;
-                case AggregateOp::UMIN: init = "MAX_RAM_UNSIGNED"; break;
-                case AggregateOp::MAX: init = "MIN_RAM_SIGNED"; break;
-                case AggregateOp::FMAX: init = "MIN_RAM_FLOAT"; break;
-                case AggregateOp::UMAX: init = "MIN_RAM_UNSIGNED"; break;
-                case AggregateOp::COUNT:
-                    init = "0";
-                    out << "shouldRunNested = true;\n";
-                    break;
+            std::string init = initValue(aggregator);
+            out << "bool shouldRunNested = " << (shouldRunNested(aggregator) ? "true" : "false") << ";\n";
 
-                case AggregateOp::MEAN: init = "0"; break;
+            std::string type = getType(aggregator);
 
-                case AggregateOp::FSUM:
-                case AggregateOp::USUM:
-                case AggregateOp::SUM:
-                    init = "0";
-                    out << "shouldRunNested = true;\n";
-                    break;
-            }
-
-            std::string type;
-            switch (getTypeAttributeAggregate(aggregate.getFunction())) {
-                case TypeAttribute::Signed: type = "RamSigned"; break;
-                case TypeAttribute::Unsigned: type = "RamUnsigned"; break;
-                case TypeAttribute::Float: type = "RamFloat"; break;
-
-                case TypeAttribute::Symbol:
-                case TypeAttribute::ADT:
-                case TypeAttribute::Record:
-                default: type = "RamDomain"; break;
-            }
             out << type << " res0 = " << init << ";\n";
 
-            if (aggregate.getFunction() == AggregateOp::MEAN) {
+            ifIntrinsic(aggregator, AggregateOp::MEAN, [&]() {
                 out << "RamUnsigned res1 = 0;\n";
-            }
+            });
 
             // check whether there is an index to use
             out << "for(const auto& env" << identifier << " : "
@@ -1760,49 +1693,16 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
             out << "shouldRunNested = true;\n";
             // pick function
-            switch (aggregate.getFunction()) {
-                case AggregateOp::FMIN:
-                case AggregateOp::UMIN:
-                case AggregateOp::MIN:
-                    out << "res0 = std::min(res0, ramBitCast<" << type << ">(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << "));\n";
-                    break;
-                case AggregateOp::FMAX:
-                case AggregateOp::UMAX:
-                case AggregateOp::MAX:
-                    out << "res0 = std::max(res0,ramBitCast<" << type << ">(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << "));\n";
-                    break;
-                case AggregateOp::COUNT: out << "++res0\n;"; break;
-                case AggregateOp::FSUM:
-                case AggregateOp::USUM:
-                case AggregateOp::SUM:
-                    out << "res0 += "
-                        << "ramBitCast<" << type << ">(";
-                    ;
-                    dispatch(aggregate.getExpression(), out);
-                    out << ");\n";
-                    break;
-
-                case AggregateOp::MEAN:
-                    out << "res0 += "
-                        << "ramBitCast<RamFloat>(";
-                    dispatch(aggregate.getExpression(), out);
-                    out << ");\n";
-                    out << "++res1;\n";
-                    break;
-            }
+            updateRes(out, aggregate);
 
             out << "}\n";
 
             // end aggregator loop
             out << "}\n";
 
-            if (aggregate.getFunction() == AggregateOp::MEAN) {
+            ifIntrinsic(aggregator, AggregateOp::MEAN, [&]() {
                 out << "res0 = res0 / res1;\n";
-            }
+            });
 
             // write result into environment tuple
             out << "env" << identifier << "[0] = ramBitCast(res0);\n";
@@ -2637,6 +2537,19 @@ void Synthesiser::generateCode(std::ostream& sos, const std::string& id, bool& w
         }
         withSharedLibrary = true;
     });
+    auto visitAggregate = [&](const AbstractAggregate& op) {
+        const Aggregator& aggregator = op.getAggregator();
+        if (const auto * uda = as<UserDefinedAggregator>(aggregator)) {
+            functors[uda->getName()] = std::make_tuple(uda->getReturnType(), uda->getArgsTypes(), uda->isStateful());
+            withSharedLibrary = true;
+        }
+    };
+    visit(prog, [&](const Aggregate& op) {
+        visitAggregate(op);
+    });
+    visit(prog, [&](const IndexAggregate& op) {
+        visitAggregate(op);
+    });
     os << "namespace functors {\n extern \"C\" {\n";
     for (const auto& f : functors) {
         //        std::size_t arity = f.second.length() - 1;
@@ -2859,7 +2772,7 @@ void runFunction(std::string  inputDirectoryArg,
     this->inputDirectory  = std::move(inputDirectoryArg);
     this->outputDirectory = std::move(outputDirectoryArg);
     this->performIO       = performIOArg;
-    this->pruneImdtRels   = pruneImdtRelsArg; 
+    this->pruneImdtRels   = pruneImdtRelsArg;
 
     // set default threads (in embedded mode)
     // if this is not set, and omp is used, the default omp setting of number of cores is used.

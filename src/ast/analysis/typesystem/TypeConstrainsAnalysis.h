@@ -63,7 +63,8 @@ private:
     void visit_(type_identity<TypeCast>, const ast::TypeCast& typeCast) override;
     void visit_(type_identity<RecordInit>, const RecordInit& record) override;
     void visit_(type_identity<BranchInit>, const BranchInit& adt) override;
-    void visit_(type_identity<Aggregator>, const Aggregator& agg) override;
+    void visit_(type_identity<IntrinsicAggregator>, const IntrinsicAggregator& agg) override;
+    void visit_(type_identity<UserDefinedAggregator>, const UserDefinedAggregator& agg) override;
 };
 
 }  // namespace souffle::ast::analysis

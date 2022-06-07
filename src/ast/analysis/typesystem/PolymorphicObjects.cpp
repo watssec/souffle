@@ -46,7 +46,7 @@ BinaryConstraintOp PolymorphicObjectsAnalysis::getOverloadedOperator(const Binar
     return typeAnalysis->getPolymorphicOperator(bc);
 }
 
-AggregateOp PolymorphicObjectsAnalysis::getOverloadedOperator(const Aggregator& agg) const {
+AggregateOp PolymorphicObjectsAnalysis::getOverloadedOperator(const IntrinsicAggregator& agg) const {
     return typeAnalysis->getPolymorphicOperator(agg);
 }
 

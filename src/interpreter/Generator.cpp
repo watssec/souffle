@@ -15,6 +15,7 @@
 
 #include "interpreter/Generator.h"
 #include "interpreter/Engine.h"
+#include "ram/UserDefinedAggregator.h"
 
 namespace souffle::interpreter {
 
@@ -341,11 +342,35 @@ NodePtr NodeGenerator::visit_(
             visit_(type_identity<ram::TupleOperation>(), unpack));
 }
 
+NodePtr NodeGenerator::mkInit(const ram::AbstractAggregate& aggregate) {
+    const ram::Aggregator& aggregator = aggregate.getAggregator();
+    if (const auto* uda = as<ram::UserDefinedAggregator>(aggregator)) {
+        return dispatch(*uda->getInitValue());
+    } else {
+        return nullptr;
+    }
+};
+
+void* NodeGenerator::resolveFunctionPointers(const ram::AbstractAggregate& aggregate) {
+    const ram::Aggregator& aggregator = aggregate.getAggregator();
+    if (const auto* uda = as<ram::UserDefinedAggregator>(aggregator)) {
+        void * functionPtr = engine.getMethodHandle(uda->getName());
+        if (functionPtr == nullptr) {
+            fatal("cannot find user-defined operator `%s`", uda->getName());
+        }
+        return functionPtr;
+    } else {
+        // Intrinsic aggregates do not need function pointers.
+        return nullptr;
+    }
+}
+
 NodePtr NodeGenerator::visit_(type_identity<ram::Aggregate>, const ram::Aggregate& aggregate) {
     // Notice: Aggregate is sensitive to the visiting order of the subexprs in order to make
     // orderCtxt consistent. The order of visiting should be the same as the order of execution during
     // runtime.
     orderingContext.addTupleWithDefaultOrder(aggregate.getTupleId(), aggregate);
+    NodePtr init = mkInit(aggregate);
     NodePtr expr = dispatch(aggregate.getExpression());
     NodePtr cond = dispatch(aggregate.getCondition());
     orderingContext.addNewTuple(aggregate.getTupleId(), 1);
@@ -353,12 +378,17 @@ NodePtr NodeGenerator::visit_(type_identity<ram::Aggregate>, const ram::Aggregat
     std::size_t relId = encodeRelation(aggregate.getRelation());
     auto rel = getRelationHandle(relId);
     NodeType type = constructNodeType("Aggregate", lookup(aggregate.getRelation()));
-    return mk<Aggregate>(type, &aggregate, rel, std::move(expr), std::move(cond), std::move(nested));
+
+    /* Resolve functor to actual function pointer now */
+    void* functionPtr = resolveFunctionPointers(aggregate);
+
+    return mk<Aggregate>(type, &aggregate, rel, std::move(expr), std::move(cond), std::move(nested), std::move(init), functionPtr);
 }
 
 NodePtr NodeGenerator::visit_(
         type_identity<ram::ParallelAggregate>, const ram::ParallelAggregate& pAggregate) {
     orderingContext.addTupleWithDefaultOrder(pAggregate.getTupleId(), pAggregate);
+    NodePtr init = mkInit(pAggregate);
     NodePtr expr = dispatch(pAggregate.getExpression());
     NodePtr cond = dispatch(pAggregate.getCondition());
     orderingContext.addNewTuple(pAggregate.getTupleId(), 1);
@@ -366,8 +396,10 @@ NodePtr NodeGenerator::visit_(
     std::size_t relId = encodeRelation(pAggregate.getRelation());
     auto rel = getRelationHandle(relId);
     NodeType type = constructNodeType("ParallelAggregate", lookup(pAggregate.getRelation()));
+    /* Resolve functor to actual function pointer now */
+    void* functionPtr = resolveFunctionPointers(pAggregate);
     auto res = mk<ParallelAggregate>(
-            type, &pAggregate, rel, std::move(expr), std::move(cond), std::move(nested));
+            type, &pAggregate, rel, std::move(expr), std::move(cond), std::move(nested), std::move(init), functionPtr);
     res->setViewContext(parentQueryViewContext);
 
     return res;
@@ -376,6 +408,7 @@ NodePtr NodeGenerator::visit_(
 NodePtr NodeGenerator::visit_(type_identity<ram::IndexAggregate>, const ram::IndexAggregate& iAggregate) {
     orderingContext.addTupleWithIndexOrder(iAggregate.getTupleId(), iAggregate);
     SuperInstruction indexOperation = getIndexSuperInstInfo(iAggregate);
+    NodePtr init = mkInit(iAggregate);
     NodePtr expr = dispatch(iAggregate.getExpression());
     NodePtr cond = dispatch(iAggregate.getCondition());
     orderingContext.addNewTuple(iAggregate.getTupleId(), 1);
@@ -383,7 +416,10 @@ NodePtr NodeGenerator::visit_(type_identity<ram::IndexAggregate>, const ram::Ind
     std::size_t relId = encodeRelation(iAggregate.getRelation());
     auto rel = getRelationHandle(relId);
     NodeType type = constructNodeType("IndexAggregate", lookup(iAggregate.getRelation()));
-    return mk<IndexAggregate>(type, &iAggregate, rel, std::move(expr), std::move(cond), std::move(nested),
+    /* Resolve functor to actual function pointer now */
+    void* functionPtr = resolveFunctionPointers(iAggregate);
+    return mk<IndexAggregate>(type, &iAggregate, rel, std::move(expr), std::move(cond), std::move(nested), std::move(init),
+            functionPtr,
             encodeView(&iAggregate), std::move(indexOperation));
 }
 
@@ -391,6 +427,7 @@ NodePtr NodeGenerator::visit_(
         type_identity<ram::ParallelIndexAggregate>, const ram::ParallelIndexAggregate& piAggregate) {
     orderingContext.addTupleWithIndexOrder(piAggregate.getTupleId(), piAggregate);
     SuperInstruction indexOperation = getIndexSuperInstInfo(piAggregate);
+    NodePtr init = mkInit(piAggregate);
     NodePtr expr = dispatch(piAggregate.getExpression());
     NodePtr cond = dispatch(piAggregate.getCondition());
     orderingContext.addNewTuple(piAggregate.getTupleId(), 1);
@@ -398,8 +435,11 @@ NodePtr NodeGenerator::visit_(
     std::size_t relId = encodeRelation(piAggregate.getRelation());
     auto rel = getRelationHandle(relId);
     NodeType type = constructNodeType("ParallelIndexAggregate", lookup(piAggregate.getRelation()));
+    /* Resolve functor to actual function pointer now */
+    void* functionPtr = resolveFunctionPointers(piAggregate);
     auto res = mk<ParallelIndexAggregate>(type, &piAggregate, rel, std::move(expr), std::move(cond),
-            std::move(nested), encodeView(&piAggregate), std::move(indexOperation));
+            std::move(nested), std::move(init), functionPtr,
+            encodeView(&piAggregate), std::move(indexOperation));
     res->setViewContext(parentQueryViewContext);
     return res;
 }

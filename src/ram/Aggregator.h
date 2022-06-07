@@ -1,0 +1,55 @@
+/*
+ * Souffle - A Datalog Compiler
+ * Copyright (c) 2021, The Souffle Developers. All rights reserved
+ * Licensed under the Universal Permissive License v 1.0 as shown at:
+ * - https://opensource.org/licenses/UPL
+ * - <souffle root>/licenses/SOUFFLE-UPL.txt
+ */
+
+/************************************************************************
+ *
+ * @file Aggregator.h
+ *
+ ***********************************************************************/
+
+#pragma once
+
+#include <ostream>
+#include "ram/Node.h"
+#include "souffle/utility/MiscUtil.h"
+
+namespace souffle::ram {
+
+/**
+ * @class Aggregator
+ * @brief TODO
+ */
+class Aggregator {
+public:
+
+    bool operator==(const Aggregator& other) const {
+        return this == &other || (typeid(*this) == typeid(other) && equal(other));
+    }
+
+    Own<Aggregator> cloneImpl() const {
+        return Own<Aggregator>(cloning());
+    }
+
+    virtual bool equal(const Aggregator&) const {
+        return true;
+    }
+
+    virtual std::vector<const Node*> getChildren() const {
+        return {};
+    }
+
+    /**
+     * @brief Create a cloning (i.e. deep copy) of this node
+     */
+    virtual Aggregator* cloning() const = 0;
+
+    virtual void print(std::ostream& os, int tabpos) const = 0;
+
+};
+
+}

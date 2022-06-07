@@ -20,6 +20,7 @@
 #include "ast/QualifiedName.h"
 #include "ast/SubsumptiveClause.h"
 #include "ast/TranslationUnit.h"
+#include "ast/UserDefinedAggregator.h"
 #include "ast/analysis/Functor.h"
 #include "ast/analysis/IOType.h"
 #include "ast/analysis/RecursiveClauses.h"
@@ -195,12 +196,30 @@ bool TranslatorContext::isStatefulFunctor(const ast::UserDefinedFunctor& udf) co
     return functorAnalysis->isStatefulFunctor(udf);
 }
 
+TypeAttribute TranslatorContext::getFunctorReturnTypeAttribute(const ast::UserDefinedAggregator& uda) const {
+    return typeAnalysis->getAggregatorReturnTypeAttribute(uda);
+}
+
+TypeAttribute TranslatorContext::getFunctorParamTypeAtribute(
+        const ast::UserDefinedAggregator& uda, std::size_t idx) const {
+    return typeAnalysis->getAggregatorParamTypeAttribute(uda, idx);
+}
+
+std::vector<TypeAttribute> TranslatorContext::getFunctorParamTypeAtributes(
+        const ast::UserDefinedAggregator& uda) const {
+    return typeAnalysis->getAggregatorParamTypeAttributes(uda);
+}
+
+bool TranslatorContext::isStatefulFunctor(const ast::UserDefinedAggregator& uda) const {
+    return functorAnalysis->isStatefulFunctor(uda);
+}
+
 ast::NumericConstant::Type TranslatorContext::getInferredNumericConstantType(
         const ast::NumericConstant& nc) const {
     return polyAnalysis->getInferredType(nc);
 }
 
-AggregateOp TranslatorContext::getOverloadedAggregatorOperator(const ast::Aggregator& aggr) const {
+AggregateOp TranslatorContext::getOverloadedAggregatorOperator(const ast::IntrinsicAggregator& aggr) const {
     return polyAnalysis->getOverloadedOperator(aggr);
 }
 

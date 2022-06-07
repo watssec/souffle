@@ -534,10 +534,13 @@ bool NormaliseDatabaseTransformer::normaliseArguments(TranslationUnit& translati
                 append(newBodyLiterals, cloneRange(subConstraints));
 
                 // Update the node to reflect normalised aggregator
-                node = aggr->getTargetExpression() != nullptr
-                               ? mk<Aggregator>(aggr->getBaseOperator(), clone(aggr->getTargetExpression()),
-                                         std::move(newBodyLiterals))
-                               : mk<Aggregator>(aggr->getBaseOperator(), nullptr, std::move(newBodyLiterals));
+                node = [&]() {
+                    if (auto* intrinsicAggr = as<IntrinsicAggregator>(aggr)) {
+                        return mk<IntrinsicAggregator>(intrinsicAggr->getBaseOperator(), (aggr->getTargetExpression() != nullptr ? clone(aggr->getTargetExpression()) : nullptr), std::move(newBodyLiterals));
+                    } else {
+                        assert(false && "TODO not implemented");
+                    }
+                }();
             } else {
                 // Otherwise, just normalise children as usual.
                 node->apply(*this);
