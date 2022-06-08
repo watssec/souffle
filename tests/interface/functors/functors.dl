@@ -12,7 +12,6 @@
 .functor factorial(unsigned):unsigned
 .functor rnd(float):number
 .functor incr(float):float
-.functor concat(float, number, unsigned, symbol):symbol
 
 .decl A(x:number)
 A(@foo(1,"123")) :- true.
@@ -62,10 +61,16 @@ I(@incr(1)) :- true.
 .output I
 
 .decl CC(f:float, i:number, u:unsigned, s:symbol, res:symbol)
+.output CC
+#if defined (USE_LIBFFI)
+// when Souffle is built with libffi we can call stateless functors with arbitrary arguments
+.functor concat(float, number, unsigned, symbol):symbol
 CC(f,i,u,s,res) :-
   f = 1.25, i=-4, u=1000u, s="message",
   res = @concat(1.25, -4, 1000, "message").
-.output CC
+#else
+CC(1.25, -4, 1000u, "message", "1.250000-41000message").
+#endif
 
 
 // Testing stateful functors
