@@ -52,6 +52,8 @@ public:
             : RelationOperation(rel, ident, std::move(nested)),
               AbstractAggregate(std::move(fun), std::move(expression), std::move(condition)) {}
 
+    ~Aggregate() override = default;
+
     Aggregate* cloning() const override {
         return new Aggregate(clone(getOperation()), clone(function), relation, clone(expression),
                 clone(condition), getTupleId());

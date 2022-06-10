@@ -31,6 +31,7 @@
 #include "ast/StringConstant.h"
 #include "ast/TranslationUnit.h"
 #include "ast/UnnamedVariable.h"
+#include "ast/UserDefinedAggregator.h"
 #include "ast/analysis/IOType.h"
 #include "ast/analysis/PrecedenceGraph.h"
 #include "ast/analysis/SCCGraph.h"
@@ -534,14 +535,18 @@ bool NormaliseDatabaseTransformer::normaliseArguments(TranslationUnit& translati
                 append(newBodyLiterals, cloneRange(subConstraints));
 
                 // Update the node to reflect normalised aggregator
-                node = [&]() {
+                node = [&]() -> Own<Aggregator> {
                     if (auto* intrinsicAggr = as<IntrinsicAggregator>(aggr)) {
                         return mk<IntrinsicAggregator>(intrinsicAggr->getBaseOperator(),
                                 (aggr->getTargetExpression() != nullptr ? clone(aggr->getTargetExpression())
                                                                         : nullptr),
                                 std::move(newBodyLiterals));
                     } else {
-                        assert(false && "TODO not implemented");
+                        auto* uda = as<UserDefinedAggregator>(aggr);
+                        return mk<UserDefinedAggregator>(uda->getBaseOperatorName(), clone(uda->getInit()),
+                                (aggr->getTargetExpression() != nullptr ? clone(aggr->getTargetExpression())
+                                                                        : nullptr),
+                                std::move(newBodyLiterals));
                     }
                 }();
             } else {

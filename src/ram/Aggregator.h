@@ -22,10 +22,13 @@ namespace souffle::ram {
 
 /**
  * @class Aggregator
- * @brief TODO
+ * @brief An aggregator defines the operation to apply on an aggregate.
+ * It can be some built-in function or rely on a user-defined functor.
  */
 class Aggregator {
 public:
+    virtual ~Aggregator() = default;
+
     bool operator==(const Aggregator& other) const {
         return this == &other || (typeid(*this) == typeid(other) && equal(other));
     }

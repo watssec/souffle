@@ -32,7 +32,8 @@ public:
             TypeAttribute returnType, bool stateful)
             : name(name), initValue(std::move(init)), argsTypes(std::move(argsTypes)), returnType(returnType),
               stateful(stateful) {}
-    virtual ~UserDefinedAggregator() = default;
+
+    ~UserDefinedAggregator() override = default;
 
     /** @brief Get aggregation function */
     std::string getName() const {
@@ -55,7 +56,7 @@ public:
 
     /** @brief Is functor stateful? */
     bool isStateful() const {
-        return true;  // TODO
+        return stateful;
     }
 
     std::vector<const Node*> getChildren() const override {
