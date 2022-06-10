@@ -142,7 +142,8 @@ private:
     RamDomain initValue(const ram::Aggregator& aggregator, const Shadow& shadow, Context& ctxt);
 
     template <typename Aggregate, typename Shadow, typename Iter>
-    RamDomain evalAggregate(const Aggregate& aggregate, const Shadow& shadow, const Iter& ranges, Context& ctxt);
+    RamDomain evalAggregate(
+            const Aggregate& aggregate, const Shadow& shadow, const Iter& ranges, Context& ctxt);
 
     template <typename Rel>
     RamDomain evalParallelAggregate(const Rel& rel, const ram::ParallelAggregate& cur,

@@ -53,8 +53,8 @@ public:
               AbstractAggregate(std::move(fun), std::move(expression), std::move(condition)) {}
 
     Aggregate* cloning() const override {
-        return new Aggregate(
-                clone(getOperation()), clone(function), relation, clone(expression), clone(condition), getTupleId());
+        return new Aggregate(clone(getOperation()), clone(function), relation, clone(expression),
+                clone(condition), getTupleId());
     }
 
     void apply(const NodeMapper& map) override {

@@ -80,21 +80,22 @@ bool ParallelTransformer::parallelizeOperations(Program& program) {
                 }
             } else if (const Aggregate* aggregate = as<Aggregate>(node)) {
                 const Relation& rel = relAnalysis->lookup(aggregate->getRelation());
-                if (aggregate->getTupleId() == 0 && !rel.isNullary()
-                    // We can only parallelize intrinsic aggregators for
-                    && isA<ram::IntrinsicAggregator>(aggregate->getAggregator())
-                    ) {
+                if (aggregate->getTupleId() == 0 &&
+                        !rel.isNullary()
+                        // We can only parallelize intrinsic aggregators for
+                        && isA<ram::IntrinsicAggregator>(aggregate->getAggregator())) {
                     changed = true;
-                    return mk<ParallelAggregate>(clone(aggregate->getOperation()), clone(aggregate->getAggregator()),
-                            aggregate->getRelation(), clone(aggregate->getExpression()),
-                            clone(aggregate->getCondition()), aggregate->getTupleId());
+                    return mk<ParallelAggregate>(clone(aggregate->getOperation()),
+                            clone(aggregate->getAggregator()), aggregate->getRelation(),
+                            clone(aggregate->getExpression()), clone(aggregate->getCondition()),
+                            aggregate->getTupleId());
                 }
             } else if (const IndexAggregate* indexAggregate = as<IndexAggregate>(node)) {
                 const Relation& rel = relAnalysis->lookup(indexAggregate->getRelation());
-                if (indexAggregate->getTupleId() == 0 && !rel.isNullary()
-                    // We can only parallelize intrinsic aggregators
-                    && isA<ram::IntrinsicAggregator>(indexAggregate->getAggregator())
-                    ) {
+                if (indexAggregate->getTupleId() == 0 &&
+                        !rel.isNullary()
+                        // We can only parallelize intrinsic aggregators
+                        && isA<ram::IntrinsicAggregator>(indexAggregate->getAggregator())) {
                     changed = true;
                     RamPattern queryPattern = clone(indexAggregate->getRangePattern());
                     return mk<ParallelIndexAggregate>(clone(indexAggregate->getOperation()),

@@ -6,8 +6,8 @@
  * - <souffle root>/licenses/SOUFFLE-UPL.txt
  */
 
-#include "ast/Aggregator.h"
 #include "ast/UserDefinedAggregator.h"
+#include "ast/Aggregator.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/NodeMapperFwd.h"
@@ -17,9 +17,10 @@
 #include <utility>
 
 namespace souffle::ast {
-UserDefinedAggregator::UserDefinedAggregator(std::string name, Own<Argument> init, Own<Argument> expr, VecOwn<Literal> body, SrcLocation loc)
-        : Aggregator(std::move(expr), std::move(body), std::move(loc)), name(name), initValue(std::move(init)) {
-}
+UserDefinedAggregator::UserDefinedAggregator(
+        std::string name, Own<Argument> init, Own<Argument> expr, VecOwn<Literal> body, SrcLocation loc)
+        : Aggregator(std::move(expr), std::move(body), std::move(loc)), name(name),
+          initValue(std::move(init)) {}
 
 void UserDefinedAggregator::apply(const NodeMapper& map) {
     Aggregator::apply(map);
@@ -44,12 +45,12 @@ void UserDefinedAggregator::print(std::ostream& os) const {
 bool UserDefinedAggregator::equal(const Node& node) const {
     const auto& other = asAssert<UserDefinedAggregator>(node);
     return name == other.name && equal_ptr(targetExpression, other.targetExpression) &&
-           equal_ptr(initValue, other.initValue) &&
-           equal_targets(body, other.body);
+           equal_ptr(initValue, other.initValue) && equal_targets(body, other.body);
 }
 
 UserDefinedAggregator* UserDefinedAggregator::cloning() const {
-    return new UserDefinedAggregator(name, clone(initValue), clone(targetExpression), clone(body), getSrcLoc());
+    return new UserDefinedAggregator(
+            name, clone(initValue), clone(targetExpression), clone(body), getSrcLoc());
 }
 
 }  // namespace souffle::ast

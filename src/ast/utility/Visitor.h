@@ -17,8 +17,6 @@
 #pragma once
 
 #include "ast/Aggregator.h"
-#include "ast/IntrinsicAggregator.h"
-#include "ast/UserDefinedAggregator.h"
 #include "ast/AlgebraicDataType.h"
 #include "ast/AliasType.h"
 #include "ast/Argument.h"
@@ -38,6 +36,7 @@
 #include "ast/FunctionalConstraint.h"
 #include "ast/Functor.h"
 #include "ast/FunctorDeclaration.h"
+#include "ast/IntrinsicAggregator.h"
 #include "ast/IntrinsicFunctor.h"
 #include "ast/Literal.h"
 #include "ast/Negation.h"
@@ -57,6 +56,7 @@
 #include "ast/TypeCast.h"
 #include "ast/UnionType.h"
 #include "ast/UnnamedVariable.h"
+#include "ast/UserDefinedAggregator.h"
 #include "ast/UserDefinedFunctor.h"
 #include "ast/Variable.h"
 #include "souffle/utility/FunctionalUtil.h"

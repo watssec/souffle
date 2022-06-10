@@ -14,8 +14,8 @@
 
 #include "ast/transform/RemoveRedundantSums.h"
 #include "AggregateOp.h"
-#include "ast/IntrinsicAggregator.h"
 #include "ast/Argument.h"
+#include "ast/IntrinsicAggregator.h"
 #include "ast/IntrinsicFunctor.h"
 #include "ast/Literal.h"
 #include "ast/Node.h"

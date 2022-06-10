@@ -102,8 +102,10 @@ public:
     TypeAttribute getAggregatorReturnTypeAttribute(const UserDefinedAggregator& aggregator) const;
     Type const& getAggregatorReturnType(const UserDefinedAggregator& aggregator) const;
     Type const& getAggregatorParamType(const UserDefinedAggregator& aggregator, std::size_t idx) const;
-    TypeAttribute getAggregatorParamTypeAttribute(const UserDefinedAggregator& aggregator, std::size_t idx) const;
-    std::vector<TypeAttribute> getAggregatorParamTypeAttributes(const UserDefinedAggregator& aggregator) const;
+    TypeAttribute getAggregatorParamTypeAttribute(
+            const UserDefinedAggregator& aggregator, std::size_t idx) const;
+    std::vector<TypeAttribute> getAggregatorParamTypeAttributes(
+            const UserDefinedAggregator& aggregator) const;
 
     /** -- Polymorphism-related methods -- */
     NumericConstant::Type getPolymorphicNumericConstantType(const NumericConstant& nc) const;

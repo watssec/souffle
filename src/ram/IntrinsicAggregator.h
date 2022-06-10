@@ -18,7 +18,6 @@
 #include "Aggregator.h"
 #include "souffle/utility/DynamicCasting.h"
 
-
 namespace souffle::ram {
 
 /**
@@ -26,11 +25,9 @@ namespace souffle::ram {
  * @brief Class for intrinsic aggregate functions
  *
  */
-class IntrinsicAggregator: public Aggregator {
+class IntrinsicAggregator : public Aggregator {
 public:
-    IntrinsicAggregator(AggregateOp fun)
-            : function(fun) {
-    }
+    IntrinsicAggregator(AggregateOp fun) : function(fun) {}
     virtual ~IntrinsicAggregator() = default;
 
     /** @brief Get aggregation function */
@@ -64,8 +61,7 @@ public:
     }
 
 protected:
-
     /** Aggregation function */
     const AggregateOp function;
 };
-}
+}  // namespace souffle::ram

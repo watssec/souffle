@@ -6,8 +6,8 @@
  * - <souffle root>/licenses/SOUFFLE-UPL.txt
  */
 
-#include "ast/Aggregator.h"
 #include "ast/IntrinsicAggregator.h"
+#include "ast/Aggregator.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/NodeMapperFwd.h"
@@ -17,9 +17,9 @@
 #include <utility>
 
 namespace souffle::ast {
-IntrinsicAggregator::IntrinsicAggregator(AggregateOp baseOperator, Own<Argument> expr, VecOwn<Literal> body, SrcLocation loc)
-        : Aggregator(std::move(expr), std::move(body), std::move(loc)), baseOperator(baseOperator) {
-}
+IntrinsicAggregator::IntrinsicAggregator(
+        AggregateOp baseOperator, Own<Argument> expr, VecOwn<Literal> body, SrcLocation loc)
+        : Aggregator(std::move(expr), std::move(body), std::move(loc)), baseOperator(baseOperator) {}
 
 void IntrinsicAggregator::print(std::ostream& os) const {
     os << baseOperator;

@@ -536,7 +536,10 @@ bool NormaliseDatabaseTransformer::normaliseArguments(TranslationUnit& translati
                 // Update the node to reflect normalised aggregator
                 node = [&]() {
                     if (auto* intrinsicAggr = as<IntrinsicAggregator>(aggr)) {
-                        return mk<IntrinsicAggregator>(intrinsicAggr->getBaseOperator(), (aggr->getTargetExpression() != nullptr ? clone(aggr->getTargetExpression()) : nullptr), std::move(newBodyLiterals));
+                        return mk<IntrinsicAggregator>(intrinsicAggr->getBaseOperator(),
+                                (aggr->getTargetExpression() != nullptr ? clone(aggr->getTargetExpression())
+                                                                        : nullptr),
+                                std::move(newBodyLiterals));
                     } else {
                         assert(false && "TODO not implemented");
                     }

@@ -39,8 +39,8 @@ namespace souffle::ast {
  */
 class UserDefinedAggregator : public Aggregator {
 public:
-    UserDefinedAggregator(std::string name, Own<Argument> init = {}, Own<Argument> expr = {}, VecOwn<Literal> body = {},
-            SrcLocation loc = {});
+    UserDefinedAggregator(std::string name, Own<Argument> init = {}, Own<Argument> expr = {},
+            VecOwn<Literal> body = {}, SrcLocation loc = {});
 
     std::string getBaseOperatorName() const override {
         return name;
@@ -56,7 +56,6 @@ protected:
     NodeVec getChildren() const override;
 
     void print(std::ostream& os) const override;
-
 
 private:
     bool equal(const Node& node) const override;

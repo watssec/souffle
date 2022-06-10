@@ -476,8 +476,7 @@ class IntrinsicOperator : public CompoundNode {
 
 class FunctorNode {
 public:
-    FunctorNode(void* functionPointer):
-        functionPointer(functionPointer) {
+    FunctorNode(void* functionPointer) : functionPointer(functionPointer) {
 #ifdef USE_LIBFFI
         cif = mk<ffi_cif>();
 #endif
@@ -512,9 +511,7 @@ private:
 class UserDefinedOperator : public CompoundNode, public FunctorNode {
 public:
     UserDefinedOperator(NodeType ty, const ram::Node* sdw, VecOwn<Node> children, void* functionPointer)
-            : CompoundNode(ty, sdw, std::move(children)), FunctorNode(functionPointer) {
-    }
-
+            : CompoundNode(ty, sdw, std::move(children)), FunctorNode(functionPointer) {}
 };
 
 /**
@@ -739,7 +736,8 @@ public:
     Aggregate(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> expr,
             Own<Node> filter, Own<Node> nested, Own<Node> init, void*& functorPtr)
             : Node(ty, sdw), ConditionalOperation(std::move(filter)), NestedOperation(std::move(nested)),
-              RelationalOperation(relHandle), FunctorNode(functorPtr), expr(std::move(expr)), init(std::move(init)) {}
+              RelationalOperation(relHandle), FunctorNode(functorPtr), expr(std::move(expr)),
+              init(std::move(init)) {}
 
     inline const Node* getExpr() const {
         return expr.get();
@@ -767,8 +765,10 @@ class ParallelAggregate : public Aggregate, public AbstractParallel {
 class IndexAggregate : public Aggregate, public SuperOperation, public ViewOperation {
 public:
     IndexAggregate(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> expr,
-            Own<Node> filter, Own<Node> nested, Own<Node> init, void*& functorPtr, std::size_t viewId, SuperInstruction superInst)
-            : Aggregate(ty, sdw, relHandle, std::move(expr), std::move(filter), std::move(nested), std::move(init), functorPtr),
+            Own<Node> filter, Own<Node> nested, Own<Node> init, void*& functorPtr, std::size_t viewId,
+            SuperInstruction superInst)
+            : Aggregate(ty, sdw, relHandle, std::move(expr), std::move(filter), std::move(nested),
+                      std::move(init), functorPtr),
               SuperOperation(std::move(superInst)), ViewOperation(viewId) {}
 };
 

@@ -19,11 +19,11 @@
 #include "FunctorOps.h"
 #include "Global.h"
 #include "ast/Aggregator.h"
-#include "ast/IntrinsicAggregator.h"
 #include "ast/Atom.h"
 #include "ast/BinaryConstraint.h"
 #include "ast/BranchInit.h"
 #include "ast/Clause.h"
+#include "ast/IntrinsicAggregator.h"
 #include "ast/IntrinsicFunctor.h"
 #include "ast/Negation.h"
 #include "ast/NumericConstant.h"
@@ -203,16 +203,18 @@ Type const& TypeAnalysis::getAggregatorReturnType(const UserDefinedAggregator& a
     return nameToType(functorAnalysis->getFunctorDeclaration(aggregator).getReturnType().getTypeName());
 }
 
-Type const& TypeAnalysis::getAggregatorParamType(const UserDefinedAggregator& aggregator, std::size_t idx) const {
+Type const& TypeAnalysis::getAggregatorParamType(
+        const UserDefinedAggregator& aggregator, std::size_t idx) const {
     return nameToType(functorAnalysis->getFunctorDeclaration(aggregator).getParams().at(idx)->getTypeName());
-
 }
 
-TypeAttribute TypeAnalysis::getAggregatorParamTypeAttribute(const UserDefinedAggregator& aggregator, std::size_t idx) const {
+TypeAttribute TypeAnalysis::getAggregatorParamTypeAttribute(
+        const UserDefinedAggregator& aggregator, std::size_t idx) const {
     return getTypeAttribute(getAggregatorParamType(aggregator, idx));
 }
 
-std::vector<TypeAttribute> TypeAnalysis::getAggregatorParamTypeAttributes(const UserDefinedAggregator& aggregator) const {
+std::vector<TypeAttribute> TypeAnalysis::getAggregatorParamTypeAttributes(
+        const UserDefinedAggregator& aggregator) const {
     auto const& decl = functorAnalysis->getFunctorDeclaration(aggregator);
     std::vector<TypeAttribute> res;
     res.reserve(decl.getArity());

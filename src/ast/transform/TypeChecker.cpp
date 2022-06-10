@@ -681,8 +681,7 @@ void TypeCheckerImpl::visit_(type_identity<IntrinsicAggregator>, const Intrinsic
 
 void TypeCheckerImpl::visit_(type_identity<UserDefinedAggregator>, const UserDefinedAggregator& aggregator) {
     // TODO
-    /*const TypeSet& resultTypes =*/ typeAnalysis.getTypes(&aggregator);
-
+    /*const TypeSet& resultTypes =*/typeAnalysis.getTypes(&aggregator);
 }
 
 void TypeCheckerImpl::visit_(type_identity<Negation>, const Negation& neg) {

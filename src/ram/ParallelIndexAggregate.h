@@ -49,8 +49,8 @@ class ParallelIndexAggregate : public IndexAggregate, public AbstractParallel {
 public:
     ParallelIndexAggregate(Own<Operation> nested, Own<Aggregator> fun, std::string rel,
             Own<Expression> expression, Own<Condition> condition, RamPattern queryPattern, std::size_t ident)
-            : IndexAggregate(std::move(nested), std::move(fun), rel, std::move(expression), std::move(condition),
-                      std::move(queryPattern), ident) {}
+            : IndexAggregate(std::move(nested), std::move(fun), rel, std::move(expression),
+                      std::move(condition), std::move(queryPattern), ident) {}
 
     ParallelIndexAggregate* cloning() const override {
         RamPattern pattern;

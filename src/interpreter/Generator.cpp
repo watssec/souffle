@@ -354,7 +354,7 @@ NodePtr NodeGenerator::mkInit(const ram::AbstractAggregate& aggregate) {
 void* NodeGenerator::resolveFunctionPointers(const ram::AbstractAggregate& aggregate) {
     const ram::Aggregator& aggregator = aggregate.getAggregator();
     if (const auto* uda = as<ram::UserDefinedAggregator>(aggregator)) {
-        void * functionPtr = engine.getMethodHandle(uda->getName());
+        void* functionPtr = engine.getMethodHandle(uda->getName());
         if (functionPtr == nullptr) {
             fatal("cannot find user-defined operator `%s`", uda->getName());
         }
@@ -382,7 +382,8 @@ NodePtr NodeGenerator::visit_(type_identity<ram::Aggregate>, const ram::Aggregat
     /* Resolve functor to actual function pointer now */
     void* functionPtr = resolveFunctionPointers(aggregate);
 
-    return mk<Aggregate>(type, &aggregate, rel, std::move(expr), std::move(cond), std::move(nested), std::move(init), functionPtr);
+    return mk<Aggregate>(type, &aggregate, rel, std::move(expr), std::move(cond), std::move(nested),
+            std::move(init), functionPtr);
 }
 
 NodePtr NodeGenerator::visit_(
@@ -398,8 +399,8 @@ NodePtr NodeGenerator::visit_(
     NodeType type = constructNodeType("ParallelAggregate", lookup(pAggregate.getRelation()));
     /* Resolve functor to actual function pointer now */
     void* functionPtr = resolveFunctionPointers(pAggregate);
-    auto res = mk<ParallelAggregate>(
-            type, &pAggregate, rel, std::move(expr), std::move(cond), std::move(nested), std::move(init), functionPtr);
+    auto res = mk<ParallelAggregate>(type, &pAggregate, rel, std::move(expr), std::move(cond),
+            std::move(nested), std::move(init), functionPtr);
     res->setViewContext(parentQueryViewContext);
 
     return res;
@@ -418,9 +419,8 @@ NodePtr NodeGenerator::visit_(type_identity<ram::IndexAggregate>, const ram::Ind
     NodeType type = constructNodeType("IndexAggregate", lookup(iAggregate.getRelation()));
     /* Resolve functor to actual function pointer now */
     void* functionPtr = resolveFunctionPointers(iAggregate);
-    return mk<IndexAggregate>(type, &iAggregate, rel, std::move(expr), std::move(cond), std::move(nested), std::move(init),
-            functionPtr,
-            encodeView(&iAggregate), std::move(indexOperation));
+    return mk<IndexAggregate>(type, &iAggregate, rel, std::move(expr), std::move(cond), std::move(nested),
+            std::move(init), functionPtr, encodeView(&iAggregate), std::move(indexOperation));
 }
 
 NodePtr NodeGenerator::visit_(
@@ -438,8 +438,8 @@ NodePtr NodeGenerator::visit_(
     /* Resolve functor to actual function pointer now */
     void* functionPtr = resolveFunctionPointers(piAggregate);
     auto res = mk<ParallelIndexAggregate>(type, &piAggregate, rel, std::move(expr), std::move(cond),
-            std::move(nested), std::move(init), functionPtr,
-            encodeView(&piAggregate), std::move(indexOperation));
+            std::move(nested), std::move(init), functionPtr, encodeView(&piAggregate),
+            std::move(indexOperation));
     res->setViewContext(parentQueryViewContext);
     return res;
 }

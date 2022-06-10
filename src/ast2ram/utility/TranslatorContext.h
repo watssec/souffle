@@ -113,7 +113,8 @@ public:
 
     /** Functor methods */
     TypeAttribute getFunctorReturnTypeAttribute(const ast::UserDefinedAggregator& aggregator) const;
-    TypeAttribute getFunctorParamTypeAtribute(const ast::UserDefinedAggregator& aggregator, std::size_t idx) const;
+    TypeAttribute getFunctorParamTypeAtribute(
+            const ast::UserDefinedAggregator& aggregator, std::size_t idx) const;
     std::vector<TypeAttribute> getFunctorParamTypeAtributes(const ast::UserDefinedAggregator& udf) const;
     bool isStatefulFunctor(const ast::UserDefinedAggregator& aggregator) const;
 

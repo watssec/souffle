@@ -18,11 +18,11 @@
 
 #include "AggregateOp.h"
 #include "ast/Aggregator.h"
-#include "ast/IntrinsicAggregator.h"
 #include "ast/Argument.h"
 #include "ast/Atom.h"
 #include "ast/Clause.h"
 #include "ast/Counter.h"
+#include "ast/IntrinsicAggregator.h"
 #include "ast/Literal.h"
 #include "ast/NilConstant.h"
 #include "ast/Node.h"

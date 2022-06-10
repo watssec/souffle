@@ -19,7 +19,6 @@
 #include "ram/Expression.h"
 #include "souffle/utility/DynamicCasting.h"
 
-
 namespace souffle::ram {
 
 /**
@@ -27,13 +26,12 @@ namespace souffle::ram {
  * @brief Class for intrinsic aggregate functions
  *
  */
-class UserDefinedAggregator: public Aggregator {
+class UserDefinedAggregator : public Aggregator {
 public:
-    UserDefinedAggregator(const std::string name, Own<Expression> init, std::vector<TypeAttribute> argsTypes, TypeAttribute returnType,
-            bool stateful)
-            : name(name), initValue(std::move(init)), argsTypes(std::move(argsTypes)),
-              returnType(returnType), stateful(stateful) {
-    }
+    UserDefinedAggregator(const std::string name, Own<Expression> init, std::vector<TypeAttribute> argsTypes,
+            TypeAttribute returnType, bool stateful)
+            : name(name), initValue(std::move(init)), argsTypes(std::move(argsTypes)), returnType(returnType),
+              stateful(stateful) {}
     virtual ~UserDefinedAggregator() = default;
 
     /** @brief Get aggregation function */
@@ -57,7 +55,7 @@ public:
 
     /** @brief Is functor stateful? */
     bool isStateful() const {
-        return true; // TODO
+        return true;  // TODO
     }
 
     std::vector<const Node*> getChildren() const override {
@@ -79,7 +77,6 @@ public:
     }
 
 protected:
-
     /** Aggregation function */
     const std::string name;
 
@@ -94,4 +91,4 @@ protected:
     /** Stateful */
     const bool stateful;
 };
-}
+}  // namespace souffle::ram

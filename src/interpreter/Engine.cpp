@@ -23,6 +23,7 @@
 #include "interpreter/Relation.h"
 #include "interpreter/ViewContext.h"
 #include "ram/Aggregate.h"
+#include "ram/Aggregator.h"
 #include "ram/AutoIncrement.h"
 #include "ram/Break.h"
 #include "ram/Call.h"
@@ -43,9 +44,7 @@
 #include "ram/IndexIfExists.h"
 #include "ram/IndexScan.h"
 #include "ram/Insert.h"
-#include "ram/Aggregator.h"
 #include "ram/IntrinsicAggregator.h"
-#include "ram/UserDefinedAggregator.h"
 #include "ram/IntrinsicOperator.h"
 #include "ram/LogRelationTimer.h"
 #include "ram/LogSize.h"
@@ -80,6 +79,7 @@
 #include "ram/TupleElement.h"
 #include "ram/TupleOperation.h"
 #include "ram/UnpackRecord.h"
+#include "ram/UserDefinedAggregator.h"
 #include "ram/UserDefinedOperator.h"
 #include "ram/utility/Visitor.h"
 #include "souffle/BinaryConstraintOps.h"
@@ -193,8 +193,8 @@ RamDomain callStateful(ExecuteFn&& execute, Context& ctxt, Shadow& shadow, void 
 
 /** Call a stateful aggregate functor. */
 template <typename AnyFunctor>
-RamDomain callStatefulAggregate(AnyFunctor&& userFunctor,
-        souffle::SymbolTable* symbolTable, souffle::RecordTable* recordTable, souffle::RamDomain arg1, souffle::RamDomain arg2) {
+RamDomain callStatefulAggregate(AnyFunctor&& userFunctor, souffle::SymbolTable* symbolTable,
+        souffle::RecordTable* recordTable, souffle::RamDomain arg1, souffle::RamDomain arg2) {
     std::array<RamDomain, 2> args;
     args[0] = arg1;
     args[1] = arg2;
@@ -1185,10 +1185,10 @@ RamDomain Engine::execute(const Node* node, Context& ctxt) {
         FOR_EACH(PARALLEL_AGGREGATE)
 #undef PARALLEL_AGGREGATE
 
-#define AGGREGATE(Structure, Arity, ...)                                                                  \
-    CASE(Aggregate, Structure, Arity)                                                                     \
-        const auto& rel = *static_cast<RelType*>(shadow.getRelation());                                   \
-        return evalAggregate(cur, shadow, rel.scan(), ctxt);                                              \
+#define AGGREGATE(Structure, Arity, ...)                                \
+    CASE(Aggregate, Structure, Arity)                                   \
+        const auto& rel = *static_cast<RelType*>(shadow.getRelation()); \
+        return evalAggregate(cur, shadow, rel.scan(), ctxt);            \
     ESAC(Aggregate)
 
         FOR_EACH(AGGREGATE)
@@ -1868,12 +1868,9 @@ RamDomain Engine::initValue(const ram::Aggregator& aggregator, const Shadow& sha
             case AggregateOp::MAX: return ramBitCast(MIN_RAM_SIGNED);
             case AggregateOp::UMAX: return ramBitCast(MIN_RAM_UNSIGNED);
             case AggregateOp::FMAX: return ramBitCast(MIN_RAM_FLOAT);
-            case AggregateOp::SUM:
-                return ramBitCast(static_cast<RamSigned>(0));
-            case AggregateOp::USUM:
-                return ramBitCast(static_cast<RamUnsigned>(0));
-            case AggregateOp::FSUM:
-                return ramBitCast(static_cast<RamFloat>(0));
+            case AggregateOp::SUM: return ramBitCast(static_cast<RamSigned>(0));
+            case AggregateOp::USUM: return ramBitCast(static_cast<RamUnsigned>(0));
+            case AggregateOp::FSUM: return ramBitCast(static_cast<RamFloat>(0));
             case AggregateOp::MEAN: return 0;
             case AggregateOp::COUNT: return 0;
         }
@@ -1889,12 +1886,10 @@ bool runNested(const ram::Aggregator& aggregator) {
             case AggregateOp::COUNT:
             case AggregateOp::FSUM:
             case AggregateOp::USUM:
-            case AggregateOp::SUM:
-                return true;
-            default:
-                return false;
+            case AggregateOp::SUM: return true;
+            default: return false;
         }
-    } else  if (isA<ram::UserDefinedAggregator>(aggregator)) {
+    } else if (isA<ram::UserDefinedAggregator>(aggregator)) {
         return false;
     }
     return false;
@@ -1909,8 +1904,8 @@ void ifIntrinsic(const ram::Aggregator& aggregator, AggregateOp op, std::functio
 }
 
 template <typename Aggregate, typename Shadow, typename Iter>
-RamDomain Engine::evalAggregate(const Aggregate& aggregate,  const Shadow& shadow,
-    const Iter& ranges, Context& ctxt) {
+RamDomain Engine::evalAggregate(
+        const Aggregate& aggregate, const Shadow& shadow, const Iter& ranges, Context& ctxt) {
     bool shouldRunNested = false;
 
     const Node& filter = *shadow.getCondition();
@@ -1936,9 +1931,7 @@ RamDomain Engine::evalAggregate(const Aggregate& aggregate,  const Shadow& shado
         shouldRunNested = true;
 
         bool isCount = false;
-        ifIntrinsic(aggregator, AggregateOp::COUNT, [&]() {
-            isCount = true;
-        });
+        ifIntrinsic(aggregator, AggregateOp::COUNT, [&]() { isCount = true; });
 
         // count is a special case.
         if (isCount) {
@@ -1951,7 +1944,6 @@ RamDomain Engine::evalAggregate(const Aggregate& aggregate,  const Shadow& shado
         RamDomain val = execute(expression, ctxt);
 
         if (const auto* ia = as<ram::IntrinsicAggregator>(aggregator)) {
-
             switch (ia->getFunction()) {
                 case AggregateOp::MIN: res = std::min(res, val); break;
                 case AggregateOp::FMIN:

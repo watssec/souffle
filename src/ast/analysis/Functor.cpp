@@ -53,7 +53,8 @@ FunctorDeclaration const& FunctorAnalysis::getFunctorDeclaration(const UserDefin
     return *functorNameToDeclaration.at(functor.getName());
 }
 
-FunctorDeclaration const& FunctorAnalysis::getFunctorDeclaration(const UserDefinedAggregator& aggregator) const {
+FunctorDeclaration const& FunctorAnalysis::getFunctorDeclaration(
+        const UserDefinedAggregator& aggregator) const {
     return *functorNameToDeclaration.at(aggregator.getBaseOperatorName());
 }
 

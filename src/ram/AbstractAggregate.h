@@ -15,12 +15,12 @@
 #pragma once
 
 #include "AggregateOp.h"
+#include "ram/Aggregator.h"
 #include "ram/Condition.h"
 #include "ram/Expression.h"
-#include "ram/Aggregator.h"
-#include "ram/UserDefinedAggregator.h"
 #include "ram/IntrinsicAggregator.h"
 #include "ram/Node.h"
+#include "ram/UserDefinedAggregator.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
 #include <cassert>

@@ -17,8 +17,7 @@
 
 namespace souffle::ast {
 Aggregator::Aggregator(Own<Argument> expr, VecOwn<Literal> body, SrcLocation loc)
-        : Argument(std::move(loc)), targetExpression(std::move(expr)),
-          body(std::move(body)) {
+        : Argument(std::move(loc)), targetExpression(std::move(expr)), body(std::move(body)) {
     // NOTE: targetExpression can be nullptr - it's used e.g. when aggregator
     // has no parameters, such as count: { body }
     assert(allValidPtrs(this->body));

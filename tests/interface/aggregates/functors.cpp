@@ -32,28 +32,16 @@ using FF_float = float;
 #endif
 
 extern "C" {
-    souffle::RamDomain lub(
-        souffle::SymbolTable* symbolTable,
-        souffle::RecordTable* recordTable,
-        souffle::RamDomain i1,
-        souffle::RamDomain i2);
-    souffle::RamDomain lub_number(
-        souffle::SymbolTable* symbolTable,
-        souffle::RecordTable* recordTable,
-        souffle::RamDomain i,
-        souffle::RamDomain x);
-    souffle::RamDomain leq(
-        souffle::SymbolTable* symbolTable,
-        souffle::RecordTable* recordTable,
-        souffle::RamDomain i1,
-        souffle::RamDomain i2);
+souffle::RamDomain lub(souffle::SymbolTable* symbolTable, souffle::RecordTable* recordTable,
+        souffle::RamDomain i1, souffle::RamDomain i2);
+souffle::RamDomain lub_number(souffle::SymbolTable* symbolTable, souffle::RecordTable* recordTable,
+        souffle::RamDomain i, souffle::RamDomain x);
+souffle::RamDomain leq(souffle::SymbolTable* symbolTable, souffle::RecordTable* recordTable,
+        souffle::RamDomain i1, souffle::RamDomain i2);
 }
 
-souffle::RamDomain lub(
-    souffle::SymbolTable*,
-    souffle::RecordTable* recordTable,
-    souffle::RamDomain i1,
-    souffle::RamDomain i2) {
+souffle::RamDomain lub(souffle::SymbolTable*, souffle::RecordTable* recordTable, souffle::RamDomain i1,
+        souffle::RamDomain i2) {
     const souffle::RamDomain* interval1 = recordTable->unpack(i1, 2);
     const souffle::RamDomain* interval2 = recordTable->unpack(i2, 2);
     auto lb = std::min(interval1[0], interval2[0]);
@@ -62,11 +50,8 @@ souffle::RamDomain lub(
     return recordTable->pack(res, 2);
 }
 
-souffle::RamDomain leq(
-    souffle::SymbolTable*,
-    souffle::RecordTable* recordTable,
-    souffle::RamDomain i1,
-    souffle::RamDomain i2) {
+souffle::RamDomain leq(souffle::SymbolTable*, souffle::RecordTable* recordTable, souffle::RamDomain i1,
+        souffle::RamDomain i2) {
     const souffle::RamDomain* interval1 = recordTable->unpack(i1, 2);
     const souffle::RamDomain* interval2 = recordTable->unpack(i2, 2);
     if (interval1[0] >= interval2[0] && interval1[1] <= interval2[1]) {
@@ -75,11 +60,8 @@ souffle::RamDomain leq(
     return 0;
 }
 
-souffle::RamDomain lub_number(
-    souffle::SymbolTable*,
-    souffle::RecordTable* recordTable,
-    souffle::RamDomain i,
-    souffle::RamDomain x) {
+souffle::RamDomain lub_number(souffle::SymbolTable*, souffle::RecordTable* recordTable, souffle::RamDomain i,
+        souffle::RamDomain x) {
     const souffle::RamDomain* interval = recordTable->unpack(i, 2);
     auto lb = std::min(interval[0], x);
     auto ub = std::max(interval[1], x);

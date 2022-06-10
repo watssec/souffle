@@ -39,8 +39,6 @@
 #include "ast2ram/utility/Utils.h"
 #include "ast2ram/utility/ValueIndex.h"
 #include "ram/Aggregate.h"
-#include "ram/UserDefinedAggregator.h"
-#include "ram/IntrinsicAggregator.h"
 #include "ram/Break.h"
 #include "ram/Constraint.h"
 #include "ram/CountUniqueKeys.h"
@@ -51,6 +49,7 @@
 #include "ram/FloatConstant.h"
 #include "ram/GuardedInsert.h"
 #include "ram/Insert.h"
+#include "ram/IntrinsicAggregator.h"
 #include "ram/LogRelationTimer.h"
 #include "ram/Negation.h"
 #include "ram/NestedIntrinsicOperator.h"
@@ -435,22 +434,19 @@ Own<ram::Operation> ClauseTranslator::instantiateAggregator(Own<ram::Operation> 
         if (const auto* ia = as<ast::IntrinsicAggregator>(agg)) {
             return mk<ram::IntrinsicAggregator>(context.getOverloadedAggregatorOperator(*ia));
         } else if (const auto* uda = as<ast::UserDefinedAggregator>(agg)) {
-            return mk<ram::UserDefinedAggregator>(
-                uda->getBaseOperatorName(),
-                context.translateValue(*valueIndex, uda->getInit()),
-                context.getFunctorParamTypeAtributes(*uda),
-                context.getFunctorReturnTypeAttribute(*uda),
-                context.isStatefulFunctor(*uda)
-            );
+            return mk<ram::UserDefinedAggregator>(uda->getBaseOperatorName(),
+                    context.translateValue(*valueIndex, uda->getInit()),
+                    context.getFunctorParamTypeAtributes(*uda), context.getFunctorReturnTypeAttribute(*uda),
+                    context.isStatefulFunctor(*uda));
         } else {
             fatal("Unhandled aggregate operation");
         }
     }();
 
     // add Ram-Aggregation layer
-    return mk<ram::Aggregate>(std::move(op), std::move(aggregator),
-            getClauseAtomName(clause, aggAtom), expr ? std::move(expr) : mk<ram::UndefValue>(),
-            aggCond ? std::move(aggCond) : mk<ram::True>(), curLevel);
+    return mk<ram::Aggregate>(std::move(op), std::move(aggregator), getClauseAtomName(clause, aggAtom),
+            expr ? std::move(expr) : mk<ram::UndefValue>(), aggCond ? std::move(aggCond) : mk<ram::True>(),
+            curLevel);
 }
 
 Own<ram::Operation> ClauseTranslator::instantiateMultiResultFunctor(

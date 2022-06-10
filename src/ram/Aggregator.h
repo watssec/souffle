@@ -14,9 +14,9 @@
 
 #pragma once
 
-#include <ostream>
 #include "ram/Node.h"
 #include "souffle/utility/MiscUtil.h"
+#include <ostream>
 
 namespace souffle::ram {
 
@@ -26,7 +26,6 @@ namespace souffle::ram {
  */
 class Aggregator {
 public:
-
     bool operator==(const Aggregator& other) const {
         return this == &other || (typeid(*this) == typeid(other) && equal(other));
     }
@@ -49,7 +48,6 @@ public:
     virtual Aggregator* cloning() const = 0;
 
     virtual void print(std::ostream& os, int tabpos) const = 0;
-
 };
 
-}
+}  // namespace souffle::ram
