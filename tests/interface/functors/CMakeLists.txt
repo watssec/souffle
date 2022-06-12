@@ -47,3 +47,9 @@ if (SOUFFLE_DOMAIN_64BIT)
     target_compile_definitions(functors
                                PUBLIC RAM_DOMAIN_SIZE=64)
 endif()
+
+if (SOUFFLE_USE_LIBFFI)
+    target_compile_definitions(functors
+                               PUBLIC USE_LIBFFI)
+endif()
+
