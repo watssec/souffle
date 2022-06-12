@@ -299,6 +299,13 @@ void SemanticCheckerImpl::checkLiteral(const Literal& literal) {
                 }
             }
         });
+        visit(*constraint, [&](const BranchInit& init) {
+            for (auto* arg : init.getArguments()) {
+                if (auto* unnamed = as<UnnamedVariable>(arg)) {
+                    unnamedInRecord.insert(unnamed);
+                }
+            }
+        });
 
         // Don't worry about underscores if either side is an aggregate (because of witness exporting)
         if (isA<Aggregator>(*constraint->getLHS()) || isA<Aggregator>(*constraint->getRHS())) {
