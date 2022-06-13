@@ -44,7 +44,7 @@ public:
 
 protected:
     void print(std::ostream& os) const override {
-        os << "string(\"" << stringify(constant) << "\")";
+        os << "STRING(\"" << stringify(constant) << "\")";
     }
 
     bool equal(const Node& node) const override {

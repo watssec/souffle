@@ -114,22 +114,24 @@ void DebugReport::flush() {
     std::ofstream(dst) << *this;
 }
 
+static std::string CDATA(const std::string_view code) {
+    return "<![CDATA[" + replaceAll(code, "]]>", "]]]]><![CDATA[>") + "]]>";
+}
+
 void DebugReport::addSection(std::string id, std::string title, const std::string_view code) {
-    addSection(DebugReportSection(
-            std::move(id), std::move(title), tfm::format("<pre>%s</pre>", replaceAll(code, "<", "&lt"))));
+    addSection(
+            DebugReportSection(std::move(id), std::move(title), tfm::format("<pre>%s</pre>", CDATA(code))));
 }
 
 void DebugReport::addCodeSection(std::string id, std::string title, std::string_view language,
         std::string_view prev, std::string_view curr) {
-    auto diff =
-            replaceAll(replaceAll(prev.empty() ? curr : generateDiff(prev, curr), "\\", "\\\\"), "`", "\\`");
+    const std::string diff = (prev.empty() ? std::string(curr) : generateDiff(prev, curr));
     auto divId = nextUniqueId++;
     auto html = R"(
-        <div id="code-id-%d"></div>
-        <script type="text/javascript"> renderDiff('%s', 'code-id-%d', `%s`) </script>
+        <div id="code-id-%d" class="diff-%s">%s></div>
     )";
     addSection(DebugReportSection(
-            std::move(id), std::move(title), tfm::format(html, divId, language, divId, diff)));
+            std::move(id), std::move(title), tfm::format(html, divId, language, CDATA(diff))));
 }
 
 void DebugReport::endSection(std::string currentSectionName, std::string currentSectionTitle) {
@@ -141,13 +143,15 @@ void DebugReport::endSection(std::string currentSectionName, std::string current
 }
 
 void DebugReport::print(std::ostream& out) const {
-    out << R"(
-<!DOCTYPE html>
-<html lang='en-AU'>
+    out << R"--html--(
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-AU">
 <head>
-<meta charset=\"UTF-8\">
-<title>Souffle Debug Report ()";
-    out << Global::config().get("") << R"()</title>
+<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
+<title>Souffle Debug Report ()--html--";
+    out << Global::config().get("") << R"--html--()</title>
 <style>
     ul { list-style-type: none; }
     ul > li.leaf { display: inline-block; padding: 0em 1em; }
@@ -162,15 +166,16 @@ void DebugReport::print(std::ostream& out) const {
     .headerdiv a { float:right; }
 </style>
 
-<link rel="stylesheet" type="text/css" href=
-    "https://cdn.jsdelivr.net/npm/highlight.js@10.0.0/styles/default.min.css" />
-<script type="text/javascript" src=
-    "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@10.0.0/build/highlight.min.js"></script>
+<link rel="stylesheet" href=
+  "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.5.1/build/styles/default.min.css">
+<script src=
+  "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.5.1/build/highlight.min.js"></script>
 
+<!-- must use 3.4.10 until https://github.com/rtfpessoa/diff2html/issues/437 is resolved -->
 <link rel="stylesheet" type="text/css" href=
-    "https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+    "https://cdn.jsdelivr.net/npm/diff2html@3.4.10/bundles/css/diff2html.min.css" />
 <script type="text/javascript" src=
-    "https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui-base.min.js"></script>
+    "https://cdn.jsdelivr.net/npm/diff2html@3.4.10/bundles/js/diff2html-ui-base.min.js"></script>
 
 <script>
   function toggleVisibility(id) {
@@ -192,18 +197,18 @@ void DebugReport::print(std::ostream& out) const {
       let KEYWORDS = {
         $pattern: '\\.?\\w+',
         literal: 'true false',
-        keyword: '.pragma .functor .component .decl .input .output ' +
+        keyword: '.pragma .functor .component .decl .input .output .type ' +
           'ord strlen strsub range matches land lor lxor lnot bwand bwor bwxor bwnot bshl bshr bshru',
       }
 
       let STRING = hljs.QUOTE_STRING_MODE
       let NUMBERS = {
         className: 'number', relevance: 0, variants: [
-          { begin: /0b[01]+/ },
-          { begin: /\d+\.\d+/ }, // float
-          { begin: /\d+\.\d+.\d+.\d+/ }, // IPv4 literal
-          { begin: /\d+u?/ },
-          { begin: /0x[a-fA-F0-9]+u?/ }
+          { begin: /\b0b[01]+/ },
+          { begin: /\b\d+\.\d+/ }, // float
+          { begin: /\b\d+\.\d+.\d+.\d+/ }, // IPv4 literal
+          { begin: /\b\d+u?/ },
+          { begin: /\b0x[a-fA-F0-9]+u?/ }
         ]
       }
 
@@ -211,7 +216,7 @@ void DebugReport::print(std::ostream& out) const {
         className: 'meta',
         begin: /#\s*[a-z]+\b/,
         end: /$/,
-        keywords: {
+        keyword: {
           'meta-keyword': 'if else elif endif define undef warning error line pragma ifdef ifndef include'
         },
         contains: [
@@ -229,7 +234,7 @@ void DebugReport::print(std::ostream& out) const {
       }
       let PARENTED = { begin: /\(/, end: /\)/, relevance: 0 }
       let LIST = { begin: /\[/, end: /\]/ }
-      let PRED_OP = { begin: /:-/ } // relevance booster
+      let PRED_OP = { begin: /:\-/ } // relevance booster
 
       let INNER = [
         ATOM,
@@ -249,37 +254,123 @@ void DebugReport::print(std::ostream& out) const {
         keywords: KEYWORDS,
         contains: INNER.concat([{ begin: /\.$/ }]) // relevance booster
       };
-    })
-    // TODO: Add a highlighter for `ram`
-    hljs.configure({ languages: ['souffle'] })
+    });
+
+    hljs.registerLanguage('ram', function (hljs) {
+      const COMMENT_MODES = [
+        hljs.C_LINE_COMMENT_MODE,
+        hljs.C_BLOCK_COMMENT_MODE,
+      ];
+
+      const KEYWORDS = {
+        keyword: [
+          'ALL',
+          'AND',
+          'BEGIN',
+          'CALL',
+          'CLEAR',
+          'DEBUG',
+          'DECLARATION',
+          'END',
+          'EXIT',
+          'FLOAT',
+          'FOR',
+          'IF',
+          'IN',
+          'INDEX',
+          'INSERT',
+          'INTO',
+          'IO',
+          'ISEMPTY',
+          'LOOP',
+          'MAIN',
+          'NOT',
+          'NUMBER',
+          'ON',
+          'PROGRAM',
+          'QUERY',
+          'SEARCH',
+          'STRING',
+          'SUBROUTINE',
+          'SWAP',
+          'UNSIGNED',
+          'count',
+          'max',
+          'mean',
+          'min',
+          'sum',
+        ],
+      };
+
+      const STRING = hljs.QUOTE_STRING_MODE;
+
+      const INDEX = {
+        className: 'variable',
+        begin: /\bt\d+(\.\d+)?/
+      }
+
+      const INNER = [
+        INDEX,
+        hljs.QUOTE_STRING_MODE,
+        hljs.C_NUMBER_MODE,
+      ].concat(COMMENT_MODES)
+
+      return {
+        name: 'ram',
+        keywords: KEYWORDS,
+        contains: INNER
+      };
+    });
+
+    hljs.configure({ languages: ['souffle', 'ram'] })
   }
 
   if (typeof Diff2HtmlUI !== 'undefined' && typeof hljs !== 'undefined') {
-    function renderDiff(lang, id, diff) {
       // file extension determines the language used for highlighting
-      let file   = `Datalog.${lang}`
-      let prefix = `diff ${file} ${file}
---- ${file}
-+++ ${file}
+      let souffle_file = `Datalog.souffle`
+      let souffle_prefix = `diff ${souffle_file} ${souffle_file}
+--- ${souffle_file}
++++ ${souffle_file}
 @@ -1 +1 @@
 `
-      new Diff2HtmlUI(document.getElementById(id), prefix + diff, {
-        drawFileList: false,
-        highlight: true,
-        matching: 'none',
-        outputFormat: 'side-by-side',
-        synchronisedScroll: true,
-      }, hljs).draw()
-    }
-  } else { // fallback to plain text
-    function renderDiff(lang, id, diff) {
-      document.getElementById(id).innerText = diff
-    }
+      let ram_file = `Datalog.ram`
+      let ram_prefix = `diff ${ram_file} ${ram_file}
+--- ${ram_file}
++++ ${ram_file}
+@@ -1 +1 @@
+`
+
+      document.addEventListener('DOMContentLoaded', function() {
+          var els = document.getElementsByClassName("diff-souffle");
+          Array.prototype.forEach.call(els, function(el) {
+              diff2htmlUi = new Diff2HtmlUI(el, souffle_prefix + el.textContent, {
+                  drawFileList: false,
+                  highlight: true,
+                  matching: 'none',
+                  outputFormat: 'side-by-side',
+                  synchronisedScroll: true,
+                  highlightLanguage: 'souffle'
+              }, hljs);
+              diff2htmlUi.draw();
+          });
+          var els = document.getElementsByClassName("diff-ram");
+          Array.prototype.forEach.call(els, function(el) {
+              diff2htmlUi = new Diff2HtmlUI(el, ram_prefix + el.textContent, {
+                  drawFileList: false,
+                  highlight: true,
+                  matching: 'none',
+                  outputFormat: 'side-by-side',
+                  synchronisedScroll: true,
+                  highlightLanguage: 'ram'
+              }, hljs);
+              diff2htmlUi.draw();
+          });
+      });
   }
 </script>
 </head>
 <body>
-<div class='headerdiv'><h1>Souffle Debug Report ()";
+<div class='headerdiv'><h1>Souffle Debug Report ()--html--";
     out << Global::config().get("") << ")</h1></div>\n";
     for (const DebugReportSection& section : sections) {
         section.printIndex(out);
