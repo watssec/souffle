@@ -278,8 +278,7 @@ private:
     bool online{true};
 
     std::unordered_map<std::string, std::shared_ptr<Relation>> relationMap{};
-    std::unordered_map<std::string, std::unordered_map<std::string, double>>
-            countRecursiveJoinSizeMap{};
+    std::unordered_map<std::string, std::unordered_map<std::string, double>> countRecursiveJoinSizeMap{};
     std::unordered_map<std::string, double> countNonRecursiveJoinSizeMap{};
     int rel_id{0};
 
