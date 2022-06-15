@@ -464,11 +464,17 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         void visit_(type_identity<Clear>, const Clear& clear, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
 
-            if (!synthesiser.lookup(clear.getRelation())->isTemp()) {
+            auto Relation = synthesiser.lookup(clear.getRelation());
+            bool isIntermediate = !contains(synthesiser.loadRelations, Relation->getName()) &&
+                                  !contains(synthesiser.storeRelations, Relation->getName()) &&
+                                  !Relation->isTemp();
+
+            if (isIntermediate) {
                 out << "if (pruneImdtRels) ";
             }
-            out << synthesiser.getRelationName(synthesiser.lookup(clear.getRelation())) << "->"
-                << "purge();\n";
+            if (Relation->isTemp() || isIntermediate) {
+                out << synthesiser.getRelationName(Relation) << "->purge();\n";
+            }
 
             PRINT_END_COMMENT(out);
         }
@@ -2672,6 +2678,23 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         db.usesDatastructure(mainClass, typeName);
     }
 
+    std::set<const IO*> loadIOs;
+    std::set<const IO*> storeIOs;
+
+    // collect load/store operations/relations
+    visit(prog, [&](const IO& io) {
+        auto op = io.get("operation");
+        if (op == "input") {
+            loadRelations.insert(io.getRelation());
+            loadIOs.insert(&io);
+        } else if (op == "printsize" || op == "output") {
+            storeRelations.insert(io.getRelation());
+            storeIOs.insert(&io);
+        } else {
+            assert("wrong I/O operation");
+        }
+    });
+
     // identify relations used by each subroutines
     std::multimap<std::string /* stratum_* */, std::string> subroutineUses;
 
@@ -2837,25 +2860,6 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         const std::string& name = f.first;
         mainClass.addField(function_ty(name), name, Visibility::Private);
     }
-
-    std::set<std::string> storeRelations;
-    std::set<std::string> loadRelations;
-    std::set<const IO*> loadIOs;
-    std::set<const IO*> storeIOs;
-
-    // collect load/store operations/relations
-    visit(prog, [&](const IO& io) {
-        auto op = io.get("operation");
-        if (op == "input") {
-            loadRelations.insert(io.getRelation());
-            loadIOs.insert(&io);
-        } else if (op == "printsize" || op == "output") {
-            storeRelations.insert(io.getRelation());
-            storeIOs.insert(&io);
-        } else {
-            assert("wrong I/O operation");
-        }
-    });
 
     int relCtr = 0;
     for (auto rel : prog.getRelations()) {

@@ -81,6 +81,12 @@ private:
     /** signatures of the user-defined functors */
     std::map<std::string, std::pair<std::vector<std::string>, std::string>> functor_signatures;
 
+    /** Input relations */
+    std::set<std::string> loadRelations;
+
+    /** Output relations */
+    std::set<std::string> storeRelations;
+
 protected:
     /** Convert RAM identifier */
     const std::string convertRamIdent(const std::string& name);
