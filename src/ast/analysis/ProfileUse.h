@@ -56,10 +56,10 @@ public:
 
     bool hasAutoSchedulerStats() const;
 
-    std::size_t getNonRecursiveJoinSize(
+    double getNonRecursiveJoinSize(
             const std::string& rel, const std::string& attributes, const std::string& constants) const;
 
-    std::size_t getRecursiveJoinSize(const std::string& rel, const std::string& attributes,
+    double getRecursiveJoinSize(const std::string& rel, const std::string& attributes,
             const std::string& constants, const std::string& iteration) const;
 
     std::size_t getIterations(const std::string& rel) const;

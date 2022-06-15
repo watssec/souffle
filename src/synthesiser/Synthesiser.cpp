@@ -877,8 +877,8 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             PRINT_BEGIN_COMMENT(out);
             auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
             out << "{\n";
-            out << "std::size_t total = 0;\n";
-            out << "std::size_t duplicates = 0;\n";
+            out << "double total = 0;\n";
+            out << "double duplicates = 0;\n";
 
             out << "if (!" << indexName << ".empty()) {\n";
             out << "bool first = true;\n";
@@ -911,7 +911,8 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "\n";
             out << "}\n";
             out << "}\n";
-            out << "std::size_t joinSize = (" << (onlyConstants ? "total" : "total - duplicates") << ");\n";
+            out << "double joinSize = ("
+                << (onlyConstants ? "total" : "total / std::max(1.0, (total - duplicates))") << ");\n";
             if (count.isRecursiveRelation()) {
                 out << "ProfileEventSingleton::instance().makeRecursiveCountEvent(\"" << profilerText
                     << "\", joinSize, iter);\n";

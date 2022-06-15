@@ -224,7 +224,7 @@ public:
 } nonRecursiveRuleNumberProcessor;
 
 /**
- * Non-Recursive Count Unique Keys Profile Event Processor
+ * Non-Recursive Estimate Join Size Profile Event Processor
  */
 const class NonRecursiveEstimateJoinSizeProcessor : public EventProcessor {
 public:
@@ -236,15 +236,15 @@ public:
         const std::string& relation = signature[1];
         const std::string& attributes = signature[2];
         const std::string& constants = signature[3];
-        std::size_t joinSize = va_arg(args, std::size_t);
-        db.addSizeEntry({"program", "statistics", "relation", relation, "attributes", attributes, "constants",
+        std::string joinSize = std::to_string(va_arg(args, double));
+        db.addTextEntry({"program", "statistics", "relation", relation, "attributes", attributes, "constants",
                                 constants},
                 joinSize);
     }
 } nonRecursiveEstimateJoinSizeProcessor;
 
 /**
- * Recursive Count Unique Keys Profile Event Processor
+ * Recursive Estimate Join Size Profile Event Processor
  */
 const class RecursiveEstimateJoinSizeProcessor : public EventProcessor {
 public:
@@ -256,9 +256,9 @@ public:
         const std::string& relation = signature[1];
         const std::string& attributes = signature[2];
         const std::string& constants = signature[3];
-        std::size_t joinSize = va_arg(args, std::size_t);
+        std::string joinSize = std::to_string(va_arg(args, double));
         std::string iteration = std::to_string(va_arg(args, std::size_t));
-        db.addSizeEntry({"program", "statistics", "relation", relation, "iteration", iteration, "attributes",
+        db.addTextEntry({"program", "statistics", "relation", relation, "iteration", iteration, "attributes",
                                 attributes, "constants", constants},
                 joinSize);
     }

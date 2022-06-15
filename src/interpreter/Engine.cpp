@@ -29,10 +29,10 @@
 #include "ram/Clear.h"
 #include "ram/Conjunction.h"
 #include "ram/Constraint.h"
-#include "ram/EstimateJoinSize.h"
 #include "ram/DebugInfo.h"
 #include "ram/EmptinessCheck.h"
 #include "ram/Erase.h"
+#include "ram/EstimateJoinSize.h"
 #include "ram/ExistenceCheck.h"
 #include "ram/Exit.h"
 #include "ram/False.h"
@@ -1319,10 +1319,10 @@ RamDomain Engine::execute(const Node* node, Context& ctxt) {
         FOR_EACH(CLEAR)
 #undef CLEAR
 
-#define ESTIMATEJOINSIZE(Structure, Arity, ...)                          \
-    CASE(EstimateJoinSize, Structure, Arity)                             \
+#define ESTIMATEJOINSIZE(Structure, Arity, ...)                         \
+    CASE(EstimateJoinSize, Structure, Arity)                            \
         const auto& rel = *static_cast<RelType*>(shadow.getRelation()); \
-        return evalEstimateJoinSize<RelType>(rel, cur, shadow, ctxt);    \
+        return evalEstimateJoinSize<RelType>(rel, cur, shadow, ctxt);   \
     ESAC(EstimateJoinSize)
 
         FOR_EACH(ESTIMATEJOINSIZE)
@@ -1612,8 +1612,8 @@ RamDomain Engine::evalEstimateJoinSize(
     // ensure range is non-empty
     auto* index = rel.getIndex(indexPos);
     // initial values
-    std::size_t total = 0;
-    std::size_t duplicates = 0;
+    double total = 0;
+    double duplicates = 0;
 
     if (!index->scan().empty()) {
         // assign first tuple as prev as a dummy
@@ -1641,7 +1641,7 @@ RamDomain Engine::evalEstimateJoinSize(
             ++total;
         }
     }
-    std::size_t joinSize = (onlyConstants ? total : total - duplicates);
+    double joinSize = (onlyConstants ? total : total / std::max(1.0, (total - duplicates)));
 
     std::stringstream columnsStream;
     columnsStream << cur.getKeyColumns();

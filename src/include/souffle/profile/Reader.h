@@ -278,9 +278,9 @@ private:
     bool online{true};
 
     std::unordered_map<std::string, std::shared_ptr<Relation>> relationMap{};
-    std::unordered_map<std::string, std::unordered_map<std::string, std::size_t>>
+    std::unordered_map<std::string, std::unordered_map<std::string, double>>
             countRecursiveJoinSizeMap{};
-    std::unordered_map<std::string, std::size_t> countNonRecursiveJoinSizeMap{};
+    std::unordered_map<std::string, double> countNonRecursiveJoinSizeMap{};
     int rel_id{0};
 
 public:
@@ -329,10 +329,10 @@ public:
                             continue;
                         }
                         for (const auto& constants : prefixWithAttributes->getKeys()) {
-                            auto fullKey = as<SizeEntry>(db.lookupEntry({"program", "statistics", "relation",
+                            auto fullKey = as<TextEntry>(db.lookupEntry({"program", "statistics", "relation",
                                     rel, "attributes", attributes, "constants", constants}));
                             if (fullKey != nullptr) {
-                                std::size_t joinSize = fullKey->getSize();
+                                double joinSize = std::stod(fullKey->getText());
                                 std::string key = rel + " " + attributes + " " + constants;
                                 countNonRecursiveJoinSizeMap[key] = joinSize;
                             }
@@ -358,10 +358,10 @@ public:
                                 continue;
                             }
                             for (const auto& constants : prefixWithAttributes->getKeys()) {
-                                auto fullKey = as<SizeEntry>(db.lookupEntry(
+                                auto fullKey = as<TextEntry>(db.lookupEntry(
                                         {"program", "statistics", "relation", rel, "iteration", iteration,
                                                 "attributes", attributes, "constants", constants}));
-                                std::size_t joinSize = fullKey->getSize();
+                                double joinSize = std::stod(fullKey->getText());
                                 if (fullKey != nullptr) {
                                     std::string key = rel + " " + attributes + " " + constants;
                                     countRecursiveJoinSizeMap[key][iteration] = joinSize;
@@ -422,7 +422,7 @@ public:
         return !countNonRecursiveJoinSizeMap.empty() || !countRecursiveJoinSizeMap.empty();
     }
 
-    std::size_t getNonRecursiveEstimateJoinSize(
+    double getNonRecursiveEstimateJoinSize(
             const std::string& rel, const std::string& attributes, const std::string& constants) {
         auto key = rel + " " + attributes + " " + constants;
         return countNonRecursiveJoinSizeMap.at(key);
@@ -439,11 +439,11 @@ public:
         return 0;
     }
 
-    std::size_t getRecursiveEstimateJoinSize(const std::string& rel, const std::string& attributes,
+    double getRecursiveEstimateJoinSize(const std::string& rel, const std::string& attributes,
             const std::string& constants, const std::string& iteration) {
         auto key = rel + " " + attributes + " " + constants;
         auto& m = countRecursiveJoinSizeMap.at(key);
-        return static_cast<std::size_t>(m.at(iteration));
+        return m.at(iteration);
     }
 
     void addRelation(const DirectoryEntry& relation) {

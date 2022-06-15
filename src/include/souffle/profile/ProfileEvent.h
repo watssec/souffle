@@ -85,11 +85,11 @@ public:
         profile::EventProcessorSingleton::instance().process(database, txt.c_str(), number, iteration);
     }
 
-    void makeNonRecursiveCountEvent(const std::string& txt, std::size_t joinSize) {
+    void makeNonRecursiveCountEvent(const std::string& txt, double joinSize) {
         profile::EventProcessorSingleton::instance().process(database, txt.c_str(), joinSize);
     }
 
-    void makeRecursiveCountEvent(const std::string& txt, std::size_t joinSize, std::size_t iteration) {
+    void makeRecursiveCountEvent(const std::string& txt, double joinSize, std::size_t iteration) {
         profile::EventProcessorSingleton::instance().process(database, txt.c_str(), joinSize, iteration);
     }
 
