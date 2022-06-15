@@ -502,11 +502,12 @@ NodePtr NodeGenerator::visit_(type_identity<ram::Clear>, const ram::Clear& clear
     return mk<Clear>(type, &clear, rel);
 }
 
-NodePtr NodeGenerator::visit_(type_identity<ram::EstimateJoinSize>, const ram::EstimateJoinSize& count) {
-    std::size_t relId = encodeRelation(count.getRelation());
+NodePtr NodeGenerator::visit_(
+        type_identity<ram::EstimateJoinSize>, const ram::EstimateJoinSize& estimateJoinSize) {
+    std::size_t relId = encodeRelation(estimateJoinSize.getRelation());
     auto rel = getRelationHandle(relId);
-    NodeType type = constructNodeType("EstimateJoinSize", lookup(count.getRelation()));
-    return mk<EstimateJoinSize>(type, &count, rel, encodeIndexPos(count));
+    NodeType type = constructNodeType("EstimateJoinSize", lookup(estimateJoinSize.getRelation()));
+    return mk<EstimateJoinSize>(type, &estimateJoinSize, rel, encodeIndexPos(estimateJoinSize));
 }
 
 NodePtr NodeGenerator::visit_(type_identity<ram::LogSize>, const ram::LogSize& size) {

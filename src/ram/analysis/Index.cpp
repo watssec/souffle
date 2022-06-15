@@ -491,14 +491,14 @@ SearchSignature searchSignature(std::size_t arity, Seq const& xs) {
 }
 }  // namespace
 
-SearchSignature IndexAnalysis::getSearchSignature(const EstimateJoinSize* count) const {
-    const Relation* rel = &relAnalysis->lookup(count->getRelation());
+SearchSignature IndexAnalysis::getSearchSignature(const EstimateJoinSize* estimateJoinSize) const {
+    const Relation* rel = &relAnalysis->lookup(estimateJoinSize->getRelation());
     std::size_t arity = rel->getArity();
 
     // default everything is AttributeConstraint::None
     SearchSignature keys(arity);
     // set join column attributes
-    for (std::size_t col : count->getKeyColumns()) {
+    for (std::size_t col : estimateJoinSize->getKeyColumns()) {
         keys[col] = AttributeConstraint::Equal;
     }
     return keys;

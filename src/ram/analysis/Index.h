@@ -506,7 +506,7 @@ public:
      * @param  EstimateJoinSize operation
      * @result Index signature of operation
      */
-    SearchSignature getSearchSignature(const EstimateJoinSize* count) const;
+    SearchSignature getSearchSignature(const EstimateJoinSize* estimateJoinSize) const;
 
     /**
      * @Brief Get index signature for an Ram IndexOperation operation

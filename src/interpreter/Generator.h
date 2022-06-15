@@ -226,7 +226,8 @@ public:
 
     NodePtr visit_(type_identity<ram::Clear>, const ram::Clear& clear) override;
 
-    NodePtr visit_(type_identity<ram::EstimateJoinSize>, const ram::EstimateJoinSize& count) override;
+    NodePtr visit_(
+            type_identity<ram::EstimateJoinSize>, const ram::EstimateJoinSize& estimateJoinSize) override;
 
     NodePtr visit_(type_identity<ram::LogSize>, const ram::LogSize& size) override;
 
