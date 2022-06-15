@@ -33,7 +33,8 @@ namespace souffle::ram {
 /**
  * @class EstimateJoinSize
  * @brief Estimate the join size given the columns involved in the join (and constants)
- * The estimate is computed by dividing the relation size by the number of unique tuples projected on the join columns 
+ * The estimate is computed by dividing the relation size by the number of unique tuples projected on the join
+columns
  *
 
 * For example:
@@ -76,7 +77,8 @@ public:
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
-        os << times(" ", tabpos) << (recursiveRelation ? "REC" : "") << "ESTIMATEJOINSIZE " << relation << " ";
+        os << times(" ", tabpos) << (recursiveRelation ? "REC" : "") << "ESTIMATEJOINSIZE " << relation
+           << " ";
         bool first = true;
         for (auto k : keyColumns) {
             if (first) {
