@@ -869,9 +869,9 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
             std::string profilerText =
                     (count.isRecursiveRelation()
-                                    ? stringify("@recursive-count-unique-keys;" + count.getRelation() + ";" +
+                                    ? stringify("@recursive-estimate-join-size;" + count.getRelation() + ";" +
                                                 columns + ";" + constants)
-                                    : stringify("@non-recursive-count-unique-keys;" + count.getRelation() +
+                                    : stringify("@non-recursive-estimate-join-size;" + count.getRelation() +
                                                 ";" + columns + ";" + constants));
 
             PRINT_BEGIN_COMMENT(out);

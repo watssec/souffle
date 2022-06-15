@@ -229,7 +229,7 @@ public:
 const class NonRecursiveEstimateJoinSizeProcessor : public EventProcessor {
 public:
     NonRecursiveEstimateJoinSizeProcessor() {
-        EventProcessorSingleton::instance().registerEventProcessor("@non-recursive-count-unique-keys", this);
+        EventProcessorSingleton::instance().registerEventProcessor("@non-recursive-estimate-join-size", this);
     }
     /** process event input */
     void process(ProfileDatabase& db, const std::vector<std::string>& signature, va_list& args) override {
@@ -249,7 +249,7 @@ public:
 const class RecursiveEstimateJoinSizeProcessor : public EventProcessor {
 public:
     RecursiveEstimateJoinSizeProcessor() {
-        EventProcessorSingleton::instance().registerEventProcessor("@recursive-count-unique-keys", this);
+        EventProcessorSingleton::instance().registerEventProcessor("@recursive-estimate-join-size", this);
     }
     /** process event input */
     void process(ProfileDatabase& db, const std::vector<std::string>& signature, va_list& args) override {

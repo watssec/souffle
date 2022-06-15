@@ -1664,11 +1664,11 @@ RamDomain Engine::evalEstimateJoinSize(
 
     if (cur.isRecursiveRelation()) {
         std::string txt =
-                "@recursive-count-unique-keys;" + cur.getRelation() + ";" + columns + ";" + constants;
+                "@recursive-estimate-join-size;" + cur.getRelation() + ";" + columns + ";" + constants;
         ProfileEventSingleton::instance().makeRecursiveCountEvent(txt, joinSize, getIterationNumber());
     } else {
         std::string txt =
-                "@non-recursive-count-unique-keys;" + cur.getRelation() + ";" + columns + ";" + constants;
+                "@non-recursive-estimate-join-size;" + cur.getRelation() + ";" + columns + ";" + constants;
         ProfileEventSingleton::instance().makeNonRecursiveCountEvent(txt, joinSize);
     }
     return true;
