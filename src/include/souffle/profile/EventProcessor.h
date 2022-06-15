@@ -226,9 +226,9 @@ public:
 /**
  * Non-Recursive Count Unique Keys Profile Event Processor
  */
-const class NonRecursiveCountUniqueKeysProcessor : public EventProcessor {
+const class NonRecursiveEstimateJoinSizeProcessor : public EventProcessor {
 public:
-    NonRecursiveCountUniqueKeysProcessor() {
+    NonRecursiveEstimateJoinSizeProcessor() {
         EventProcessorSingleton::instance().registerEventProcessor("@non-recursive-count-unique-keys", this);
     }
     /** process event input */
@@ -236,19 +236,19 @@ public:
         const std::string& relation = signature[1];
         const std::string& attributes = signature[2];
         const std::string& constants = signature[3];
-        std::size_t uniqueKeys = va_arg(args, std::size_t);
+        std::size_t joinSize = va_arg(args, std::size_t);
         db.addSizeEntry({"program", "statistics", "relation", relation, "attributes", attributes, "constants",
                                 constants},
-                uniqueKeys);
+                joinSize);
     }
-} nonRecursiveCountUniqueKeysProcessor;
+} nonRecursiveEstimateJoinSizeProcessor;
 
 /**
  * Recursive Count Unique Keys Profile Event Processor
  */
-const class RecursiveCountUniqueKeysProcessor : public EventProcessor {
+const class RecursiveEstimateJoinSizeProcessor : public EventProcessor {
 public:
-    RecursiveCountUniqueKeysProcessor() {
+    RecursiveEstimateJoinSizeProcessor() {
         EventProcessorSingleton::instance().registerEventProcessor("@recursive-count-unique-keys", this);
     }
     /** process event input */
@@ -256,13 +256,13 @@ public:
         const std::string& relation = signature[1];
         const std::string& attributes = signature[2];
         const std::string& constants = signature[3];
-        std::size_t uniqueKeys = va_arg(args, std::size_t);
+        std::size_t joinSize = va_arg(args, std::size_t);
         std::string iteration = std::to_string(va_arg(args, std::size_t));
         db.addSizeEntry({"program", "statistics", "relation", relation, "iteration", iteration, "attributes",
                                 attributes, "constants", constants},
-                uniqueKeys);
+                joinSize);
     }
-} recursiveCountUniqueKeysProcessor;
+} recursiveEstimateJoinSizeProcessor;
 
 /**
  * Recursive Rule Timing Profile Event Processor

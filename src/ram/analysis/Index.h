@@ -17,7 +17,7 @@
 #pragma once
 
 #include "ram/AbstractExistenceCheck.h"
-#include "ram/CountUniqueKeys.h"
+#include "ram/EstimateJoinSize.h"
 #include "ram/ExistenceCheck.h"
 #include "ram/IndexOperation.h"
 #include "ram/ProvenanceExistenceCheck.h"
@@ -502,11 +502,11 @@ public:
     }
 
     /**
-     * @Brief Get index signature for an Ram CountUniqueKeys operation
-     * @param  CountUniqueKeys operation
+     * @Brief Get index signature for an Ram EstimateJoinSize operation
+     * @param  EstimateJoinSize operation
      * @result Index signature of operation
      */
-    SearchSignature getSearchSignature(const CountUniqueKeys* count) const;
+    SearchSignature getSearchSignature(const EstimateJoinSize* count) const;
 
     /**
      * @Brief Get index signature for an Ram IndexOperation operation

@@ -65,14 +65,14 @@ bool ProfileUseAnalysis::hasAutoSchedulerStats() const {
     return reader->hasAutoSchedulerStats();
 }
 
-std::size_t ProfileUseAnalysis::getNonRecursiveUniqueKeys(
+std::size_t ProfileUseAnalysis::getNonRecursiveJoinSize(
         const std::string& rel, const std::string& attributes, const std::string& constants) const {
-    return reader->getNonRecursiveCountUniqueKeys(rel, attributes, constants);
+    return reader->getNonRecursiveEstimateJoinSize(rel, attributes, constants);
 }
 
-std::size_t ProfileUseAnalysis::getRecursiveUniqueKeys(const std::string& rel, const std::string& attributes,
+std::size_t ProfileUseAnalysis::getRecursiveJoinSize(const std::string& rel, const std::string& attributes,
         const std::string& constants, const std::string& iteration) const {
-    return reader->getRecursiveCountUniqueKeys(rel, attributes, constants, iteration);
+    return reader->getRecursiveEstimateJoinSize(rel, attributes, constants, iteration);
 }
 
 std::size_t ProfileUseAnalysis::getIterations(const std::string& rel) const {

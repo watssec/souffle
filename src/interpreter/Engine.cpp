@@ -29,7 +29,7 @@
 #include "ram/Clear.h"
 #include "ram/Conjunction.h"
 #include "ram/Constraint.h"
-#include "ram/CountUniqueKeys.h"
+#include "ram/EstimateJoinSize.h"
 #include "ram/DebugInfo.h"
 #include "ram/EmptinessCheck.h"
 #include "ram/Erase.h"
@@ -1319,14 +1319,14 @@ RamDomain Engine::execute(const Node* node, Context& ctxt) {
         FOR_EACH(CLEAR)
 #undef CLEAR
 
-#define COUNTUNIQUEKEYS(Structure, Arity, ...)                          \
-    CASE(CountUniqueKeys, Structure, Arity)                             \
+#define ESTIMATEJOINSIZE(Structure, Arity, ...)                          \
+    CASE(EstimateJoinSize, Structure, Arity)                             \
         const auto& rel = *static_cast<RelType*>(shadow.getRelation()); \
-        return evalCountUniqueKeys<RelType>(rel, cur, shadow, ctxt);    \
-    ESAC(CountUniqueKeys)
+        return evalEstimateJoinSize<RelType>(rel, cur, shadow, ctxt);    \
+    ESAC(EstimateJoinSize)
 
-        FOR_EACH(COUNTUNIQUEKEYS)
-#undef COUNTUNIQUEKEYS
+        FOR_EACH(ESTIMATEJOINSIZE)
+#undef ESTIMATEJOINSIZE
 
         CASE(Call)
             execute(subroutine[shadow.getSubroutineId()].get(), ctxt);
@@ -1561,8 +1561,8 @@ RamDomain Engine::evalParallelScan(
 }
 
 template <typename Rel>
-RamDomain Engine::evalCountUniqueKeys(
-        const Rel& rel, const ram::CountUniqueKeys& cur, const CountUniqueKeys& shadow, Context& ctxt) {
+RamDomain Engine::evalEstimateJoinSize(
+        const Rel& rel, const ram::EstimateJoinSize& cur, const EstimateJoinSize& shadow, Context& ctxt) {
     (void)ctxt;
     constexpr std::size_t Arity = Rel::Arity;
     bool onlyConstants = true;
@@ -1641,7 +1641,7 @@ RamDomain Engine::evalCountUniqueKeys(
             ++total;
         }
     }
-    std::size_t uniqueKeys = (onlyConstants ? total : total - duplicates);
+    std::size_t joinSize = (onlyConstants ? total : total - duplicates);
 
     std::stringstream columnsStream;
     columnsStream << cur.getKeyColumns();
@@ -1665,11 +1665,11 @@ RamDomain Engine::evalCountUniqueKeys(
     if (cur.isRecursiveRelation()) {
         std::string txt =
                 "@recursive-count-unique-keys;" + cur.getRelation() + ";" + columns + ";" + constants;
-        ProfileEventSingleton::instance().makeRecursiveCountEvent(txt, uniqueKeys, getIterationNumber());
+        ProfileEventSingleton::instance().makeRecursiveCountEvent(txt, joinSize, getIterationNumber());
     } else {
         std::string txt =
                 "@non-recursive-count-unique-keys;" + cur.getRelation() + ";" + columns + ";" + constants;
-        ProfileEventSingleton::instance().makeNonRecursiveCountEvent(txt, uniqueKeys);
+        ProfileEventSingleton::instance().makeNonRecursiveCountEvent(txt, joinSize);
     }
     return true;
 }

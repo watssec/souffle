@@ -17,7 +17,7 @@
 #include "ram/analysis/Index.h"
 #include "Global.h"
 #include "RelationTag.h"
-#include "ram/CountUniqueKeys.h"
+#include "ram/EstimateJoinSize.h"
 #include "ram/Expression.h"
 #include "ram/Node.h"
 #include "ram/Program.h"
@@ -394,8 +394,8 @@ void IndexAnalysis::run(const TranslationUnit& translationUnit) {
 
     // visit all nodes to collect searches of each relation
     visit(translationUnit.getProgram(), [&](const Node& node) {
-        if (const auto* countUniqueKeys = as<CountUniqueKeys>(node)) {
-            relationToSearches[countUniqueKeys->getRelation()].insert(getSearchSignature(countUniqueKeys));
+        if (const auto* estimateJoinSize = as<EstimateJoinSize>(node)) {
+            relationToSearches[estimateJoinSize->getRelation()].insert(getSearchSignature(estimateJoinSize));
         } else if (const auto* indexSearch = as<IndexOperation>(node)) {
             relationToSearches[indexSearch->getRelation()].insert(getSearchSignature(indexSearch));
         } else if (const auto* exists = as<ExistenceCheck>(node)) {
@@ -491,7 +491,7 @@ SearchSignature searchSignature(std::size_t arity, Seq const& xs) {
 }
 }  // namespace
 
-SearchSignature IndexAnalysis::getSearchSignature(const CountUniqueKeys* count) const {
+SearchSignature IndexAnalysis::getSearchSignature(const EstimateJoinSize* count) const {
     const Relation* rel = &relAnalysis->lookup(count->getRelation());
     std::size_t arity = rel->getArity();
 

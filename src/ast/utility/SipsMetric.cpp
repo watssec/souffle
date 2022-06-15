@@ -133,10 +133,10 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         constants[constants.size() - 1] = ']';
 
         if (isRecursive) {
-            return prof->getRecursiveUniqueKeys(rel.toString(), attributes, constants, iteration);
+            return prof->getRecursiveJoinSize(rel.toString(), attributes, constants, iteration);
         }
 
-        return prof->getNonRecursiveUniqueKeys(rel.toString(), attributes, constants);
+        return prof->getNonRecursiveJoinSize(rel.toString(), attributes, constants);
     };
 
     using AtomIdx = std::size_t;
@@ -389,13 +389,13 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
                         if (joinColumns.empty()) {
                             expectedTuples = static_cast<double>(relSizeWithConstants);
                         } else {
-                            auto uniqueKeys = getRelationSize(isRecursive,
+                            auto joinSize = getRelationSize(isRecursive,
                                     getClauseAtomName(*clause, atom, sccAtoms, version, mode), joinColumns,
                                     atomToIdxConstants[atomIdx], std::to_string(iter));
 
-                            bool normalize = (uniqueKeys > 0);
+                            bool normalize = (joinSize > 0);
                             expectedTuples =
-                                    static_cast<double>(relSizeWithConstants) / (normalize ? uniqueKeys : 1);
+                                    static_cast<double>(relSizeWithConstants) / (normalize ? joinSize : 1);
                         }
                     }
 

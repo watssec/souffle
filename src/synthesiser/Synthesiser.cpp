@@ -811,7 +811,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         }
 
         void visit_(
-                type_identity<CountUniqueKeys>, const CountUniqueKeys& count, std::ostream& out) override {
+                type_identity<EstimateJoinSize>, const EstimateJoinSize& count, std::ostream& out) override {
             const auto* rel = synthesiser.lookup(count.getRelation());
             auto relName = synthesiser.getRelationName(rel);
             auto keys = isa->getSearchSignature(&count);
@@ -911,13 +911,13 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "\n";
             out << "}\n";
             out << "}\n";
-            out << "std::size_t uniqueKeys = (" << (onlyConstants ? "total" : "total - duplicates") << ");\n";
+            out << "std::size_t joinSize = (" << (onlyConstants ? "total" : "total - duplicates") << ");\n";
             if (count.isRecursiveRelation()) {
                 out << "ProfileEventSingleton::instance().makeRecursiveCountEvent(\"" << profilerText
-                    << "\", uniqueKeys, iter);\n";
+                    << "\", joinSize, iter);\n";
             } else {
                 out << "ProfileEventSingleton::instance().makeNonRecursiveCountEvent(\"" << profilerText
-                    << "\", uniqueKeys);\n";
+                    << "\", joinSize);\n";
             }
             out << "}\n";
             PRINT_END_COMMENT(out);

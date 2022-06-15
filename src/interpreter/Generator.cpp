@@ -35,9 +35,9 @@ NodePtr NodeGenerator::generateTree(const ram::Node& root) {
         if (isA<ram::Query>(&node)) {
             newQueryBlock();
         }
-        if (const auto* countUniqueKeys = as<ram::CountUniqueKeys>(node)) {
-            encodeIndexPos(*countUniqueKeys);
-            encodeView(countUniqueKeys);
+        if (const auto* estimateJoinSize = as<ram::EstimateJoinSize>(node)) {
+            encodeIndexPos(*estimateJoinSize);
+            encodeView(estimateJoinSize);
         } else if (const auto* indexSearch = as<ram::IndexOperation>(node)) {
             encodeIndexPos(*indexSearch);
             encodeView(indexSearch);
@@ -502,11 +502,11 @@ NodePtr NodeGenerator::visit_(type_identity<ram::Clear>, const ram::Clear& clear
     return mk<Clear>(type, &clear, rel);
 }
 
-NodePtr NodeGenerator::visit_(type_identity<ram::CountUniqueKeys>, const ram::CountUniqueKeys& count) {
+NodePtr NodeGenerator::visit_(type_identity<ram::EstimateJoinSize>, const ram::EstimateJoinSize& count) {
     std::size_t relId = encodeRelation(count.getRelation());
     auto rel = getRelationHandle(relId);
-    NodeType type = constructNodeType("CountUniqueKeys", lookup(count.getRelation()));
-    return mk<CountUniqueKeys>(type, &count, rel, encodeIndexPos(count));
+    NodeType type = constructNodeType("EstimateJoinSize", lookup(count.getRelation()));
+    return mk<EstimateJoinSize>(type, &count, rel, encodeIndexPos(count));
 }
 
 NodePtr NodeGenerator::visit_(type_identity<ram::LogSize>, const ram::LogSize& size) {

@@ -19,7 +19,7 @@
 #include "ast/NumericConstant.h"
 #include "ast/QualifiedName.h"
 #include "ast/analysis/ProfileUse.h"
-#include "ast/analysis/UniqueKeys.h"
+#include "ast/analysis/JoinSize.h"
 #include "ast/analysis/typesystem/Type.h"
 #include "ast2ram/ClauseTranslator.h"
 #include "souffle/BinaryConstraintOps.h"
@@ -63,7 +63,7 @@ class RelationScheduleAnalysis;
 class SumTypeBranchesAnalysis;
 class SCCGraphAnalysis;
 class TypeEnvironment;
-class UniqueKeysAnalysis;
+class JoinSizeAnalysis;
 }  // namespace souffle::ast::analysis
 
 namespace souffle::ast2ram {
@@ -100,9 +100,9 @@ public:
     std::set<const ast::Relation*> getInputRelationsInSCC(std::size_t scc) const;
     std::set<const ast::Relation*> getOutputRelationsInSCC(std::size_t scc) const;
 
-    /** UniqueKeys methods */
-    VecOwn<ram::Statement> getRecursiveUniqueKeyStatementsInSCC(std::size_t scc) const;
-    VecOwn<ram::Statement> getNonRecursiveUniqueKeyStatementsInSCC(std::size_t scc) const;
+    /** JoinSize methods */
+    VecOwn<ram::Statement> getRecursiveJoinSizeStatementsInSCC(std::size_t scc) const;
+    VecOwn<ram::Statement> getNonRecursiveJoinSizeStatementsInSCC(std::size_t scc) const;
 
     /** Functor methods */
     TypeAttribute getFunctorReturnTypeAttribute(const ast::Functor& functor) const;
@@ -148,7 +148,7 @@ private:
     const ast::analysis::TypeEnvironment* typeEnv;
     const ast::analysis::SumTypeBranchesAnalysis* sumTypeBranches;
     const ast::analysis::PolymorphicObjectsAnalysis* polyAnalysis;
-    const ast::analysis::UniqueKeysAnalysis* uniqueKeysAnalysis;
+    const ast::analysis::JoinSizeAnalysis* joinSizeAnalysis;
     std::map<const ast::Clause*, std::size_t> clauseNums;
     Own<ast::SipsMetric> sipsMetric;
     Own<TranslationStrategy> translationStrategy;

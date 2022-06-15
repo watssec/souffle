@@ -40,7 +40,7 @@
 #include "ram/Aggregate.h"
 #include "ram/Break.h"
 #include "ram/Constraint.h"
-#include "ram/CountUniqueKeys.h"
+#include "ram/EstimateJoinSize.h"
 #include "ram/DebugInfo.h"
 #include "ram/EmptinessCheck.h"
 #include "ram/ExistenceCheck.h"

@@ -32,7 +32,7 @@
 #include "ram/Condition.h"
 #include "ram/Conjunction.h"
 #include "ram/Constraint.h"
-#include "ram/CountUniqueKeys.h"
+#include "ram/EstimateJoinSize.h"
 #include "ram/DebugInfo.h"
 #include "ram/EmptinessCheck.h"
 #include "ram/ExistenceCheck.h"
@@ -226,7 +226,7 @@ public:
 
     NodePtr visit_(type_identity<ram::Clear>, const ram::Clear& clear) override;
 
-    NodePtr visit_(type_identity<ram::CountUniqueKeys>, const ram::CountUniqueKeys& count) override;
+    NodePtr visit_(type_identity<ram::EstimateJoinSize>, const ram::EstimateJoinSize& count) override;
 
     NodePtr visit_(type_identity<ram::LogSize>, const ram::LogSize& size) override;
 
