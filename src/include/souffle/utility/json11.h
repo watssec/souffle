@@ -78,6 +78,11 @@
 #endif
 #endif
 
+#if defined(__GNUC__) && (__GNUC__ >= 7)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
+#endif
+
 namespace json11 {
 
 enum JsonParse { STANDARD, COMMENTS };
@@ -1110,3 +1115,7 @@ inline std::vector<Json> parse_multi(const std::string& in, std::string::size_ty
 #endif  // _MSC_VER
 
 }  // namespace json11
+
+#if defined(__GNUC__) && (__GNUC__ >= 7)
+#pragma GCC diagnostic pop
+#endif

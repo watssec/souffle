@@ -23,6 +23,7 @@
 #include "ram/utility/Visitor.h"
 #include "souffle/RecordTable.h"
 #include "souffle/utility/ContainerUtil.h"
+#include "synthesiser/GenDb.h"
 #include "synthesiser/Relation.h"
 #include <cstddef>
 #include <map>
@@ -67,12 +68,25 @@ private:
     /** Is set to true if there is a need to include std::regex */
     bool UsingStdRegex = false;
 
+    /** Is set to true if the current subroutine uses std::regex */
+    bool SubroutineUsingStdRegex = false;
+    bool SubroutineUsingSubstr = false;
+
+    /** Pointer to the subroutine class currently being built */
+    GenClass* currentClass = nullptr;
+
     /** Set of packed and unpacked records arities */
     std::set<std::size_t> arities;
+
+    /** signatures of the user-defined functors */
+    std::map<std::string, std::pair<std::vector<std::string>, std::string>> functor_signatures;
 
 protected:
     /** Convert RAM identifier */
     const std::string convertRamIdent(const std::string& name);
+
+    /** Convert stratum name to a C++-compliant identifier */
+    const std::string convertStratumIdent(const std::string& name);
 
     /** Get relation name */
     const std::string getRelationName(const ram::Relation& rel);
@@ -82,10 +96,10 @@ protected:
     const std::string getOpContextName(const ram::Relation& rel);
 
     /** Get relation struct definition */
-    void generateRelationTypeStruct(std::ostream& out, Own<Relation> relationType);
+    void generateRelationTypeStruct(GenDb& db, Own<Relation> relationType);
 
     /** Get referenced relations */
-    std::set<const ram::Relation*> getReferencedRelations(const ram::Operation& op);
+    ram::RelationSet getReferencedRelations(const ram::Operation& op);
 
     /** Generate code */
     void emitCode(std::ostream& out, const ram::Statement& stmt);
@@ -116,6 +130,14 @@ protected:
         }
     }
 
+    std::string convertSymbolToIdentifier(const std::string& symbol) const;
+
+    /** return the set of relation names accessed/used in the statement */
+    std::set<std::string> accessedRelations(ram::Statement& stmt);
+
+    /** return the set of User-defined functor names used in the statement */
+    std::set<std::string> accessedUserDefinedFunctors(ram::Statement& stmt);
+
 public:
     explicit Synthesiser(/*const std::size_t laneCount, */ ram::TranslationUnit& tUnit)
             : /*recordTable(laneCount),*/ translationUnit(tUnit) {
@@ -131,6 +153,6 @@ public:
     }
 
     /** Generate code */
-    void generateCode(std::ostream& os, const std::string& id, bool& withSharedLibrary);
+    void generateCode(GenDb& db, const std::string& id, bool& withSharedLibrary);
 };
 }  // namespace souffle::synthesiser

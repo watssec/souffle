@@ -476,9 +476,7 @@ NodePtr NodeGenerator::visit_(type_identity<ram::Call>, const ram::Call& call) {
     // in the interpreter. The index is stored in the
     // data array of the Node as the first
     // entry.
-    auto subs = engine.tUnit.getProgram().getSubroutines();
-    std::size_t subroutineId = distance(subs.begin(), subs.find(call.getName()));
-    return mk<Call>(I_Call, &call, subroutineId);
+    return mk<Call>(I_Call, &call, call.getName());
 }
 
 NodePtr NodeGenerator::visit_(type_identity<ram::LogRelationTimer>, const ram::LogRelationTimer& timer) {

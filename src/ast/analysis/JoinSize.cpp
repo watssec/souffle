@@ -78,9 +78,8 @@ const analysis::PowerSet& JoinSizeAnalysis::getSubsets(std::size_t N, std::size_
     return cache.at({N, K});
 }
 
-analysis::StratumJoinSize JoinSizeAnalysis::computeRuleVersionStatements(
-        const std::set<const ast::Relation*>& scc, const ast::Clause& clause,
-        std::optional<std::size_t> version, ast2ram::TranslationMode mode) {
+analysis::StratumJoinSize JoinSizeAnalysis::computeRuleVersionStatements(const RelationSet& scc,
+        const ast::Clause& clause, std::optional<std::size_t> version, ast2ram::TranslationMode mode) {
     auto* prog = program;
     auto* poly = polyAnalysis;
     auto sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(clause),
@@ -443,7 +442,7 @@ analysis::StratumJoinSize JoinSizeAnalysis::computeRuleVersionStatements(
 
 std::vector<analysis::StratumJoinSize> JoinSizeAnalysis::computeJoinSizeStatements() {
     auto* prog = program;
-    auto getSccAtoms = [prog](const ast::Clause* clause, const std::set<const ast::Relation*>& scc) {
+    auto getSccAtoms = [prog](const ast::Clause* clause, const ast::RelationSet& scc) {
         const auto& sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(*clause),
                 [&](const ast::Atom* atom) { return contains(scc, prog->getRelation(*atom)); });
         return sccAtoms;
@@ -464,7 +463,7 @@ std::vector<analysis::StratumJoinSize> JoinSizeAnalysis::computeJoinSizeStatemen
         analysis::StratumJoinSize stratumNodes;
 
         auto scc = sccOrdering[i];
-        const std::set<const ast::Relation*> sccRelations = sccGraph->getInternalRelations(scc);
+        const ast::RelationSet sccRelations = sccGraph->getInternalRelations(scc);
         for (auto* rel : sccRelations) {
             // Translate each recursive clasue
             for (auto&& clause : program->getClauses(*rel)) {

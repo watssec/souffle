@@ -69,8 +69,8 @@ private:
 
     // for each stratum compute the EstimateJoinSize nodes to emit
     std::vector<StratumJoinSize> computeJoinSizeStatements();
-    StratumJoinSize computeRuleVersionStatements(const std::set<const ast::Relation*>& sccRelations,
-            const ast::Clause& clause, std::optional<std::size_t> version,
+    StratumJoinSize computeRuleVersionStatements(const RelationSet& sccRelations, const ast::Clause& clause,
+            std::optional<std::size_t> version,
             ast2ram::TranslationMode mode = ast2ram::TranslationMode::DEFAULT);
     const PowerSet& getSubsets(std::size_t N, std::size_t K) const;
     mutable std::map<std::pair<std::size_t, std::size_t>, PowerSet> cache;

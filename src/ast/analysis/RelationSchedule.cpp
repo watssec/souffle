@@ -55,28 +55,27 @@ void RelationScheduleAnalysis::run(const TranslationUnit& translationUnit) {
     precedenceGraph = &translationUnit.getAnalysis<PrecedenceGraphAnalysis>();
 
     std::size_t numSCCs = translationUnit.getAnalysis<SCCGraphAnalysis>().getNumberOfSCCs();
-    std::vector<std::set<const Relation*>> relationExpirySchedule =
-            computeRelationExpirySchedule(translationUnit);
+    std::vector<RelationSet> relationExpirySchedule = computeRelationExpirySchedule(translationUnit);
 
     relationSchedule.clear();
     for (std::size_t i = 0; i < numSCCs; i++) {
         auto scc = topsortSCCGraphAnalysis->order()[i];
-        const std::set<const Relation*> computedRelations =
+        const RelationSet computedRelations =
                 translationUnit.getAnalysis<SCCGraphAnalysis>().getInternalRelations(scc);
         relationSchedule.emplace_back(computedRelations, relationExpirySchedule[i],
                 translationUnit.getAnalysis<SCCGraphAnalysis>().isRecursive(scc));
     }
 }
 
-std::vector<std::set<const Relation*>> RelationScheduleAnalysis::computeRelationExpirySchedule(
+std::vector<RelationSet> RelationScheduleAnalysis::computeRelationExpirySchedule(
         const TranslationUnit& translationUnit) {
-    std::vector<std::set<const Relation*>> relationExpirySchedule;
+    std::vector<RelationSet> relationExpirySchedule;
     /* Compute for each step in the reverse topological order
        of evaluating the SCC the set of alive relations. */
     std::size_t numSCCs = topsortSCCGraphAnalysis->order().size();
 
     /* Alive set for each step */
-    std::vector<std::set<const Relation*>> alive(numSCCs);
+    std::vector<RelationSet> alive(numSCCs);
     /* Resize expired relations sets */
     relationExpirySchedule.resize(numSCCs);
     const auto& sccGraph = translationUnit.getAnalysis<SCCGraphAnalysis>();
@@ -100,7 +99,8 @@ std::vector<std::set<const Relation*>> RelationScheduleAnalysis::computeRelation
         std::set_difference(alive[orderedSCC].begin(), alive[orderedSCC].end(), alive[orderedSCC - 1].begin(),
                 alive[orderedSCC - 1].end(),
                 std::inserter(relationExpirySchedule[numSCCs - orderedSCC],
-                        relationExpirySchedule[numSCCs - orderedSCC].end()));
+                        relationExpirySchedule[numSCCs - orderedSCC].end()),
+                NameComparison());
     }
 
     return relationExpirySchedule;

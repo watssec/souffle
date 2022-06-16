@@ -215,7 +215,7 @@ SemanticCheckerImpl::SemanticCheckerImpl(TranslationUnit& tu) : tu(tu) {
                 if (hasNegation ||
                         hasClauseWithAggregatedRelation(cyclicRelation, cur, &program, foundLiteral)) {
                     auto const& relSet = sccGraph.getInternalRelations(scc);
-                    std::set<const Relation*, NameComparison> sortedRelSet(relSet.begin(), relSet.end());
+                    RelationSet sortedRelSet(relSet.begin(), relSet.end());
                     // Negations and aggregations need to be stratified
                     std::string relationsListStr = toString(join(sortedRelSet, ",",
                             [](std::ostream& out, const Relation* r) { out << r->getQualifiedName(); }));

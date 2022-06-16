@@ -33,8 +33,8 @@ namespace souffle::ast::analysis {
 void RedundantRelationsAnalysis::run(const TranslationUnit& translationUnit) {
     precedenceGraph = &translationUnit.getAnalysis<PrecedenceGraphAnalysis>();
 
-    std::set<const Relation*> work;
-    std::set<const Relation*> notRedundant;
+    RelationSet work;
+    RelationSet notRedundant;
     auto& ioType = translationUnit.getAnalysis<IOTypeAnalysis>();
     Program& program = translationUnit.getProgram();
 

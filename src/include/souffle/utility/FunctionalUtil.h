@@ -386,7 +386,7 @@ void append(std::vector<A>& xs, B&& y) {
 // -------------------------------------------------------------------------------
 
 template <typename A>
-std::set<A> operator&(const std::set<A>& lhs, const std::set<A>& rhs) {
+std::set<A> operator&(const std::set<A, std::less<A>>& lhs, const std::set<A, std::less<A>>& rhs) {
     std::set<A> result;
     std::set_intersection(
             lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), std::inserter(result, result.begin()));
@@ -394,14 +394,14 @@ std::set<A> operator&(const std::set<A>& lhs, const std::set<A>& rhs) {
 }
 
 template <typename A>
-std::set<A> operator|(const std::set<A>& lhs, const std::set<A>& rhs) {
+std::set<A> operator|(const std::set<A, std::less<A>>& lhs, const std::set<A, std::less<A>>& rhs) {
     std::set<A> result;
     std::set_union(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), std::inserter(result, result.begin()));
     return result;
 }
 
 template <typename A>
-std::set<A> operator-(const std::set<A>& lhs, const std::set<A>& rhs) {
+std::set<A> operator-(const std::set<A, std::less<A>>& lhs, const std::set<A, std::less<A>>& rhs) {
     std::set<A> result;
     std::set_difference(
             lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), std::inserter(result, result.begin()));

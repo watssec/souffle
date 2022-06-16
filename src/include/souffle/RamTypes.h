@@ -95,4 +95,7 @@ constexpr RamUnsigned MAX_RAM_UNSIGNED = std::numeric_limits<RamUnsigned>::max()
 
 constexpr RamFloat MIN_RAM_FLOAT = std::numeric_limits<RamFloat>::lowest();
 constexpr RamFloat MAX_RAM_FLOAT = std::numeric_limits<RamFloat>::max();
+
+constexpr RamDomain RAM_BIT_SHIFT_MASK = RAM_DOMAIN_SIZE - 1;
+
 }  // end of namespace souffle

@@ -473,7 +473,7 @@ void Engine::generateIR() {
     NodeGenerator generator(*this);
     if (subroutine.empty()) {
         for (const auto& sub : program.getSubroutines()) {
-            subroutine.push_back(generator.generateTree(*sub.second));
+            subroutine.emplace(std::make_pair("stratum_" + sub.first, generator.generateTree(*sub.second)));
         }
     }
     if (main == nullptr) {
@@ -487,10 +487,7 @@ void Engine::executeSubroutine(
     ctxt.setReturnValues(ret);
     ctxt.setArguments(args);
     generateIR();
-    const ram::Program& program = tUnit.getProgram();
-    auto subs = program.getSubroutines();
-    std::size_t i = distance(subs.begin(), subs.find(name));
-    execute(subroutine[i].get(), ctxt);
+    execute(subroutine["stratum_" + name].get(), ctxt);
 }
 
 RamDomain Engine::execute(const Node* node, Context& ctxt) {
@@ -1329,7 +1326,7 @@ RamDomain Engine::execute(const Node* node, Context& ctxt) {
 #undef ESTIMATEJOINSIZE
 
         CASE(Call)
-            execute(subroutine[shadow.getSubroutineId()].get(), ctxt);
+            execute(subroutine[shadow.getSubroutineName()].get(), ctxt);
             return true;
         ESAC(Call)
 

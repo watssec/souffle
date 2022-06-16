@@ -144,4 +144,23 @@ protected:
     const std::vector<std::string> attributeTypes;
 };
 
+/**
+ * @class NameComparison
+ * @brief Comparator for relations
+ *
+ * Lexicographical order for Relation
+ * using the relation name as an ordering criteria.
+ */
+struct NameComparison {
+    bool operator()(const Relation* x, const Relation* y) const {
+        if (x != nullptr && y != nullptr) {
+            return *x < *y;
+        }
+        return y != nullptr;
+    }
+};
+
+/** Relation set */
+using RelationSet = std::set<const Relation*, NameComparison>;
+
 }  // namespace souffle::ram

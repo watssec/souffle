@@ -155,6 +155,8 @@ set(SOUFFLE_SOURCES
     reports/DebugReport.cpp
     synthesiser/Synthesiser.cpp
     synthesiser/Relation.cpp
+    synthesiser/Utils.cpp
+    synthesiser/GenDb.cpp
 )
 
 # --------------------------------------------------
