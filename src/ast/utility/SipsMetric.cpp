@@ -110,7 +110,7 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
     auto getJoinSize = [&prof](bool isRecursive, const ast::QualifiedName& rel,
                                const std::vector<std::size_t>& joinColumns,
                                const std::map<std::size_t, std::string>& constantsMap,
-                               const std::string& iteration) -> double {
+                               const std::string& iteration) {
         std::set<std::size_t> joinKeys(joinColumns.begin(), joinColumns.end());
         for (auto& [k, _] : constantsMap) {
             joinKeys.insert(k);
