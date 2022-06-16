@@ -85,7 +85,7 @@ private:
     /* helper struct for Selinger */
     struct PlanTuplesCost {
         std::vector<std::size_t> plan;
-        std::vector<std::size_t> tuplesPerIteration;
+        std::vector<double> tuplesPerIteration;
         std::vector<double> costsPerIteration;
     };
 

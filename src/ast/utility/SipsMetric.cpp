@@ -117,7 +117,7 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         }
 
         if (joinKeys.empty() && !isRecursive) {
-            return prof->getRelationSize(rel);
+            return static_cast<double>(prof->getRelationSize(rel));
         }
 
         std::stringstream ss;
@@ -389,7 +389,7 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
                     }
 
                     // calculate new number of tuples
-                    std::size_t newTuples = static_cast<std::size_t>(oldTuples[iter] * expectedTuples);
+                    double newTuples = oldTuples[iter] * expectedTuples;
 
                     // calculate new cost
                     double newCost = oldCost[iter] + newTuples * atom->getArity();
