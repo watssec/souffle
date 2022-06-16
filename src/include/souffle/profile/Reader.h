@@ -278,9 +278,8 @@ private:
     bool online{true};
 
     std::unordered_map<std::string, std::shared_ptr<Relation>> relationMap{};
-    std::unordered_map<std::string, std::unordered_map<std::string, std::size_t>>
-            countRecursiveUniqueKeysMap{};
-    std::unordered_map<std::string, std::size_t> countNonRecursiveUniqueKeysMap{};
+    std::unordered_map<std::string, std::unordered_map<std::string, double>> countRecursiveJoinSizeMap{};
+    std::unordered_map<std::string, double> countNonRecursiveJoinSizeMap{};
     int rel_id{0};
 
 public:
@@ -329,12 +328,12 @@ public:
                             continue;
                         }
                         for (const auto& constants : prefixWithAttributes->getKeys()) {
-                            auto fullKey = as<SizeEntry>(db.lookupEntry({"program", "statistics", "relation",
+                            auto fullKey = as<TextEntry>(db.lookupEntry({"program", "statistics", "relation",
                                     rel, "attributes", attributes, "constants", constants}));
                             if (fullKey != nullptr) {
-                                std::size_t uniqueKeys = fullKey->getSize();
+                                double joinSize = std::stod(fullKey->getText());
                                 std::string key = rel + " " + attributes + " " + constants;
-                                countNonRecursiveUniqueKeysMap[key] = uniqueKeys;
+                                countNonRecursiveJoinSizeMap[key] = joinSize;
                             }
                         }
                     }
@@ -358,13 +357,13 @@ public:
                                 continue;
                             }
                             for (const auto& constants : prefixWithAttributes->getKeys()) {
-                                auto fullKey = as<SizeEntry>(db.lookupEntry(
+                                auto fullKey = as<TextEntry>(db.lookupEntry(
                                         {"program", "statistics", "relation", rel, "iteration", iteration,
                                                 "attributes", attributes, "constants", constants}));
-                                std::size_t uniqueKeys = fullKey->getSize();
+                                double joinSize = std::stod(fullKey->getText());
                                 if (fullKey != nullptr) {
                                     std::string key = rel + " " + attributes + " " + constants;
-                                    countRecursiveUniqueKeysMap[key][iteration] = uniqueKeys;
+                                    countRecursiveJoinSizeMap[key][iteration] = joinSize;
                                 }
                             }
                         }
@@ -419,17 +418,17 @@ public:
     }
 
     bool hasAutoSchedulerStats() {
-        return !countNonRecursiveUniqueKeysMap.empty() || !countRecursiveUniqueKeysMap.empty();
+        return !countNonRecursiveJoinSizeMap.empty() || !countRecursiveJoinSizeMap.empty();
     }
 
-    std::size_t getNonRecursiveCountUniqueKeys(
+    double getNonRecursiveEstimateJoinSize(
             const std::string& rel, const std::string& attributes, const std::string& constants) {
         auto key = rel + " " + attributes + " " + constants;
-        return countNonRecursiveUniqueKeysMap.at(key);
+        return countNonRecursiveJoinSizeMap.at(key);
     }
 
     std::size_t getIterations(const std::string& rel) {
-        for (auto& [key, m] : countRecursiveUniqueKeysMap) {
+        for (auto& [key, m] : countRecursiveJoinSizeMap) {
             std::string token = key.substr(0, key.find(" "));
             if (token == rel) {
                 return m.size();
@@ -439,11 +438,11 @@ public:
         return 0;
     }
 
-    std::size_t getRecursiveCountUniqueKeys(const std::string& rel, const std::string& attributes,
+    double getRecursiveEstimateJoinSize(const std::string& rel, const std::string& attributes,
             const std::string& constants, const std::string& iteration) {
         auto key = rel + " " + attributes + " " + constants;
-        auto& m = countRecursiveUniqueKeysMap.at(key);
-        return static_cast<std::size_t>(m.at(iteration));
+        auto& m = countRecursiveJoinSizeMap.at(key);
+        return m.at(iteration);
     }
 
     void addRelation(const DirectoryEntry& relation) {

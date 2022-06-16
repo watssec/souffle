@@ -8,7 +8,7 @@
 
 /************************************************************************
  *
- * @file CountUniqueKeys.h
+ * @file EstimateJoinSize.h
  *
  ***********************************************************************/
 
@@ -31,23 +31,24 @@
 namespace souffle::ram {
 
 /**
- * @class CountUniqueKeys
- * @brief Count the number of unique keys on a relation given the key columns etc.
+ * @class EstimateJoinSize
+ * @brief Estimate the join size given the columns involved in the join (and constants)
+ * The estimate is computed by dividing the relation size by the number of unique tuples projected on the join
+columns
  *
- * This statement counts the number of unique keys in a relation.
 
 * For example:
 * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-* UNIQUEKEYCOUNT rel A0 = 1, A1
+* ESTIMATEJOINSIZE rel A0 = 1, A1
 * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- *
- * Counts the number of tuples in rel with a unique value for attribute 1,
+ * Estimates the size of the join on rel with a unique tuple value for attribute 1,
  * while also having the first attribute with a value of 1
  */
-class CountUniqueKeys : public RelationStatement {
+
+class EstimateJoinSize : public RelationStatement {
 public:
-    CountUniqueKeys(std::string rel, const std::vector<std::size_t>& columns,
+    EstimateJoinSize(std::string rel, const std::vector<std::size_t>& columns,
             const std::map<std::size_t, const ram::Expression*>& keyToConstants, bool isRecursive)
             : RelationStatement(rel), keyColumns(columns), recursiveRelation(isRecursive) {
         // copy the constants over
@@ -70,13 +71,14 @@ public:
         return recursiveRelation;
     }
 
-    CountUniqueKeys* cloning() const override {
-        return new CountUniqueKeys(relation, keyColumns, constantsMap, recursiveRelation);
+    EstimateJoinSize* cloning() const override {
+        return new EstimateJoinSize(relation, keyColumns, constantsMap, recursiveRelation);
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
-        os << times(" ", tabpos) << (recursiveRelation ? "REC" : "") << "UNIQUEKEYCOUNT " << relation << " ";
+        os << times(" ", tabpos) << (recursiveRelation ? "REC" : "") << "ESTIMATEJOINSIZE " << relation
+           << " ";
         bool first = true;
         for (auto k : keyColumns) {
             if (first) {
@@ -93,7 +95,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = asAssert<CountUniqueKeys>(node);
+        const auto& other = asAssert<EstimateJoinSize>(node);
         return RelationStatement::equal(other) && keyColumns == other.getKeyColumns() &&
                constantsMap == other.getConstantsMap() && recursiveRelation == other.isRecursiveRelation();
     }

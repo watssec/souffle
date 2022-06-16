@@ -107,17 +107,17 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
     assert(profileUseAnalysis->hasAutoSchedulerStats() && "Must have stats in order to auto-schedule!");
 
     auto* prof = profileUseAnalysis;
-    auto getRelationSize = [&prof](bool isRecursive, const ast::QualifiedName& rel,
-                                   const std::vector<std::size_t>& joinColumns,
-                                   const std::map<std::size_t, std::string>& constantsMap,
-                                   const std::string& iteration) {
+    auto getJoinSize = [&prof](bool isRecursive, const ast::QualifiedName& rel,
+                               const std::vector<std::size_t>& joinColumns,
+                               const std::map<std::size_t, std::string>& constantsMap,
+                               const std::string& iteration) {
         std::set<std::size_t> joinKeys(joinColumns.begin(), joinColumns.end());
         for (auto& [k, _] : constantsMap) {
             joinKeys.insert(k);
         }
 
         if (joinKeys.empty() && !isRecursive) {
-            return prof->getRelationSize(rel);
+            return static_cast<double>(prof->getRelationSize(rel));
         }
 
         std::stringstream ss;
@@ -133,10 +133,10 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         constants[constants.size() - 1] = ']';
 
         if (isRecursive) {
-            return prof->getRecursiveUniqueKeys(rel.toString(), attributes, constants, iteration);
+            return prof->getRecursiveJoinSize(rel.toString(), attributes, constants, iteration);
         }
 
-        return prof->getNonRecursiveUniqueKeys(rel.toString(), attributes, constants);
+        return prof->getNonRecursiveJoinSize(rel.toString(), attributes, constants);
     };
 
     using AtomIdx = std::size_t;
@@ -293,7 +293,7 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         PlanTuplesCost p;
         p.plan = plan;
         for (std::size_t iter = 0; iter < iterations; ++iter) {
-            std::size_t tuples = getRelationSize(isRecursive, name, empty, idxConstant, std::to_string(iter));
+            double tuples = getJoinSize(isRecursive, name, empty, idxConstant, std::to_string(iter));
             double cost = static_cast<double>(tuples * atom->getArity());
             p.tuplesPerIteration.push_back(tuples);
             p.costsPerIteration.push_back(cost);
@@ -382,25 +382,14 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
                     if (numBound == atom->getArity()) {
                         expectedTuples = 1;
                     } else {
-                        auto relSizeWithConstants = getRelationSize(isRecursive,
-                                getClauseAtomName(*clause, atom, sccAtoms, version, mode), empty,
+                        // get the join size from the profile
+                        expectedTuples = getJoinSize(isRecursive,
+                                getClauseAtomName(*clause, atom, sccAtoms, version, mode), joinColumns,
                                 atomToIdxConstants[atomIdx], std::to_string(iter));
-
-                        if (joinColumns.empty()) {
-                            expectedTuples = static_cast<double>(relSizeWithConstants);
-                        } else {
-                            auto uniqueKeys = getRelationSize(isRecursive,
-                                    getClauseAtomName(*clause, atom, sccAtoms, version, mode), joinColumns,
-                                    atomToIdxConstants[atomIdx], std::to_string(iter));
-
-                            bool normalize = (uniqueKeys > 0);
-                            expectedTuples =
-                                    static_cast<double>(relSizeWithConstants) / (normalize ? uniqueKeys : 1);
-                        }
                     }
 
                     // calculate new number of tuples
-                    std::size_t newTuples = static_cast<std::size_t>(oldTuples[iter] * expectedTuples);
+                    double newTuples = oldTuples[iter] * expectedTuples;
 
                     // calculate new cost
                     double newCost = oldCost[iter] + newTuples * atom->getArity();

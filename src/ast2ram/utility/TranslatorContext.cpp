@@ -22,10 +22,10 @@
 #include "ast/TranslationUnit.h"
 #include "ast/analysis/Functor.h"
 #include "ast/analysis/IOType.h"
+#include "ast/analysis/JoinSize.h"
 #include "ast/analysis/RecursiveClauses.h"
 #include "ast/analysis/RelationSchedule.h"
 #include "ast/analysis/SCCGraph.h"
-#include "ast/analysis/UniqueKeys.h"
 #include "ast/analysis/typesystem/PolymorphicObjects.h"
 #include "ast/analysis/typesystem/SumTypeBranches.h"
 #include "ast/analysis/typesystem/Type.h"
@@ -60,7 +60,7 @@ TranslatorContext::TranslatorContext(const ast::TranslationUnit& tu) {
     typeEnv = &tu.getAnalysis<ast::analysis::TypeEnvironmentAnalysis>().getTypeEnvironment();
     sumTypeBranches = &tu.getAnalysis<ast::analysis::SumTypeBranchesAnalysis>();
     polyAnalysis = &tu.getAnalysis<ast::analysis::PolymorphicObjectsAnalysis>();
-    uniqueKeysAnalysis = &tu.getAnalysis<ast::analysis::UniqueKeysAnalysis>();
+    joinSizeAnalysis = &tu.getAnalysis<ast::analysis::JoinSizeAnalysis>();
 
     // Set up clause nums
     for (const ast::Relation* rel : program->getRelations()) {
@@ -144,9 +144,9 @@ ast::RelationSet TranslatorContext::getOutputRelationsInSCC(std::size_t scc) con
     return sccGraph->getInternalOutputRelations(scc);
 }
 
-VecOwn<ram::Statement> TranslatorContext::getRecursiveUniqueKeyStatementsInSCC(std::size_t scc) const {
+VecOwn<ram::Statement> TranslatorContext::getRecursiveJoinSizeStatementsInSCC(std::size_t scc) const {
     VecOwn<ram::Statement> res;
-    for (auto&& s : uniqueKeysAnalysis->getUniqueKeyStatementsInSCC(scc)) {
+    for (auto&& s : joinSizeAnalysis->getJoinSizeStatementsInSCC(scc)) {
         if (s->isRecursiveRelation()) {
             res.push_back(clone(s));
         }
@@ -154,9 +154,9 @@ VecOwn<ram::Statement> TranslatorContext::getRecursiveUniqueKeyStatementsInSCC(s
     return res;
 }
 
-VecOwn<ram::Statement> TranslatorContext::getNonRecursiveUniqueKeyStatementsInSCC(std::size_t scc) const {
+VecOwn<ram::Statement> TranslatorContext::getNonRecursiveJoinSizeStatementsInSCC(std::size_t scc) const {
     VecOwn<ram::Statement> res;
-    for (auto&& s : uniqueKeysAnalysis->getUniqueKeyStatementsInSCC(scc)) {
+    for (auto&& s : joinSizeAnalysis->getJoinSizeStatementsInSCC(scc)) {
         if (!s->isRecursiveRelation()) {
             res.push_back(clone(s));
         }

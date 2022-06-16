@@ -8,14 +8,14 @@
 
 /************************************************************************
  *
- * @file UniqueKeys.cpp
+ * @file JoinSize.cpp
  *
- * CountUniqueKeys are used for accumulating selectivity statistics for the auto scheduler
- * This analysis determines which CountUniqueKeys statements to emit in the RAM
+ * EstimateJoinSize are used for accumulating selectivity statistics for the auto scheduler
+ * This analysis determines which EstimateJoinSize statements to emit in the RAM
  *
  ***********************************************************************/
 
-#include "ast/analysis/UniqueKeys.h"
+#include "ast/analysis/JoinSize.h"
 #include "Global.h"
 #include "GraphUtils.h"
 #include "ast/BinaryConstraint.h"
@@ -44,7 +44,7 @@
 
 namespace souffle::ast::analysis {
 
-const analysis::PowerSet& UniqueKeysAnalysis::getSubsets(std::size_t N, std::size_t K) const {
+const analysis::PowerSet& JoinSizeAnalysis::getSubsets(std::size_t N, std::size_t K) const {
     if (cache.count({N, K})) {
         return cache.at({N, K});
     }
@@ -78,7 +78,7 @@ const analysis::PowerSet& UniqueKeysAnalysis::getSubsets(std::size_t N, std::siz
     return cache.at({N, K});
 }
 
-analysis::StratumUniqueKeys UniqueKeysAnalysis::computeRuleVersionStatements(const ast::RelationSet& scc,
+analysis::StratumJoinSize JoinSizeAnalysis::computeRuleVersionStatements(const RelationSet& scc,
         const ast::Clause& clause, std::optional<std::size_t> version, ast2ram::TranslationMode mode) {
     auto* prog = program;
     auto* poly = polyAnalysis;
@@ -105,7 +105,7 @@ analysis::StratumUniqueKeys UniqueKeysAnalysis::computeRuleVersionStatements(con
         fatal("unaccounted-for constant");
     };
 
-    analysis::StratumUniqueKeys statements;
+    analysis::StratumJoinSize statements;
 
     auto getClauseAtomName = [&sccAtoms, &version](const ast::Clause& clause, const ast::Atom* atom,
                                      bool isRecursive, ast2ram::TranslationMode mode) {
@@ -413,7 +413,7 @@ analysis::StratumUniqueKeys UniqueKeysAnalysis::computeRuleVersionStatements(con
                     }
                 }
 
-                // construct a CountUniqueKeys ram node
+                // construct a EstimateJoinSize ram node
                 bool isRecursive = recursiveInCurrentStratum.count(i) > 0;
                 auto relation = getClauseAtomName(clause, atom, isRecursive, mode);
                 auto& constantMap = atomToIdxConstants.at(i);
@@ -426,7 +426,7 @@ analysis::StratumUniqueKeys UniqueKeysAnalysis::computeRuleVersionStatements(con
                 ss << isRecursive;
 
                 if (seenNodes.count(ss.str()) == 0) {
-                    auto node = mk<souffle::ram::CountUniqueKeys>(
+                    auto node = mk<souffle::ram::EstimateJoinSize>(
                             relation, joinColumns, constantMap, isRecursive);
                     seenNodes.insert(ss.str());
 
@@ -440,7 +440,7 @@ analysis::StratumUniqueKeys UniqueKeysAnalysis::computeRuleVersionStatements(con
     return statements;
 }
 
-std::vector<analysis::StratumUniqueKeys> UniqueKeysAnalysis::computeUniqueKeyStatements() {
+std::vector<analysis::StratumJoinSize> JoinSizeAnalysis::computeJoinSizeStatements() {
     auto* prog = program;
     auto getSccAtoms = [prog](const ast::Clause* clause, const ast::RelationSet& scc) {
         const auto& sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(*clause),
@@ -450,17 +450,17 @@ std::vector<analysis::StratumUniqueKeys> UniqueKeysAnalysis::computeUniqueKeySta
 
     const auto& sccOrdering = topsortSCCGraphAnalysis->order();
 
-    std::vector<analysis::StratumUniqueKeys> uniqueKeyStatements;
-    uniqueKeyStatements.resize(sccOrdering.size());
+    std::vector<analysis::StratumJoinSize> joinSizeStatements;
+    joinSizeStatements.resize(sccOrdering.size());
 
     auto& config = Global::config();
     if (!config.has("index-stats")) {
-        return uniqueKeyStatements;
+        return joinSizeStatements;
     }
 
     // for each stratum (formed from scc ordering)
     for (std::size_t i = 0; i < sccOrdering.size(); i++) {
-        analysis::StratumUniqueKeys stratumNodes;
+        analysis::StratumJoinSize stratumNodes;
 
         auto scc = sccOrdering[i];
         const ast::RelationSet sccRelations = sccGraph->getInternalRelations(scc);
@@ -512,7 +512,7 @@ std::vector<analysis::StratumUniqueKeys> UniqueKeysAnalysis::computeUniqueKeySta
                 }
             }
         }
-        uniqueKeyStatements[scc] = std::move(stratumNodes);
+        joinSizeStatements[scc] = std::move(stratumNodes);
     }
 
     std::map<std::string, std::size_t> relationToCompletedStratum;
@@ -520,7 +520,7 @@ std::vector<analysis::StratumUniqueKeys> UniqueKeysAnalysis::computeUniqueKeySta
     // first step is to compute the earliest stratum that a non-recursive relation completes
     for (std::size_t i = 0; i < sccOrdering.size(); ++i) {
         auto scc = sccOrdering[i];
-        for (const auto& statement : uniqueKeyStatements[scc]) {
+        for (const auto& statement : joinSizeStatements[scc]) {
             const auto& rel = statement->getRelation();
 
             if (statement->isRecursiveRelation()) {
@@ -536,7 +536,7 @@ std::vector<analysis::StratumUniqueKeys> UniqueKeysAnalysis::computeUniqueKeySta
 
     for (std::size_t i = 0; i < sccOrdering.size(); ++i) {
         auto scc = sccOrdering[i];
-        for (auto& statement : uniqueKeyStatements[scc]) {
+        for (auto& statement : joinSizeStatements[scc]) {
             const auto& rel = statement->getRelation();
             if (statement->isRecursiveRelation()) {
                 continue;
@@ -547,34 +547,34 @@ std::vector<analysis::StratumUniqueKeys> UniqueKeysAnalysis::computeUniqueKeySta
             std::size_t newStratum = relationToCompletedStratum.at(rel);
 
             // move the node into the new stratum
-            uniqueKeyStatements[newStratum].push_back(std::move(statement));
+            joinSizeStatements[newStratum].push_back(std::move(statement));
         }
 
         // erase remove all nullptr from the vector since moved from unique_ptr are guaranteed to be nullptr
-        auto& v = uniqueKeyStatements[scc];
+        auto& v = joinSizeStatements[scc];
         v.erase(std::remove(v.begin(), v.end(), nullptr), v.end());
     }
-    return uniqueKeyStatements;
+    return joinSizeStatements;
 }
 
-void UniqueKeysAnalysis::run(const TranslationUnit& translationUnit) {
+void JoinSizeAnalysis::run(const TranslationUnit& translationUnit) {
     program = &translationUnit.getProgram();
     sccGraph = &translationUnit.getAnalysis<SCCGraphAnalysis>();
     topsortSCCGraphAnalysis = &translationUnit.getAnalysis<TopologicallySortedSCCGraphAnalysis>();
     recursiveClauses = &translationUnit.getAnalysis<RecursiveClausesAnalysis>();
     polyAnalysis = &translationUnit.getAnalysis<ast::analysis::PolymorphicObjectsAnalysis>();
-    uniqueKeyStatements = computeUniqueKeyStatements();
+    joinSizeStatements = computeJoinSizeStatements();
 }
 
-void UniqueKeysAnalysis::print(std::ostream& os) const {
-    os << "Begin UniqueKeyStatements\n";
-    for (std::size_t i = 0; i < uniqueKeyStatements.size(); ++i) {
+void JoinSizeAnalysis::print(std::ostream& os) const {
+    os << "Begin JoinSizeStatements\n";
+    for (std::size_t i = 0; i < joinSizeStatements.size(); ++i) {
         os << "Stratum: " << i << "\n";
-        for (auto& s : uniqueKeyStatements[i]) {
+        for (auto& s : joinSizeStatements[i]) {
             os << *s << "\n";
         }
     }
-    os << "End UniqueKeyStatements\n";
+    os << "End JoinSizeStatements\n";
 }
 
 }  // namespace souffle::ast::analysis

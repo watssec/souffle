@@ -177,9 +177,9 @@ Own<ram::Statement> UnitTranslator::generateStratum(std::size_t scc) const {
     }
 
     // Get all non-recursive relation statements
-    auto nonRecursiveUniqueKeyStatements = context->getNonRecursiveUniqueKeyStatementsInSCC(scc);
-    auto uniqueKeySequence = mk<ram::Sequence>(std::move(nonRecursiveUniqueKeyStatements));
-    appendStmt(current, std::move(uniqueKeySequence));
+    auto nonRecursiveJoinSizeStatements = context->getNonRecursiveJoinSizeStatementsInSCC(scc);
+    auto joinSizeSequence = mk<ram::Sequence>(std::move(nonRecursiveJoinSizeStatements));
+    appendStmt(current, std::move(joinSizeSequence));
 
     // Store all internal output relations to the output dir with a .csv extension
     for (const auto& relation : context->getOutputRelationsInSCC(scc)) {
@@ -566,14 +566,14 @@ Own<ram::Statement> UnitTranslator::generateRecursiveStratum(
     appendStmt(result, generateStratumPreamble(scc));
 
     // Get all recursive relation statements
-    auto recursiveUniqueKeyStatements = context->getRecursiveUniqueKeyStatementsInSCC(sccNumber);
-    auto uniqueKeySequence = mk<ram::Sequence>(std::move(recursiveUniqueKeyStatements));
+    auto recursiveJoinSizeStatements = context->getRecursiveJoinSizeStatementsInSCC(sccNumber);
+    auto joinSizeSequence = mk<ram::Sequence>(std::move(recursiveJoinSizeStatements));
 
     // Add in the main fixpoint loop
     auto loopBody = generateStratumLoopBody(scc);
     auto exitSequence = generateStratumExitSequence(scc);
     auto updateSequence = generateStratumTableUpdates(scc);
-    auto fixpointLoop = mk<ram::Loop>(mk<ram::Sequence>(std::move(loopBody), std::move(uniqueKeySequence),
+    auto fixpointLoop = mk<ram::Loop>(mk<ram::Sequence>(std::move(loopBody), std::move(joinSizeSequence),
             std::move(exitSequence), std::move(updateSequence)));
     appendStmt(result, std::move(fixpointLoop));
 

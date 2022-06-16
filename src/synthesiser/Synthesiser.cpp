@@ -794,21 +794,21 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             PRINT_END_COMMENT(out);
         }
 
-        void visit_(
-                type_identity<CountUniqueKeys>, const CountUniqueKeys& count, std::ostream& out) override {
-            const auto* rel = synthesiser.lookup(count.getRelation());
+        void visit_(type_identity<EstimateJoinSize>, const EstimateJoinSize& estimateJoinSize,
+                std::ostream& out) override {
+            const auto* rel = synthesiser.lookup(estimateJoinSize.getRelation());
             auto relName = synthesiser.getRelationName(rel);
-            auto keys = isa->getSearchSignature(&count);
+            auto keys = isa->getSearchSignature(&estimateJoinSize);
 
             std::size_t indexNumber = 0;
             if (!keys.empty()) {
-                indexNumber = isa->getIndexSelection(count.getRelation()).getLexOrderNum(keys);
+                indexNumber = isa->getIndexSelection(estimateJoinSize.getRelation()).getLexOrderNum(keys);
             }
             auto indexName = relName + "->ind_" + std::to_string(indexNumber);
 
             bool onlyConstants = true;
-            for (auto col : count.getKeyColumns()) {
-                if (count.getConstantsMap().count(col) == 0) {
+            for (auto col : estimateJoinSize.getKeyColumns()) {
+                if (estimateJoinSize.getConstantsMap().count(col) == 0) {
                     onlyConstants = false;
                     break;
                 }
@@ -816,7 +816,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
             // create a copy of the map to the real numeric constants
             std::map<std::size_t, RamDomain> keyConstants;
-            for (auto [k, constant] : count.getConstantsMap()) {
+            for (auto [k, constant] : estimateJoinSize.getConstantsMap()) {
                 RamDomain value;
                 if (const auto* signedConstant = as<ram::SignedConstant>(constant)) {
                     value = ramBitCast<RamDomain>(signedConstant->getValue());
@@ -834,13 +834,13 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 keyConstants[k] = value;
             }
             std::stringstream columnsStream;
-            columnsStream << count.getKeyColumns();
+            columnsStream << estimateJoinSize.getKeyColumns();
             std::string columns = columnsStream.str();
 
             std::stringstream constantsStream;
             constantsStream << "[";
             bool first = true;
-            for (auto& [k, constant] : count.getConstantsMap()) {
+            for (auto& [k, constant] : estimateJoinSize.getConstantsMap()) {
                 if (first) {
                     first = false;
                 } else {
@@ -852,17 +852,18 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             std::string constants = stringify(constantsStream.str());
 
             std::string profilerText =
-                    (count.isRecursiveRelation()
-                                    ? stringify("@recursive-count-unique-keys;" + count.getRelation() + ";" +
-                                                columns + ";" + constants)
-                                    : stringify("@non-recursive-count-unique-keys;" + count.getRelation() +
-                                                ";" + columns + ";" + constants));
+                    (estimateJoinSize.isRecursiveRelation() ? stringify("@recursive-estimate-join-size;" +
+                                                                        estimateJoinSize.getRelation() + ";" +
+                                                                        columns + ";" + constants)
+                                                            : stringify("@non-recursive-estimate-join-size;" +
+                                                                        estimateJoinSize.getRelation() + ";" +
+                                                                        columns + ";" + constants));
 
             PRINT_BEGIN_COMMENT(out);
             auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
             out << "{\n";
-            out << "std::size_t total = 0;\n";
-            out << "std::size_t duplicates = 0;\n";
+            out << "double total = 0;\n";
+            out << "double duplicates = 0;\n";
 
             out << "if (!" << indexName << ".empty()) {\n";
             out << "bool first = true;\n";
@@ -882,7 +883,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "if (first) { first = false; }\n";
             out << "else {\n";
             out << "    bool matchesPrev = true;\n";
-            for (auto k : count.getKeyColumns()) {
+            for (auto k : estimateJoinSize.getKeyColumns()) {
                 if (rel->getArity() > 6) {
                     out << "matchesPrev &= (tup[0][" << k << "] == prev[0][" << k << "]);\n";
                 } else {
@@ -895,13 +896,14 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "\n";
             out << "}\n";
             out << "}\n";
-            out << "std::size_t uniqueKeys = (" << (onlyConstants ? "total" : "total - duplicates") << ");\n";
-            if (count.isRecursiveRelation()) {
+            out << "double joinSize = ("
+                << (onlyConstants ? "total" : "total / std::max(1.0, (total - duplicates))") << ");\n";
+            if (estimateJoinSize.isRecursiveRelation()) {
                 out << "ProfileEventSingleton::instance().makeRecursiveCountEvent(\"" << profilerText
-                    << "\", uniqueKeys, iter);\n";
+                    << "\", joinSize, iter);\n";
             } else {
                 out << "ProfileEventSingleton::instance().makeNonRecursiveCountEvent(\"" << profilerText
-                    << "\", uniqueKeys);\n";
+                    << "\", joinSize);\n";
             }
             out << "}\n";
             PRINT_END_COMMENT(out);

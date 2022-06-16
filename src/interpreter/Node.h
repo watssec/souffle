@@ -104,7 +104,7 @@ struct RelationWrapper;
     Forward(LogTimer)\
     Forward(DebugInfo)\
     FOR_EACH(Expand, Clear)\
-    FOR_EACH(Expand, CountUniqueKeys)\
+    FOR_EACH(Expand, EstimateJoinSize)\
     Forward(LogSize)\
     Forward(IO)\
     Forward(Query)\
@@ -879,11 +879,11 @@ public:
 };
 
 /**
- * @class CountUniqueKeys
+ * @class EstimateJoinSize
  */
-class CountUniqueKeys : public Node, public RelationalOperation, public ViewOperation {
+class EstimateJoinSize : public Node, public RelationalOperation, public ViewOperation {
 public:
-    CountUniqueKeys(enum NodeType ty, const ram::Node* sdw, RelationHandle* handle, std::size_t viewId)
+    EstimateJoinSize(enum NodeType ty, const ram::Node* sdw, RelationHandle* handle, std::size_t viewId)
             : Node(ty, sdw), RelationalOperation(handle), ViewOperation(viewId) {}
 };
 
