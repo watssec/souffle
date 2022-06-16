@@ -69,10 +69,10 @@ public:
     }
 
 private:
-    std::set<const Relation*> inputRelations;
-    std::set<const Relation*> outputRelations;
-    std::set<const Relation*> printSizeRelations;
-    std::set<const Relation*> limitSizeRelations;
+    RelationSet inputRelations;
+    RelationSet outputRelations;
+    RelationSet printSizeRelations;
+    RelationSet limitSizeRelations;
     std::map<const Relation*, std::size_t> limitSize;
 };
 

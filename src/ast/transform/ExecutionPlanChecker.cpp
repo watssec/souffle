@@ -43,7 +43,7 @@ bool ExecutionPlanChecker::transform(TranslationUnit& translationUnit) {
 
     Program& program = translationUnit.getProgram();
     for (const analysis::RelationScheduleAnalysisStep& step : relationSchedule.schedule()) {
-        const std::set<const Relation*>& scc = step.computed();
+        const RelationSet& scc = step.computed();
         for (const Relation* rel : scc) {
             for (auto&& clause : program.getClauses(*rel)) {
                 if (!recursiveClauses.recursive(clause)) {

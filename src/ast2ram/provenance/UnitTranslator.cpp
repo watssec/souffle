@@ -149,7 +149,7 @@ void UnitTranslator::addAuxiliaryArity(
 }
 
 Own<ram::Statement> UnitTranslator::generateClearExpiredRelations(
-        const std::set<const ast::Relation*>& /* expiredRelations */) const {
+        const ast::RelationSet& /* expiredRelations */) const {
     // Relations should be preserved if provenance is enabled
     return mk<ram::Sequence>();
 }
@@ -304,11 +304,11 @@ Own<ram::Sequence> UnitTranslator::generateInfoClauses(const ast::Program* progr
         infoClause = mk<ram::DebugInfo>(std::move(infoClause), ds.str());
 
         // Add the subroutine to the program
-        std::string stratumID = "stratum_" + toString(stratumCount++);
+        std::string stratumID = toString(stratumCount++);
         addRamSubroutine(stratumID, std::move(infoClause));
 
         // Push up the subroutine call
-        infoClauseCalls.push_back(mk<ram::Call>(stratumID));
+        infoClauseCalls.push_back(mk<ram::Call>("stratum_" + stratumID));
     }
 
     return mk<ram::Sequence>(std::move(infoClauseCalls));

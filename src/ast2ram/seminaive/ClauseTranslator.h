@@ -57,7 +57,7 @@ public:
     /** Entry points */
     Own<ram::Statement> translateNonRecursiveClause(const ast::Clause& clause);
     Own<ram::Statement> translateRecursiveClause(
-            const ast::Clause& clause, const std::set<const ast::Relation*>& scc, std::size_t version);
+            const ast::Clause& clause, const ast::RelationSet& scc, std::size_t version);
 
 protected:
     std::size_t version{0};

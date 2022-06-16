@@ -166,7 +166,7 @@ private:
     const bool profileEnabled;
     const bool frequencyCounterEnabled;
     /** subroutines */
-    VecOwn<Node> subroutine;
+    std::map<std::string /*name*/, Own<Node>> subroutine;
     /** main program */
     Own<Node> main;
     /** Number of threads enabled for this program */

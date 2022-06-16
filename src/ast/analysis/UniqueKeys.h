@@ -69,7 +69,7 @@ private:
 
     // for each stratum compute the CountUniqueKeys nodes to emit
     std::vector<StratumUniqueKeys> computeUniqueKeyStatements();
-    StratumUniqueKeys computeRuleVersionStatements(const std::set<const ast::Relation*>& sccRelations,
+    StratumUniqueKeys computeRuleVersionStatements(const ast::RelationSet& sccRelations,
             const ast::Clause& clause, std::optional<std::size_t> version,
             ast2ram::TranslationMode mode = ast2ram::TranslationMode::DEFAULT);
     const PowerSet& getSubsets(std::size_t N, std::size_t K) const;

@@ -132,15 +132,15 @@ std::size_t TranslatorContext::getSizeLimit(const ast::Relation* relation) const
     return ioType->getLimitSize(relation);
 }
 
-std::set<const ast::Relation*> TranslatorContext::getRelationsInSCC(std::size_t scc) const {
+ast::RelationSet TranslatorContext::getRelationsInSCC(std::size_t scc) const {
     return sccGraph->getInternalRelations(scc);
 }
 
-std::set<const ast::Relation*> TranslatorContext::getInputRelationsInSCC(std::size_t scc) const {
+ast::RelationSet TranslatorContext::getInputRelationsInSCC(std::size_t scc) const {
     return sccGraph->getInternalInputRelations(scc);
 }
 
-std::set<const ast::Relation*> TranslatorContext::getOutputRelationsInSCC(std::size_t scc) const {
+ast::RelationSet TranslatorContext::getOutputRelationsInSCC(std::size_t scc) const {
     return sccGraph->getInternalOutputRelations(scc);
 }
 
@@ -164,7 +164,7 @@ VecOwn<ram::Statement> TranslatorContext::getNonRecursiveUniqueKeyStatementsInSC
     return res;
 }
 
-std::set<const ast::Relation*> TranslatorContext::getExpiredRelations(std::size_t scc) const {
+ast::RelationSet TranslatorContext::getExpiredRelations(std::size_t scc) const {
     return relationSchedule->schedule().at(scc).expired();
 }
 
@@ -241,7 +241,7 @@ Own<ram::Statement> TranslatorContext::translateNonRecursiveClause(
 }
 
 Own<ram::Statement> TranslatorContext::translateRecursiveClause(const ast::Clause& clause,
-        const std::set<const ast::Relation*>& scc, std::size_t version, TranslationMode mode) const {
+        const ast::RelationSet& scc, std::size_t version, TranslationMode mode) const {
     auto clauseTranslator = Own<ClauseTranslator>(translationStrategy->createClauseTranslator(*this, mode));
     return clauseTranslator->translateRecursiveClause(clause, scc, version);
 }

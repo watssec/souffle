@@ -78,9 +78,8 @@ const analysis::PowerSet& UniqueKeysAnalysis::getSubsets(std::size_t N, std::siz
     return cache.at({N, K});
 }
 
-analysis::StratumUniqueKeys UniqueKeysAnalysis::computeRuleVersionStatements(
-        const std::set<const ast::Relation*>& scc, const ast::Clause& clause,
-        std::optional<std::size_t> version, ast2ram::TranslationMode mode) {
+analysis::StratumUniqueKeys UniqueKeysAnalysis::computeRuleVersionStatements(const ast::RelationSet& scc,
+        const ast::Clause& clause, std::optional<std::size_t> version, ast2ram::TranslationMode mode) {
     auto* prog = program;
     auto* poly = polyAnalysis;
     auto sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(clause),
@@ -443,7 +442,7 @@ analysis::StratumUniqueKeys UniqueKeysAnalysis::computeRuleVersionStatements(
 
 std::vector<analysis::StratumUniqueKeys> UniqueKeysAnalysis::computeUniqueKeyStatements() {
     auto* prog = program;
-    auto getSccAtoms = [prog](const ast::Clause* clause, const std::set<const ast::Relation*>& scc) {
+    auto getSccAtoms = [prog](const ast::Clause* clause, const ast::RelationSet& scc) {
         const auto& sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(*clause),
                 [&](const ast::Atom* atom) { return contains(scc, prog->getRelation(*atom)); });
         return sccAtoms;
@@ -464,7 +463,7 @@ std::vector<analysis::StratumUniqueKeys> UniqueKeysAnalysis::computeUniqueKeySta
         analysis::StratumUniqueKeys stratumNodes;
 
         auto scc = sccOrdering[i];
-        const std::set<const ast::Relation*> sccRelations = sccGraph->getInternalRelations(scc);
+        const ast::RelationSet sccRelations = sccGraph->getInternalRelations(scc);
         for (auto* rel : sccRelations) {
             // Translate each recursive clasue
             for (auto&& clause : program->getClauses(*rel)) {
