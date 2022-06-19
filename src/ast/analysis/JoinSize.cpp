@@ -107,57 +107,9 @@ analysis::StratumJoinSize JoinSizeAnalysis::computeRuleVersionStatements(const R
 
     analysis::StratumJoinSize statements;
 
-    auto getClauseAtomName = [&sccAtoms, &version](const ast::Clause& clause, const ast::Atom* atom,
-                                     bool isRecursive, ast2ram::TranslationMode mode) {
-        using namespace souffle::ast2ram;
-
-        if (isA<ast::SubsumptiveClause>(clause)) {
-            // find the dominated / dominating heads
-            const auto& body = clause.getBodyLiterals();
-            auto dominatedHeadAtom = dynamic_cast<const ast::Atom*>(body[0]);
-            auto dominatingHeadAtom = dynamic_cast<const ast::Atom*>(body[1]);
-
-            if (clause.getHead() == atom) {
-                if (mode == SubsumeDeleteCurrentDelta || mode == SubsumeDeleteCurrentCurrent) {
-                    return getDeleteRelationName(atom->getQualifiedName());
-                }
-                return getRejectRelationName(atom->getQualifiedName());
-            }
-
-            if (dominatedHeadAtom == atom) {
-                if (mode == SubsumeDeleteCurrentDelta || mode == SubsumeDeleteCurrentCurrent) {
-                    return getConcreteRelationName(atom->getQualifiedName());
-                }
-                return getNewRelationName(atom->getQualifiedName());
-            }
-
-            if (dominatingHeadAtom == atom) {
-                switch (mode) {
-                    case SubsumeRejectNewCurrent:
-                    case SubsumeDeleteCurrentCurrent:
-                        return getConcreteRelationName(atom->getQualifiedName());
-                    case SubsumeDeleteCurrentDelta: return getDeltaRelationName(atom->getQualifiedName());
-                    default: return getNewRelationName(atom->getQualifiedName());
-                }
-            }
-
-            if (isRecursive) {
-                if (sccAtoms.at(*version + 1) == atom) {
-                    return getDeltaRelationName(atom->getQualifiedName());
-                }
-            }
-        }
-
-        if (!isRecursive) {
-            return getConcreteRelationName(atom->getQualifiedName());
-        }
-        if (clause.getHead() == atom) {
-            return getNewRelationName(atom->getQualifiedName());
-        }
-        if (sccAtoms.at(*version) == atom) {
-            return getDeltaRelationName(atom->getQualifiedName());
-        }
-        return getConcreteRelationName(atom->getQualifiedName());
+    auto getClauseAtomName = [&sccAtoms, &version, mode](
+                                     const ast::Clause& clause, const ast::Atom* atom, bool isRecursive) {
+        return getAtomName(clause, atom, sccAtoms, version ? *version : 0, isRecursive, mode);
     };
 
     using AtomIdx = std::size_t;
@@ -274,7 +226,7 @@ analysis::StratumJoinSize JoinSizeAnalysis::computeRuleVersionStatements(const R
     AtomIdx atomIdx = 0;
     for (auto* atom : atoms) {
         bool isRecursive = recursiveInCurrentStratum.count(atomIdx) > 0;
-        std::string name = getClauseAtomName(clause, atom, isRecursive, mode);
+        std::string name = getClauseAtomName(clause, atom, isRecursive);
         std::map<ArgIdx, const ram::Expression*> idxConstant;
 
         ArgIdx varIdx = 0;
@@ -415,7 +367,7 @@ analysis::StratumJoinSize JoinSizeAnalysis::computeRuleVersionStatements(const R
 
                 // construct a EstimateJoinSize ram node
                 bool isRecursive = recursiveInCurrentStratum.count(i) > 0;
-                auto relation = getClauseAtomName(clause, atom, isRecursive, mode);
+                auto relation = getClauseAtomName(clause, atom, isRecursive);
                 auto& constantMap = atomToIdxConstants.at(i);
 
                 std::stringstream ss;
