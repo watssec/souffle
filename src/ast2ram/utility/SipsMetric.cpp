@@ -14,7 +14,7 @@
  *
  ***********************************************************************/
 
-#include "ast/utility/SipsMetric.h"
+#include "ast2ram/utility/SipsMetric.h"
 #include "Global.h"
 #include "ast/Clause.h"
 #include "ast/TranslationUnit.h"
