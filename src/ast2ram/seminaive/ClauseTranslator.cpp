@@ -706,7 +706,12 @@ std::vector<ast::Atom*> ClauseTranslator::getAtomOrdering(const ast::Clause& cla
         }
     }
 
-    auto newOrder = context.getSipsMetric()->getReordering(&clause, version, mode);
+    std::vector<std::string> atomNames;
+    for (auto* atom : atoms) 
+    {
+        atomNames.push_back(getClauseAtomName(clause, atom));
+    }
+    auto newOrder = context.getSipsMetric()->getReordering(&clause, atomNames);
     return reorderAtoms(atoms, newOrder);
 }
 

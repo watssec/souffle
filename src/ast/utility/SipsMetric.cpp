@@ -45,7 +45,7 @@ SipsMetric::SipsMetric(const TranslationUnit& tu) : program(tu.getProgram()) {
 }
 
 std::vector<std::size_t> StaticSipsMetric::getReordering(
-        const Clause* clause, std::size_t version, ast2ram::TranslationMode mode) const {
+        const Clause* clause, const std::vector<std::string>& atomNames) const {
     std::size_t relStratum = sccGraph->getSCC(program.getRelation(*clause));
     auto sccRelations = sccGraph->getInternalRelations(relStratum);
 
@@ -59,7 +59,7 @@ std::vector<std::size_t> StaticSipsMetric::getReordering(
     std::size_t numAdded = 0;
     while (numAdded < atoms.size()) {
         // grab the index of the next atom, based on the SIPS function
-        const auto& costs = evaluateCosts(clause, sccAtoms, atoms, bindingStore, version, mode);
+        const auto& costs = evaluateCosts(atoms, bindingStore, atomNames);
         assert(atoms.size() == costs.size() && "each atom should have exactly one cost");
         std::size_t minIdx = static_cast<std::size_t>(
                 std::distance(costs.begin(), std::min_element(costs.begin(), costs.end())));
@@ -87,7 +87,7 @@ SelingerProfileSipsMetric::SelingerProfileSipsMetric(const TranslationUnit& tu) 
 }
 
 std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
-        const Clause* clause, std::size_t version, ast2ram::TranslationMode mode) const {
+        const Clause* clause, const std::vector<std::string>& atomNames) const {
     auto atoms = ast::getBodyLiterals<ast::Atom>(*clause);
 
     // remember to exit for single atom bodies
@@ -251,8 +251,7 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
 
     std::size_t iterations = 1;
     for (std::size_t i = 0; i < atoms.size(); ++i) {
-        auto* atom = atoms[i];
-        std::string name = getClauseAtomName(*clause, atom, sccAtoms, version, mode);
+        std::string name = atomNames[i];
         bool isRecursive = recursiveInCurrentStratum.count(i) > 0;
         if (isRecursive) {
             iterations = prof->getIterations(name);
@@ -262,7 +261,7 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
 
     AtomIdx atomIdx = 0;
     for (auto* atom : atoms) {
-        std::string name = getClauseAtomName(*clause, atom, sccAtoms, version, mode);
+        std::string name = atomNames[atomIdx];
         std::map<ArgIdx, std::string> idxConstant;
 
         ArgIdx varIdx = 0;
@@ -383,8 +382,7 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
                         expectedTuples = 1;
                     } else {
                         // get the join size from the profile
-                        expectedTuples = getJoinSize(isRecursive,
-                                getClauseAtomName(*clause, atom, sccAtoms, version, mode), joinColumns,
+                        expectedTuples = getJoinSize(isRecursive, atomNames[atomIdx], joinColumns,
                                 atomToIdxConstants[atomIdx], std::to_string(iter));
                     }
 
@@ -452,60 +450,6 @@ Own<ram::Expression> SelingerProfileSipsMetric::translateConstant(const ast::Con
     fatal("unaccounted-for constant");
 }
 
-std::string SipsMetric::getClauseAtomName(const ast::Clause& clause, const ast::Atom* atom,
-        const std::vector<ast::Atom*>& sccAtoms, std::size_t version, ast2ram::TranslationMode mode) const {
-    using namespace souffle::ast2ram;
-
-    bool isRecursive = !sccAtoms.empty();
-
-    if (isA<ast::SubsumptiveClause>(clause)) {
-        // find the dominated / dominating heads
-        const auto& body = clause.getBodyLiterals();
-        auto dominatedHeadAtom = dynamic_cast<const ast::Atom*>(body[0]);
-        auto dominatingHeadAtom = dynamic_cast<const ast::Atom*>(body[1]);
-
-        if (clause.getHead() == atom) {
-            if (mode == SubsumeDeleteCurrentDelta || mode == SubsumeDeleteCurrentCurrent) {
-                return getDeleteRelationName(atom->getQualifiedName());
-            }
-            return getRejectRelationName(atom->getQualifiedName());
-        }
-
-        if (dominatedHeadAtom == atom) {
-            if (mode == SubsumeDeleteCurrentDelta || mode == SubsumeDeleteCurrentCurrent) {
-                return getConcreteRelationName(atom->getQualifiedName());
-            }
-            return getNewRelationName(atom->getQualifiedName());
-        }
-
-        if (dominatingHeadAtom == atom) {
-            switch (mode) {
-                case SubsumeRejectNewCurrent:
-                case SubsumeDeleteCurrentCurrent: return getConcreteRelationName(atom->getQualifiedName());
-                case SubsumeDeleteCurrentDelta: return getDeltaRelationName(atom->getQualifiedName());
-                default: return getNewRelationName(atom->getQualifiedName());
-            }
-        }
-
-        if (isRecursive) {
-            if (sccAtoms.at(version + 1) == atom) {
-                return getDeltaRelationName(atom->getQualifiedName());
-            }
-        }
-    }
-
-    if (!isRecursive) {
-        return getConcreteRelationName(atom->getQualifiedName());
-    }
-    if (clause.getHead() == atom) {
-        return getNewRelationName(atom->getQualifiedName());
-    }
-    if (sccAtoms.at(version) == atom) {
-        return getDeltaRelationName(atom->getQualifiedName());
-    }
-    return getConcreteRelationName(atom->getQualifiedName());
-}
-
 const ast::PowerSet& SelingerProfileSipsMetric::getSubsets(std::size_t N, std::size_t K) const {
     if (cache.count({N, K})) {
         return cache.at({N, K});
@@ -566,10 +510,8 @@ std::unique_ptr<SipsMetric> SipsMetric::create(const std::string& heuristic, con
     return create("all-bound", tu);
 }
 
-std::vector<double> StrictSips::evaluateCosts(const Clause* /*clause*/,
-        const std::vector<ast::Atom*>& /*sccAtoms*/, const std::vector<Atom*> atoms,
-        const BindingStore& /* bindingStore */, std::size_t /*version*/,
-        ast2ram::TranslationMode /*mode*/) const {
+std::vector<double> StrictSips::evaluateCosts(const std::vector<Atom*> atoms,
+        const BindingStore& /* bindingStore */, const std::vector<std::string>& /*atomNames*/) const {
     // Goal: Always choose the left-most atom
     std::vector<double> cost;
     for (const auto* atom : atoms) {
@@ -579,9 +521,8 @@ std::vector<double> StrictSips::evaluateCosts(const Clause* /*clause*/,
     return cost;
 }
 
-std::vector<double> AllBoundSips::evaluateCosts(const Clause* /*clause*/,
-        const std::vector<ast::Atom*>& /*sccAtoms*/, const std::vector<Atom*> atoms,
-        const BindingStore& bindingStore, std::size_t /*version*/, ast2ram::TranslationMode /*mode*/) const {
+std::vector<double> AllBoundSips::evaluateCosts(const std::vector<Atom*> atoms,
+        const BindingStore& bindingStore, const std::vector<std::string>& /*atomNames*/) const {
     // Goal: Prioritise atoms with all arguments bound
     std::vector<double> cost;
     for (const auto* atom : atoms) {
@@ -598,9 +539,8 @@ std::vector<double> AllBoundSips::evaluateCosts(const Clause* /*clause*/,
     return cost;
 }
 
-std::vector<double> NaiveSips::evaluateCosts(const Clause* /*clause*/,
-        const std::vector<ast::Atom*>& /*sccAtoms*/, const std::vector<Atom*> atoms,
-        const BindingStore& bindingStore, std::size_t /*version*/, ast2ram::TranslationMode /*mode*/) const {
+std::vector<double> NaiveSips::evaluateCosts(const std::vector<Atom*> atoms, const BindingStore& bindingStore,
+        const std::vector<std::string>& /*atomNames*/) const {
     // Goal: Prioritise (1) all bound, then (2) atoms with at least one bound argument, then (3) left-most
     std::vector<double> cost;
     for (const auto* atom : atoms) {
@@ -623,9 +563,8 @@ std::vector<double> NaiveSips::evaluateCosts(const Clause* /*clause*/,
     return cost;
 }
 
-std::vector<double> MaxBoundSips::evaluateCosts(const Clause* /*clause*/,
-        const std::vector<ast::Atom*>& /*sccAtoms*/, const std::vector<Atom*> atoms,
-        const BindingStore& bindingStore, std::size_t /*version*/, ast2ram::TranslationMode /*mode*/) const {
+std::vector<double> MaxBoundSips::evaluateCosts(const std::vector<Atom*> atoms,
+        const BindingStore& bindingStore, const std::vector<std::string>& /*atomNames*/) const {
     // Goal: prioritise (1) all-bound, then (2) max number of bound vars, then (3) left-most
     std::vector<double> cost;
     for (const auto* atom : atoms) {
@@ -651,9 +590,8 @@ std::vector<double> MaxBoundSips::evaluateCosts(const Clause* /*clause*/,
     return cost;
 }
 
-std::vector<double> MaxRatioSips::evaluateCosts(const Clause* /*clause*/,
-        const std::vector<ast::Atom*>& /*sccAtoms*/, const std::vector<Atom*> atoms,
-        const BindingStore& bindingStore, std::size_t /*version*/, ast2ram::TranslationMode /*mode*/) const {
+std::vector<double> MaxRatioSips::evaluateCosts(const std::vector<Atom*> atoms,
+        const BindingStore& bindingStore, const std::vector<std::string>& /*atomNames*/) const {
     // Goal: prioritise max ratio of bound args
     std::vector<double> cost;
     for (const auto* atom : atoms) {
@@ -679,9 +617,8 @@ std::vector<double> MaxRatioSips::evaluateCosts(const Clause* /*clause*/,
     return cost;
 }
 
-std::vector<double> LeastFreeSips::evaluateCosts(const Clause* /*clause*/,
-        const std::vector<ast::Atom*>& /*sccAtoms*/, const std::vector<Atom*> atoms,
-        const BindingStore& bindingStore, std::size_t /*version*/, ast2ram::TranslationMode /*mode*/) const {
+std::vector<double> LeastFreeSips::evaluateCosts(const std::vector<Atom*> atoms,
+        const BindingStore& bindingStore, const std::vector<std::string>& /*atomNames*/) const {
     // Goal: choose the atom with the least number of unbound arguments
     std::vector<double> cost;
     for (const auto* atom : atoms) {
@@ -695,9 +632,8 @@ std::vector<double> LeastFreeSips::evaluateCosts(const Clause* /*clause*/,
     return cost;
 }
 
-std::vector<double> LeastFreeVarsSips::evaluateCosts(const Clause* /*clause*/,
-        const std::vector<ast::Atom*>& /*sccAtoms*/, const std::vector<Atom*> atoms,
-        const BindingStore& bindingStore, std::size_t /*version*/, ast2ram::TranslationMode /*mode*/) const {
+std::vector<double> LeastFreeVarsSips::evaluateCosts(const std::vector<Atom*> atoms,
+        const BindingStore& bindingStore, const std::vector<std::string>& /*atomNames*/) const {
     // Goal: choose the atom with the least amount of unbound variables
     std::vector<double> cost;
     for (const auto* atom : atoms) {
@@ -721,9 +657,8 @@ std::vector<double> LeastFreeVarsSips::evaluateCosts(const Clause* /*clause*/,
 InputSips::InputSips(const TranslationUnit& tu)
         : StaticSipsMetric(tu), ioTypes(tu.getAnalysis<analysis::IOTypeAnalysis>()) {}
 
-std::vector<double> InputSips::evaluateCosts(const Clause* /*clause*/,
-        const std::vector<ast::Atom*>& /*sccAtoms*/, const std::vector<Atom*> atoms,
-        const BindingStore& bindingStore, std::size_t /*version*/, ast2ram::TranslationMode /*mode*/) const {
+std::vector<double> InputSips::evaluateCosts(const std::vector<Atom*> atoms, const BindingStore& bindingStore,
+        const std::vector<std::string>& /*atomNames*/) const {
     // Goal: prioritise (1) all-bound, (2) input, then (3) rest
     std::vector<double> cost;
     for (const auto* atom : atoms) {
@@ -748,16 +683,11 @@ std::vector<double> InputSips::evaluateCosts(const Clause* /*clause*/,
     return cost;
 }
 
-std::vector<double> DeltaMaxBoundSips::evaluateCosts(const Clause* clause,
-        const std::vector<ast::Atom*>& sccAtoms, const std::vector<Atom*> atoms,
-        const BindingStore& bindingStore, std::size_t version, ast2ram::TranslationMode mode) const {
-    auto isDeltaRelation = [&](const Atom* atom) {
-        std::string name = getClauseAtomName(*clause, atom, sccAtoms, version, mode);
-        return isPrefix("@delta_", name);
-    };
-
+std::vector<double> DeltaMaxBoundSips::evaluateCosts(const std::vector<Atom*> atoms,
+        const BindingStore& bindingStore, const std::vector<std::string>& atomNames) const {
     std::vector<double> cost;
-    for (const auto* atom : atoms) {
+    for (std::size_t i = 0; i < atoms.size(); ++i) {
+        const auto* atom = atoms[i];
         if (atom == nullptr) {
             cost.push_back(std::numeric_limits<double>::max());
             continue;
@@ -768,7 +698,7 @@ std::vector<double> DeltaMaxBoundSips::evaluateCosts(const Clause* clause,
         if (arity == numBound) {
             // Always better than anything else
             cost.push_back(0.0);
-        } else if (isDeltaRelation(atom)) {
+        } else if (isPrefix("@delta_", atomNames[i])) {
             // Better than any other atom that is not fully bounded
             cost.push_back(1.0);
         } else if (numBound == 0) {
