@@ -61,14 +61,10 @@ public:
      * @return the vector of new positions; v[i] = j iff atom j moves to pos i
      */
     virtual std::vector<std::size_t> getReordering(
-            const Clause* clause, std::size_t version, ast2ram::TranslationMode mode) const = 0;
+            const Clause* clause, const std::vector<std::string>& atomNames) const = 0;
 
     /** Create a SIPS metric based on a given heuristic. */
     static std::unique_ptr<SipsMetric> create(const std::string& heuristic, const TranslationUnit& tu);
-
-    std::string getClauseAtomName(const ast::Clause& clause, const ast::Atom* atom,
-            const std::vector<ast::Atom*>& sccAtoms, std::size_t version,
-            ast2ram::TranslationMode mode) const;
 
 protected:
     const ast::Program& program;
@@ -79,7 +75,7 @@ class SelingerProfileSipsMetric : public SipsMetric {
 public:
     SelingerProfileSipsMetric(const TranslationUnit& tu);
     std::vector<std::size_t> getReordering(
-            const Clause* clause, std::size_t version, ast2ram::TranslationMode mode) const override;
+            const Clause* clause, const std::vector<std::string>& atomNames) const override;
 
 private:
     /* helper struct for Selinger */
@@ -103,7 +99,7 @@ public:
     StaticSipsMetric(const TranslationUnit& tu) : SipsMetric(tu) {}
 
     std::vector<std::size_t> getReordering(
-            const Clause* clause, std::size_t version, ast2ram::TranslationMode mode) const override;
+            const Clause* clause, const std::vector<std::string>& atomNames) const override;
 
 protected:
     /**
@@ -111,9 +107,8 @@ protected:
      * @param atoms atoms to choose from; may be nullptr
      * @param bindingStore the variables already bound to a value
      */
-    virtual std::vector<double> evaluateCosts(const Clause* clause, const std::vector<ast::Atom*>& sccAtoms,
-            const std::vector<Atom*> atoms, const BindingStore& bindingStore, std::size_t version,
-            ast2ram::TranslationMode mode) const = 0;
+    virtual std::vector<double> evaluateCosts(const std::vector<Atom*> atoms,
+            const BindingStore& bindingStore, const std::vector<std::string>& atomNames) const = 0;
 };
 
 /** Goal: Always choose the left-most atom */
@@ -122,9 +117,8 @@ public:
     StrictSips(const TranslationUnit& tu) : StaticSipsMetric(tu) {}
 
 protected:
-    std::vector<double> evaluateCosts(const Clause* clause, const std::vector<ast::Atom*>& sccAtoms,
-            const std::vector<Atom*> atoms, const BindingStore& bindingStore, std::size_t version,
-            ast2ram::TranslationMode mode) const override;
+    std::vector<double> evaluateCosts(const std::vector<Atom*> atoms, const BindingStore& bindingStore,
+            const std::vector<std::string>& atomNames) const override;
 };
 
 /** Goal: Prioritise atoms with all arguments bound */
@@ -133,9 +127,8 @@ public:
     AllBoundSips(const TranslationUnit& tu) : StaticSipsMetric(tu) {}
 
 protected:
-    std::vector<double> evaluateCosts(const Clause* clause, const std::vector<ast::Atom*>& sccAtoms,
-            const std::vector<Atom*> atoms, const BindingStore& bindingStore, std::size_t version,
-            ast2ram::TranslationMode mode) const override;
+    std::vector<double> evaluateCosts(const std::vector<Atom*> atoms, const BindingStore& bindingStore,
+            const std::vector<std::string>& atomNames) const override;
 };
 
 /** Goal: Prioritise (1) all bound, then (2) atoms with at least one bound argument, then (3) left-most */
@@ -144,9 +137,8 @@ public:
     NaiveSips(const TranslationUnit& tu) : StaticSipsMetric(tu) {}
 
 protected:
-    std::vector<double> evaluateCosts(const Clause* clause, const std::vector<ast::Atom*>& sccAtoms,
-            const std::vector<Atom*> atoms, const BindingStore& bindingStore, std::size_t version,
-            ast2ram::TranslationMode mode) const override;
+    std::vector<double> evaluateCosts(const std::vector<Atom*> atoms, const BindingStore& bindingStore,
+            const std::vector<std::string>& atomNames) const override;
 };
 
 /** Goal: prioritise (1) all-bound, then (2) max number of bound vars, then (3) left-most */
@@ -155,9 +147,8 @@ public:
     MaxBoundSips(const TranslationUnit& tu) : StaticSipsMetric(tu) {}
 
 protected:
-    std::vector<double> evaluateCosts(const Clause* clause, const std::vector<ast::Atom*>& sccAtoms,
-            const std::vector<Atom*> atoms, const BindingStore& bindingStore, std::size_t version,
-            ast2ram::TranslationMode mode) const override;
+    std::vector<double> evaluateCosts(const std::vector<Atom*> atoms, const BindingStore& bindingStore,
+            const std::vector<std::string>& atomNames) const override;
 };
 
 /** Goal: prioritise (1) delta, (2) all-bound, then (3) max number of bound vars, then (4) left-most */
@@ -166,9 +157,8 @@ public:
     DeltaMaxBoundSips(const TranslationUnit& tu) : StaticSipsMetric(tu) {}
 
 protected:
-    std::vector<double> evaluateCosts(const Clause* clause, const std::vector<ast::Atom*>& sccAtoms,
-            const std::vector<Atom*> atoms, const BindingStore& bindingStore, std::size_t version,
-            ast2ram::TranslationMode mode) const override;
+    std::vector<double> evaluateCosts(const std::vector<Atom*> atoms, const BindingStore& bindingStore,
+            const std::vector<std::string>& atomNames) const override;
 };
 
 /** Goal: prioritise max ratio of bound args */
@@ -177,9 +167,8 @@ public:
     MaxRatioSips(const TranslationUnit& tu) : StaticSipsMetric(tu) {}
 
 protected:
-    std::vector<double> evaluateCosts(const Clause* clause, const std::vector<ast::Atom*>& sccAtoms,
-            const std::vector<Atom*> atoms, const BindingStore& bindingStore, std::size_t version,
-            ast2ram::TranslationMode mode) const override;
+    std::vector<double> evaluateCosts(const std::vector<Atom*> atoms, const BindingStore& bindingStore,
+            const std::vector<std::string>& atomNames) const override;
 };
 
 /** Goal: choose the atom with the least number of unbound arguments */
@@ -188,9 +177,8 @@ public:
     LeastFreeSips(const TranslationUnit& tu) : StaticSipsMetric(tu) {}
 
 protected:
-    std::vector<double> evaluateCosts(const Clause* clause, const std::vector<ast::Atom*>& sccAtoms,
-            const std::vector<Atom*> atoms, const BindingStore& bindingStore, std::size_t version,
-            ast2ram::TranslationMode mode) const override;
+    std::vector<double> evaluateCosts(const std::vector<Atom*> atoms, const BindingStore& bindingStore,
+            const std::vector<std::string>& atomNames) const override;
 };
 
 /** Goal: choose the atom with the least amount of unbound variables */
@@ -199,9 +187,8 @@ public:
     LeastFreeVarsSips(const TranslationUnit& tu) : StaticSipsMetric(tu) {}
 
 protected:
-    std::vector<double> evaluateCosts(const Clause* clause, const std::vector<ast::Atom*>& sccAtoms,
-            const std::vector<Atom*> atoms, const BindingStore& bindingStore, std::size_t version,
-            ast2ram::TranslationMode mode) const override;
+    std::vector<double> evaluateCosts(const std::vector<Atom*> atoms, const BindingStore& bindingStore,
+            const std::vector<std::string>& atomNames) const override;
 };
 
 /** Goal: prioritise (1) all-bound, then (2) input, and then (3) left-most */
@@ -210,9 +197,8 @@ public:
     InputSips(const TranslationUnit& tu);
 
 protected:
-    std::vector<double> evaluateCosts(const Clause* clause, const std::vector<ast::Atom*>& sccAtoms,
-            const std::vector<Atom*> atoms, const BindingStore& bindingStore, std::size_t version,
-            ast2ram::TranslationMode mode) const override;
+    std::vector<double> evaluateCosts(const std::vector<Atom*> atoms, const BindingStore& bindingStore,
+            const std::vector<std::string>& atomNames) const override;
 
 private:
     const analysis::IOTypeAnalysis& ioTypes;

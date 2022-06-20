@@ -26,6 +26,7 @@
 #include "ast/analysis/typesystem/PolymorphicObjects.h"
 #include "ast/utility/Visitor.h"
 #include "ast2ram/ClauseTranslator.h"
+#include "ast2ram/utility/Utils.h"
 #include "ram/EstimateJoinSize.h"
 #include "ram/Expression.h"
 #include <ostream>
