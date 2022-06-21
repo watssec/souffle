@@ -165,5 +165,4 @@ std::size_t BindingStore::numBoundArguments(const Atom* atom) const {
     }
     return count;
 }
-
 }  // namespace souffle::ast

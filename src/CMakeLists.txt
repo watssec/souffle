@@ -109,6 +109,7 @@ set(SOUFFLE_SOURCES
     ast/utility/BindingStore.cpp
     ast2ram/utility/SipsMetric.cpp
     ast/utility/Utils.cpp
+    ast/utility/SipGraph.cpp
     ast2ram/provenance/ClauseTranslator.cpp
     ast2ram/provenance/ConstraintTranslator.cpp
     ast2ram/provenance/SubproofGenerator.cpp
