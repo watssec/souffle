@@ -78,8 +78,8 @@ const analysis::PowerSet& JoinSizeAnalysis::getSubsets(std::size_t N, std::size_
     return cache.at({N, K});
 }
 
-analysis::StratumJoinSize JoinSizeAnalysis::computeRuleVersionStatements(const RelationSet& scc,
-        const ast::Clause& clause, std::optional<std::size_t> version, ast2ram::TranslationMode mode) {
+analysis::StratumJoinSizeEstimates JoinSizeAnalysis::computeRuleVersionStatements(const RelationSet& scc,
+        const ast::Clause& clause, std::size_t version, ast2ram::TranslationMode mode) {
     auto* prog = program;
     auto* poly = polyAnalysis;
     auto sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(clause),
@@ -105,11 +105,11 @@ analysis::StratumJoinSize JoinSizeAnalysis::computeRuleVersionStatements(const R
         fatal("unaccounted-for constant");
     };
 
-    analysis::StratumJoinSize statements;
+    analysis::StratumJoinSizeEstimates statements;
 
-    auto getClauseAtomName = [&sccAtoms, &version, mode](
+    auto getClauseAtomName = [&sccAtoms, version, mode](
                                      const ast::Clause& clause, const ast::Atom* atom, bool isRecursive) {
-        return getAtomName(clause, atom, sccAtoms, version ? *version : 0, isRecursive, mode);
+        return getAtomName(clause, atom, sccAtoms, version, isRecursive, mode);
     };
 
     using AtomIdx = std::size_t;
@@ -392,7 +392,7 @@ analysis::StratumJoinSize JoinSizeAnalysis::computeRuleVersionStatements(const R
     return statements;
 }
 
-std::vector<analysis::StratumJoinSize> JoinSizeAnalysis::computeJoinSizeStatements() {
+std::vector<analysis::StratumJoinSizeEstimates> JoinSizeAnalysis::computeJoinSizeStatements() {
     auto* prog = program;
     auto getSccAtoms = [prog](const ast::Clause* clause, const ast::RelationSet& scc) {
         const auto& sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(*clause),
@@ -402,7 +402,7 @@ std::vector<analysis::StratumJoinSize> JoinSizeAnalysis::computeJoinSizeStatemen
 
     const auto& sccOrdering = topsortSCCGraphAnalysis->order();
 
-    std::vector<analysis::StratumJoinSize> joinSizeStatements;
+    std::vector<analysis::StratumJoinSizeEstimates> joinSizeStatements;
     joinSizeStatements.resize(sccOrdering.size());
 
     auto& config = Global::config();
@@ -412,16 +412,13 @@ std::vector<analysis::StratumJoinSize> JoinSizeAnalysis::computeJoinSizeStatemen
 
     // for each stratum (formed from scc ordering)
     for (std::size_t i = 0; i < sccOrdering.size(); i++) {
-        analysis::StratumJoinSize stratumNodes;
+        analysis::StratumJoinSizeEstimates stratumNodes;
 
         auto scc = sccOrdering[i];
         const ast::RelationSet sccRelations = sccGraph->getInternalRelations(scc);
-        for (auto* rel : sccRelations) {
+        for (const auto* rel : sccRelations) {
             // Translate each recursive clasue
             for (auto&& clause : program->getClauses(*rel)) {
-                // Assumption: no subsumption
-                assert(!isA<SubsumptiveClause>(clause) &&
-                        "Error: assumed no subsumptive clauses while auto-scheduling!");
                 auto sccAtoms = getSccAtoms(clause, sccRelations);
                 if (recursiveClauses->recursive(clause)) {
                     // for each rule version
@@ -429,13 +426,13 @@ std::vector<analysis::StratumJoinSize> JoinSizeAnalysis::computeJoinSizeStatemen
                         if (isA<ast::SubsumptiveClause>(clause)) {
                             using namespace souffle::ast2ram;
                             auto rejectNew = computeRuleVersionStatements(
-                                    sccRelations, *clause, {version}, TranslationMode::SubsumeRejectNewNew);
-                            auto rejectNewCurrent = computeRuleVersionStatements(sccRelations, *clause,
-                                    {version}, TranslationMode::SubsumeRejectNewCurrent);
+                                    sccRelations, *clause, version, TranslationMode::SubsumeRejectNewNew);
+                            auto rejectNewCurrent = computeRuleVersionStatements(
+                                    sccRelations, *clause, version, TranslationMode::SubsumeRejectNewCurrent);
                             auto mode = (sccAtoms.size() > 1) ? TranslationMode::SubsumeDeleteCurrentCurrent
                                                               : TranslationMode::SubsumeDeleteCurrentDelta;
                             auto deleteCurrent =
-                                    computeRuleVersionStatements(sccRelations, *clause, {version}, mode);
+                                    computeRuleVersionStatements(sccRelations, *clause, version, mode);
 
                             for (auto& s : rejectNew) {
                                 stratumNodes.push_back(std::move(s));
@@ -450,14 +447,14 @@ std::vector<analysis::StratumJoinSize> JoinSizeAnalysis::computeJoinSizeStatemen
                             }
 
                         } else {
-                            auto res = computeRuleVersionStatements(sccRelations, *clause, {version});
+                            auto res = computeRuleVersionStatements(sccRelations, *clause, version);
                             for (auto& s : res) {
                                 stratumNodes.push_back(std::move(s));
                             }
                         }
                     }
                 } else {
-                    auto res = computeRuleVersionStatements(sccRelations, *clause, {});
+                    auto res = computeRuleVersionStatements(sccRelations, *clause, 0);
                     for (auto& s : res) {
                         stratumNodes.push_back(std::move(s));
                     }
