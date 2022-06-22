@@ -77,6 +77,11 @@ public:
     std::vector<std::size_t> getReordering(
             const Clause* clause, const std::vector<std::string>& atomNames) const override;
 
+    // type aliases
+    using AtomIdx = std::size_t;
+    using AtomSet = std::set<std::size_t>;
+    using ArgIdx = std::size_t;
+
 private:
     /* helper struct for Selinger */
     struct PlanTuplesCost {

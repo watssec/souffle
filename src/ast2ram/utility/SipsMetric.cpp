@@ -24,6 +24,7 @@
 #include "ast/analysis/SCCGraph.h"
 #include "ast/analysis/typesystem/PolymorphicObjects.h"
 #include "ast/utility/BindingStore.h"
+#include "ast/utility/SipGraph.h"
 #include "ast/utility/Utils.h"
 #include "ast/utility/Visitor.h"
 #include "ast2ram/utility/Utils.h"
@@ -88,6 +89,7 @@ SelingerProfileSipsMetric::SelingerProfileSipsMetric(const TranslationUnit& tu) 
 
 std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         const Clause* clause, const std::vector<std::string>& atomNames) const {
+    (void)atomNames;
     auto atoms = ast::getBodyLiterals<ast::Atom>(*clause);
 
     // remember to exit for single atom bodies
@@ -98,6 +100,37 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         return res;
     }
 
+    // create ast constant translator
+    auto* poly = polyAnalysis;
+    auto astConstantTranslator = [poly](const ast::Constant& constant) -> std::string {
+        Own<ram::Expression> expr;
+        if (auto strConstant = as<ast::StringConstant>(constant)) {
+            expr = mk<ram::StringConstant>(strConstant->getConstant());
+        } else if (isA<ast::NilConstant>(&constant)) {
+            expr = mk<ram::SignedConstant>(0);
+        } else if (auto* numConstant = as<ast::NumericConstant>(constant)) {
+            switch (poly->getInferredType(*numConstant)) {
+                case ast::NumericConstant::Type::Int:
+                    expr = mk<ram::SignedConstant>(
+                            RamSignedFromString(numConstant->getConstant(), nullptr, 0));
+                    break;
+                case ast::NumericConstant::Type::Uint:
+                    expr = mk<ram::UnsignedConstant>(
+                            RamUnsignedFromString(numConstant->getConstant(), nullptr, 0));
+                    break;
+                case ast::NumericConstant::Type::Float:
+                    expr = mk<ram::FloatConstant>(RamFloatFromString(numConstant->getConstant()));
+                    break;
+            }
+        }
+        assert(expr != nullptr && "unaccounted-for constant");
+        std::stringstream ss;
+        ss << *expr;
+        return ss.str();
+    };
+
+    SipGraph sipGraph(clause, astConstantTranslator);
+
     auto constraints = ast::getBodyLiterals<ast::BinaryConstraint>(*clause);
     std::size_t relStratum = sccGraph->getSCC(program.getRelation(*clause));
     auto sccRelations = sccGraph->getInternalRelations(relStratum);
@@ -107,11 +140,9 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
     assert(profileUseAnalysis->hasAutoSchedulerStats() && "Must have stats in order to auto-schedule!");
 
     auto* prof = profileUseAnalysis;
-    auto getJoinSize = [&prof](bool isRecursive, const ast::QualifiedName& rel,
-                               const std::vector<std::size_t>& joinColumns,
+    auto getJoinSize = [&prof](bool isRecursive, const std::string& rel, std::set<std::size_t> joinKeys,
                                const std::map<std::size_t, std::string>& constantsMap,
                                const std::string& iteration) {
-        std::set<std::size_t> joinKeys(joinColumns.begin(), joinColumns.end());
         for (auto& [k, _] : constantsMap) {
             joinKeys.insert(k);
         }
@@ -123,27 +154,25 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         std::stringstream ss;
         ss << joinKeys;
         std::string attributes = ss.str();
+
         attributes[0] = '[';
         attributes[attributes.size() - 1] = ']';
 
         std::stringstream cc;
         cc << constantsMap;
         std::string constants = cc.str();
+
         constants[0] = '[';
         constants[constants.size() - 1] = ']';
 
         if (isRecursive) {
-            return prof->getRecursiveJoinSize(rel.toString(), attributes, constants, iteration);
+            return prof->getRecursiveJoinSize(rel, attributes, constants, iteration);
+        } else {
+            return prof->getNonRecursiveJoinSize(rel, attributes, constants);
         }
-
-        return prof->getNonRecursiveJoinSize(rel.toString(), attributes, constants);
     };
 
-    using AtomIdx = std::size_t;
-    using AtomSet = std::set<std::size_t>;
-
     AtomSet recursiveInCurrentStratum;
-
     for (auto* a : sccAtoms) {
         for (AtomIdx i = 0; i < atoms.size(); ++i) {
             if (*atoms[i] == *a) {
@@ -152,103 +181,10 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         }
     }
 
-    using VarName = std::string;
-    using VarSet = std::set<VarName>;
-    using ArgIdx = std::size_t;
-
-    // map variable name to constants if possible
-    std::unordered_map<VarName, ast::Constant*> varToConstant;
-
-    // map variables to necessary variables on other side of the equality
-    // i.e. x = y + z we should map x -> { y, z }
-    std::unordered_map<VarName, VarSet> varToOtherVars;
-
-    // map variable name to the lower and upper bounds of the inequality
-    // i.e. EA < Addr < EA + Size we should map Addr -> { { EA }, { EA, Size } }
-    std::unordered_map<VarName, std::pair<VarSet, VarSet>> ineqToUpperLower;
-
-    for (auto* constraint : constraints) {
-        auto* lhs = constraint->getLHS();
-        auto* rhs = constraint->getRHS();
-
-        if (isIneqConstraint(constraint->getBaseOperator())) {
-            if (auto* var = as<ast::Variable>(lhs)) {
-                VarSet otherVars;
-                visit(rhs, [&](const ast::Variable& v) { otherVars.insert(v.getName()); });
-                if (isLessThan(constraint->getBaseOperator()) || isLessEqual(constraint->getBaseOperator())) {
-                    ineqToUpperLower[var->getName()].second = otherVars;
-                }
-                if (isGreaterThan(constraint->getBaseOperator()) ||
-                        isGreaterEqual(constraint->getBaseOperator())) {
-                    ineqToUpperLower[var->getName()].first = otherVars;
-                }
-            }
-
-            if (auto* var = as<ast::Variable>(rhs)) {
-                VarSet otherVars;
-                visit(lhs, [&](const ast::Variable& v) { otherVars.insert(v.getName()); });
-                if (isLessThan(constraint->getBaseOperator()) || isLessEqual(constraint->getBaseOperator())) {
-                    ineqToUpperLower[var->getName()].first = otherVars;
-                }
-                if (isGreaterThan(constraint->getBaseOperator()) ||
-                        isGreaterEqual(constraint->getBaseOperator())) {
-                    ineqToUpperLower[var->getName()].second = otherVars;
-                }
-            }
-        }
-
-        // only consider = constraint
-        if (!isEqConstraint(constraint->getBaseOperator())) {
-            continue;
-        }
-
-        if (isA<ast::Variable>(lhs) && isA<ast::Constant>(rhs)) {
-            varToConstant[as<ast::Variable>(lhs)->getName()] = as<ast::Constant>(rhs);
-            continue;
-        }
-
-        if (isA<ast::Constant>(lhs) && isA<ast::Variable>(rhs)) {
-            varToConstant[as<ast::Variable>(rhs)->getName()] = as<ast::Constant>(lhs);
-            continue;
-        }
-
-        if (auto* var = as<ast::Variable>(lhs)) {
-            VarSet otherVars;
-            visit(rhs, [&](const ast::Variable& v) { otherVars.insert(v.getName()); });
-            varToOtherVars[var->getName()] = otherVars;
-            continue;
-        }
-
-        if (auto* var = as<ast::Variable>(rhs)) {
-            VarSet otherVars;
-            visit(lhs, [&](const ast::Variable& v) { otherVars.insert(v.getName()); });
-            varToOtherVars[var->getName()] = otherVars;
-            continue;
-        }
-    }
-
-    // check for bounded inequality i.e. EA < EA2 < EA + Size
-    for (auto& p : ineqToUpperLower) {
-        // consider this like an equality
-        auto& [lower, upper] = p.second;
-        if (!lower.empty() && !upper.empty() &&
-                std::includes(upper.begin(), upper.end(), lower.begin(), lower.end())) {
-            varToOtherVars[p.first] = upper;
-        }
-    }
-
-    std::unordered_map<AtomIdx, VarSet> atomIdxToGroundedVars;
-    for (AtomIdx i = 0; i < atoms.size(); ++i) {
-        VarSet groundedVars;
-        visit(*atoms[i], [&](const ast::Variable& v) { groundedVars.insert(v.getName()); });
-        atomIdxToGroundedVars[i] = groundedVars;
-    }
-
     // #atoms -> variables to join -> plan, cost
     std::map<std::size_t, std::map<AtomSet, PlanTuplesCost>> cache;
 
-    std::unordered_map<AtomIdx, std::map<ArgIdx, std::string>> atomToIdxConstants;
-
+    // get number of iterations of rule
     std::size_t iterations = 1;
     for (std::size_t i = 0; i < atoms.size(); ++i) {
         std::string name = atomNames[i];
@@ -259,40 +195,18 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         }
     }
 
+    // store the access cost for each individual relation
     AtomIdx atomIdx = 0;
     for (auto* atom : atoms) {
         std::string name = atomNames[atomIdx];
-        std::map<ArgIdx, std::string> idxConstant;
-
-        ArgIdx varIdx = 0;
-        for (auto* argument : atom->getArguments()) {
-            // if we have a variable and a constraint of the form x = 2 then treat x as 2
-            if (auto* var = as<ast::Variable>(argument)) {
-                if (varToConstant.count(var->getName())) {
-                    argument = varToConstant[var->getName()];
-                }
-            }
-
-            if (auto* constant = as<ast::Constant>(argument)) {
-                std::stringstream ss;
-                ss << *translateConstant(*constant);
-                std::string constantValue = ss.str();
-                idxConstant[varIdx] = constantValue;
-            }
-            ++varIdx;
-        }
-
-        atomToIdxConstants[atomIdx] = idxConstant;
-
-        // start by storing the access cost for each individual relation
-        std::vector<AtomIdx> empty;
         bool isRecursive = recursiveInCurrentStratum.count(atomIdx) > 0;
         AtomSet singleton = {atomIdx};
         std::vector<AtomIdx> plan = {atomIdx};
         PlanTuplesCost p;
         p.plan = plan;
         for (std::size_t iter = 0; iter < iterations; ++iter) {
-            double tuples = getJoinSize(isRecursive, name, empty, idxConstant, std::to_string(iter));
+            double tuples =
+                    getJoinSize(isRecursive, name, {}, sipGraph.getConstantsMap(atom), std::to_string(iter));
             double cost = static_cast<double>(tuples * atom->getArity());
             p.tuplesPerIteration.push_back(tuples);
             p.costsPerIteration.push_back(cost);
@@ -317,54 +231,18 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
                     smallerSubset.insert(subset[j]);
                 }
 
-                // compute the grounded variables from the subset
-                VarSet groundedVariablesFromSubset;
-                for (auto idx : smallerSubset) {
-                    auto& varsGroundedByAtom = atomIdxToGroundedVars[idx];
-                    groundedVariablesFromSubset.insert(varsGroundedByAtom.begin(), varsGroundedByAtom.end());
-                }
-
-                // compute new cost
                 AtomIdx atomIdx = subset[i];
-                auto* atom = atoms[atomIdx];
-                std::vector<ArgIdx> joinColumns;
-                const auto& args = atom->getArguments();
-                std::size_t numBound = 0;
-                for (ArgIdx argIdx = 0; argIdx < args.size(); ++argIdx) {
-                    auto* arg = args[argIdx];
-                    // if we have a constant or var = constant then we ignore
-                    if (atomToIdxConstants[atomIdx].count(argIdx) > 0) {
-                        ++numBound;
-                        continue;
-                    }
-
-                    // unnamed variable i.e. _
-                    if (isA<ast::UnnamedVariable>(arg)) {
-                        ++numBound;
-                        continue;
-                    }
-
-                    if (auto* var = as<ast::Variable>(arg)) {
-                        // free variable so we can't join on it
-                        if (varToOtherVars.count(var->getName()) > 0) {
-                            auto& dependentVars = varToOtherVars.at(var->getName());
-                            if (std::includes(groundedVariablesFromSubset.begin(),
-                                        groundedVariablesFromSubset.end(), dependentVars.begin(),
-                                        dependentVars.end())) {
-                                joinColumns.push_back(argIdx);
-                                ++numBound;
-                                continue;
-                            }
-                        }
-
-                        // direct match on variable
-                        if (groundedVariablesFromSubset.count(var->getName()) > 0) {
-                            joinColumns.push_back(argIdx);
-                            ++numBound;
-                            continue;
-                        }
-                    }
+                auto* to = atoms[atomIdx];
+                auto constantsMap = sipGraph.getConstantsMap(to);
+                auto numUnnamed = sipGraph.getNumUnnamed(to);
+                std::set<std::size_t> boundIndices;
+                for (auto idx : smallerSubset) {
+                    auto* from = atoms[idx];
+                    auto joinColumns = sipGraph.getBoundIndices(from, to);
+                    boundIndices.insert(joinColumns.begin(), joinColumns.end());
                 }
+
+                std::size_t numBound = constantsMap.size() + boundIndices.size() + numUnnamed;
 
                 // lookup the cost in the cache
                 auto& planTuplesCost = cache[K - 1].at(smallerSubset);
@@ -378,19 +256,19 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
                 double expectedTuples = 0;
                 double newTotalCost = 0.0;
                 for (std::size_t iter = 0; iter < iterations; ++iter) {
-                    if (numBound == atom->getArity()) {
+                    if (numBound == to->getArity()) {
                         expectedTuples = 1;
                     } else {
                         // get the join size from the profile
-                        expectedTuples = getJoinSize(isRecursive, atomNames[atomIdx], joinColumns,
-                                atomToIdxConstants[atomIdx], std::to_string(iter));
+                        expectedTuples = getJoinSize(isRecursive, atomNames[atomIdx], boundIndices,
+                                constantsMap, std::to_string(iter));
                     }
 
                     // calculate new number of tuples
                     double newTuples = oldTuples[iter] * expectedTuples;
 
                     // calculate new cost
-                    double newCost = oldCost[iter] + newTuples * atom->getArity();
+                    double newCost = oldCost[iter] + newTuples * to->getArity();
 
                     // add to vector of costs/tuples
                     p.tuplesPerIteration.push_back(newTuples);
@@ -429,25 +307,6 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
     }
 
     return newOrder;
-}
-
-Own<ram::Expression> SelingerProfileSipsMetric::translateConstant(const ast::Constant& constant) const {
-    if (auto strConstant = as<ast::StringConstant>(constant)) {
-        return mk<ram::StringConstant>(strConstant->getConstant());
-    } else if (isA<ast::NilConstant>(&constant)) {
-        return mk<ram::SignedConstant>(0);
-    } else if (auto* numConstant = as<ast::NumericConstant>(constant)) {
-        switch (polyAnalysis->getInferredType(*numConstant)) {
-            case ast::NumericConstant::Type::Int:
-                return mk<ram::SignedConstant>(RamSignedFromString(numConstant->getConstant(), nullptr, 0));
-            case ast::NumericConstant::Type::Uint:
-                return mk<ram::UnsignedConstant>(
-                        RamUnsignedFromString(numConstant->getConstant(), nullptr, 0));
-            case ast::NumericConstant::Type::Float:
-                return mk<ram::FloatConstant>(RamFloatFromString(numConstant->getConstant()));
-        }
-    }
-    fatal("unaccounted-for constant");
 }
 
 const ast::PowerSet& SelingerProfileSipsMetric::getSubsets(std::size_t N, std::size_t K) const {

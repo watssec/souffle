@@ -123,7 +123,8 @@ void SipGraph::computeBindings() {
     // construct constant bindings for each atom
     for (const auto* atom : atoms) {
         auto arguments = atom->getArguments();
-        std::set<std::pair<std::size_t, std::string>> indexConstant;
+        std::size_t unnamed = 0;
+        std::map<std::size_t, std::string> indexConstant;
         for (std::size_t argIdx = 0; argIdx < arguments.size(); ++argIdx) {
             auto* argument = arguments[argIdx];
 
@@ -140,9 +141,15 @@ void SipGraph::computeBindings() {
                     indexConstant.insert(std::make_pair(argIdx, constantValue));
                 }
             }
+
+            // Case 3: the argument is unnamed
+            else if (isA<ast::UnnamedVariable>(argument)) {
+                ++unnamed;
+            }
         }
 
-        constantsMap.insert(std::make_pair(atom, indexConstant));
+        atomConstantsMap.insert(std::make_pair(atom, indexConstant));
+        unnamedMap.insert(std::make_pair(atom, unnamed));
     }
 
     // construct bindings from one atom to another

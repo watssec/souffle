@@ -18,7 +18,9 @@
 
 #include "ast/Clause.h"
 #include "ast/Constant.h"
+#include "souffle/utility/StreamUtil.h"
 #include <functional>
+#include <iostream>
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -47,8 +49,26 @@ public:
         return bindingsMap.at(std::make_pair(from, to));
     }
 
-    std::set<std::pair<std::size_t, std::string>> getConstantsMap(const Atom* atom) const {
-        return constantsMap.at(atom);
+    std::map<std::size_t, std::string> getConstantsMap(const Atom* atom) const {
+        return atomConstantsMap.at(atom);
+    }
+
+    std::size_t getNumUnnamed(const Atom* atom) const {
+        return unnamedMap.at(atom);
+    }
+
+    void print() const {
+        std::cout << "CONSTANTS" << std::endl;
+        for (auto [atom, m] : atomConstantsMap) {
+            std::cout << "Atom: " << *atom << std::endl;
+            std::cout << " Map: " << m << std::endl;
+        }
+        std::cout << "BINDINGS" << std::endl;
+        for (auto [p, bindings] : bindingsMap) {
+            std::cout << *(p.first) << " -> " << *(p.second) << std::endl;
+            std::cout << bindings << std::endl;
+        }
+        std::cout << std::endl;
     }
 
 private:
@@ -62,7 +82,10 @@ private:
     std::map<std::pair<const Atom*, const Atom*>, std::set<std::size_t>> bindingsMap;
 
     // map atom to the constants bound at each index
-    std::map<const Atom*, std::set<std::pair<std::size_t, std::string>>> constantsMap;
+    std::map<const Atom*, std::map<std::size_t, std::string>> atomConstantsMap;
+
+    // map atom to the number of unnamed arguments
+    std::map<const Atom*, std::size_t> unnamedMap;
 };
 
 }  // namespace souffle::ast
