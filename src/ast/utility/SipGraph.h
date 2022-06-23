@@ -45,30 +45,14 @@ public:
 
     void computeBindings();
 
-    std::set<std::size_t> getBoundIndices(const Atom* from, const Atom* to) const {
-        return bindingsMap.at(std::make_pair(from, to));
-    }
+    std::set<std::size_t> getBoundIndices(const std::set<const Atom*>& from, const Atom* to) const;
 
     std::map<std::size_t, std::string> getConstantsMap(const Atom* atom) const {
         return atomConstantsMap.at(atom);
     }
 
-    std::size_t getNumUnnamed(const Atom* atom) const {
+    std::set<std::size_t> getUnnamedIndices(const Atom* atom) const {
         return unnamedMap.at(atom);
-    }
-
-    void print() const {
-        std::cout << "CONSTANTS" << std::endl;
-        for (auto [atom, m] : atomConstantsMap) {
-            std::cout << "Atom: " << *atom << std::endl;
-            std::cout << " Map: " << m << std::endl;
-        }
-        std::cout << "BINDINGS" << std::endl;
-        for (auto [p, bindings] : bindingsMap) {
-            std::cout << *(p.first) << " -> " << *(p.second) << std::endl;
-            std::cout << bindings << std::endl;
-        }
-        std::cout << std::endl;
     }
 
 private:
@@ -78,14 +62,18 @@ private:
     // user provided lambda function to convert AST constant to RAM expression
     AstConstantTranslator translateConstant;
 
-    // map pairs of atoms to bound indices
-    std::map<std::pair<const Atom*, const Atom*>, std::set<std::size_t>> bindingsMap;
+    // map atom to the variables it grounds
+    std::unordered_map<const Atom*, VarSet> atomToGroundedVars;
+
+    // map variables to necessary variables on other side of the equality
+    // i.e. x = y + z we should map x -> { y, z }
+    std::unordered_map<VarName, VarSet> varToOtherVars;
 
     // map atom to the constants bound at each index
     std::map<const Atom*, std::map<std::size_t, std::string>> atomConstantsMap;
 
     // map atom to the number of unnamed arguments
-    std::map<const Atom*, std::size_t> unnamedMap;
+    std::map<const Atom*, std::set<std::size_t>> unnamedMap;
 };
 
 }  // namespace souffle::ast

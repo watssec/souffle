@@ -234,15 +234,16 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
                 AtomIdx atomIdx = subset[i];
                 auto* to = atoms[atomIdx];
                 auto constantsMap = sipGraph.getConstantsMap(to);
-                auto numUnnamed = sipGraph.getNumUnnamed(to);
-                std::set<std::size_t> boundIndices;
+                auto unnamedIndices = sipGraph.getUnnamedIndices(to);
+
+                std::set<const Atom*> subsetAtoms;
                 for (auto idx : smallerSubset) {
-                    auto* from = atoms[idx];
-                    auto joinColumns = sipGraph.getBoundIndices(from, to);
-                    boundIndices.insert(joinColumns.begin(), joinColumns.end());
+                    subsetAtoms.insert(atoms[idx]);
                 }
 
-                std::size_t numBound = constantsMap.size() + boundIndices.size() + numUnnamed;
+                auto joinColumns = sipGraph.getBoundIndices(subsetAtoms, to);
+
+                std::size_t numBound = constantsMap.size() + joinColumns.size() + unnamedIndices.size();
 
                 // lookup the cost in the cache
                 auto& planTuplesCost = cache[K - 1].at(smallerSubset);
@@ -260,7 +261,7 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
                         expectedTuples = 1;
                     } else {
                         // get the join size from the profile
-                        expectedTuples = getJoinSize(isRecursive, atomNames[atomIdx], boundIndices,
+                        expectedTuples = getJoinSize(isRecursive, atomNames[atomIdx], joinColumns,
                                 constantsMap, std::to_string(iter));
                     }
 

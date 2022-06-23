@@ -21,7 +21,7 @@
 #include "ast/Variable.h"
 #include "ast/utility/Utils.h"
 #include "ast/utility/Visitor.h"
-#include <vector>
+#include <set>
 
 namespace souffle::ast {
 
@@ -32,10 +32,6 @@ void SipGraph::computeBindings() {
 
     // map variable name to constants if possible
     std::unordered_map<VarName, std::string> varToConstant;
-
-    // map variables to necessary variables on other side of the equality
-    // i.e. x = y + z we should map x -> { y, z }
-    std::unordered_map<VarName, VarSet> varToOtherVars;
 
     // map variable name to the lower and upper bounds of the inequality
     // i.e. EA < Addr < EA + Size we should map Addr -> { { EA }, { EA, Size } }
@@ -112,8 +108,6 @@ void SipGraph::computeBindings() {
         }
     }
 
-    // map each atom idx to the variables it grounds
-    std::unordered_map<const Atom*, VarSet> atomToGroundedVars;
     for (const auto* atom : atoms) {
         VarSet groundedVars;
         visit(*atom, [&](const ast::Variable& v) { groundedVars.insert(v.getName()); });
@@ -123,7 +117,7 @@ void SipGraph::computeBindings() {
     // construct constant bindings for each atom
     for (const auto* atom : atoms) {
         auto arguments = atom->getArguments();
-        std::size_t unnamed = 0;
+        std::set<std::size_t> unnamedIndices;
         std::map<std::size_t, std::string> indexConstant;
         for (std::size_t argIdx = 0; argIdx < arguments.size(); ++argIdx) {
             auto* argument = arguments[argIdx];
@@ -144,50 +138,48 @@ void SipGraph::computeBindings() {
 
             // Case 3: the argument is unnamed
             else if (isA<ast::UnnamedVariable>(argument)) {
-                ++unnamed;
+                unnamedIndices.insert(argIdx);
             }
         }
 
         atomConstantsMap.insert(std::make_pair(atom, indexConstant));
-        unnamedMap.insert(std::make_pair(atom, unnamed));
+        unnamedMap.insert(std::make_pair(atom, unnamedIndices));
     }
+}
 
+std::set<std::size_t> SipGraph::getBoundIndices(
+        const std::set<const Atom*>& groundedAtoms, const Atom* to) const {
     // construct bindings from one atom to another
-    for (const auto* from : atoms) {
-        for (const auto* to : atoms) {
-            if (from == to) {
-                continue;
+    VarSet groundedVars;
+    for (const auto* from : groundedAtoms) {
+        auto groundedFrom = atomToGroundedVars.at(from);
+        groundedVars.insert(groundedFrom.begin(), groundedFrom.end());
+    }
+    std::set<std::size_t> boundColumns;
+
+    // for each argument in "to"
+    auto arguments = to->getArguments();
+    for (std::size_t argIdx = 0; argIdx < arguments.size(); ++argIdx) {
+        auto* argument = arguments[argIdx];
+        if (auto* var = as<ast::Variable>(argument)) {
+            // Case 1: this variable is bound by "groundedAtoms"
+            if (groundedVars.count(var->getName()) > 0) {
+                boundColumns.insert(argIdx);
             }
-            auto atomPair = std::make_pair(from, to);
-            std::set<std::size_t> boundColumns;
-            const auto groundedVars = atomToGroundedVars[from];
 
-            // for each argument in "to"
-            auto arguments = to->getArguments();
-            for (std::size_t argIdx = 0; argIdx < arguments.size(); ++argIdx) {
-                auto* argument = arguments[argIdx];
-                if (auto* var = as<ast::Variable>(argument)) {
-                    // Case 1: this variable is grounded by "from"
-                    if (groundedVars.count(var->getName()) > 0) {
-                        boundColumns.insert(argIdx);
-                    }
+            // Case 2: this variable is bound by multiple variables by "groundedAtoms"
+            else if (varToOtherVars.count(var->getName()) > 0) {
+                auto& dependentVars = varToOtherVars.at(var->getName());
 
-                    // Case 2: this variable is bound by multiple variables
-                    else if (varToOtherVars.count(var->getName()) > 0) {
-                        auto& dependentVars = varToOtherVars.at(var->getName());
-
-                        // and all of these variables are grounded by "from"
-                        if (std::includes(groundedVars.begin(), groundedVars.end(), dependentVars.begin(),
-                                    dependentVars.end())) {
-                            boundColumns.insert(argIdx);
-                        }
-                    }
+                // and all of these variables are grounded by "from"
+                if (std::includes(groundedVars.begin(), groundedVars.end(), dependentVars.begin(),
+                            dependentVars.end())) {
+                    boundColumns.insert(argIdx);
                 }
             }
-
-            bindingsMap.insert(std::make_pair(atomPair, boundColumns));
         }
     }
+    return boundColumns;
 }
 
 }  // namespace souffle::ast
