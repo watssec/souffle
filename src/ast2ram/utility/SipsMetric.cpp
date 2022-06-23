@@ -90,7 +90,6 @@ SelingerProfileSipsMetric::SelingerProfileSipsMetric(const TranslationUnit& tu) 
 
 std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         const Clause* clause, const std::vector<std::string>& atomNames) const {
-    (void)atomNames;
     auto atoms = ast::getBodyLiterals<ast::Atom>(*clause);
 
     // remember to exit for single atom bodies
@@ -103,31 +102,25 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
 
     // create ast constant translator
     auto* poly = polyAnalysis;
-    auto astConstantTranslator = [poly](const ast::Constant& constant) -> std::string {
-        Own<ram::Expression> expr;
+    auto astConstantTranslator = [poly](const ast::Constant& constant) -> Own<ram::Expression> {
         if (auto strConstant = as<ast::StringConstant>(constant)) {
-            expr = mk<ram::StringConstant>(strConstant->getConstant());
+            return mk<ram::StringConstant>(strConstant->getConstant());
         } else if (isA<ast::NilConstant>(&constant)) {
-            expr = mk<ram::SignedConstant>(0);
+            return mk<ram::SignedConstant>(0);
         } else if (auto* numConstant = as<ast::NumericConstant>(constant)) {
             switch (poly->getInferredType(*numConstant)) {
                 case ast::NumericConstant::Type::Int:
-                    expr = mk<ram::SignedConstant>(
+                    return mk<ram::SignedConstant>(
                             RamSignedFromString(numConstant->getConstant(), nullptr, 0));
-                    break;
                 case ast::NumericConstant::Type::Uint:
-                    expr = mk<ram::UnsignedConstant>(
+                    return mk<ram::UnsignedConstant>(
                             RamUnsignedFromString(numConstant->getConstant(), nullptr, 0));
-                    break;
                 case ast::NumericConstant::Type::Float:
-                    expr = mk<ram::FloatConstant>(RamFloatFromString(numConstant->getConstant()));
-                    break;
+                    return mk<ram::FloatConstant>(RamFloatFromString(numConstant->getConstant()));
             }
         }
-        assert(expr != nullptr && "unaccounted-for constant");
-        std::stringstream ss;
-        ss << *expr;
-        return ss.str();
+        fatal("unaccounted-for constant");
+        return nullptr;
     };
 
     SipGraph sipGraph(clause, astConstantTranslator);
@@ -142,10 +135,14 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
 
     auto* prof = profileUseAnalysis;
     auto getJoinSize = [&prof](bool isRecursive, const std::string& rel, std::set<std::size_t> joinKeys,
-                               const std::map<std::size_t, std::string>& constantsMap,
+                               const std::map<std::size_t, const ram::Expression*>& constantsMap,
                                const std::string& iteration) {
-        for (auto& [k, _] : constantsMap) {
+        std::map<std::size_t, std::string> constantsStringMap;
+        for (auto& [k, v] : constantsMap) {
             joinKeys.insert(k);
+            std::stringstream ss;
+            ss << *v;
+            constantsStringMap.insert(std::make_pair(k, ss.str()));
         }
 
         if (joinKeys.empty() && !isRecursive) {
@@ -156,15 +153,9 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         ss << joinKeys;
         std::string attributes = ss.str();
 
-        attributes[0] = '[';
-        attributes[attributes.size() - 1] = ']';
-
         std::stringstream cc;
-        cc << constantsMap;
+        cc << constantsStringMap;
         std::string constants = cc.str();
-
-        constants[0] = '[';
-        constants[constants.size() - 1] = ']';
 
         if (isRecursive) {
             return prof->getRecursiveJoinSize(rel, attributes, constants, iteration);

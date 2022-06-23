@@ -838,7 +838,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             std::string columns = columnsStream.str();
 
             std::stringstream constantsStream;
-            constantsStream << "[";
+            constantsStream << "{";
             bool first = true;
             for (auto& [k, constant] : estimateJoinSize.getConstantsMap()) {
                 if (first) {
@@ -848,7 +848,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 }
                 constantsStream << k << "->" << *constant;
             }
-            constantsStream << "]";
+            constantsStream << "}";
             std::string constants = stringify(constantsStream.str());
 
             std::string profilerText =

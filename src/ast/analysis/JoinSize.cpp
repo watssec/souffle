@@ -26,6 +26,7 @@
 #include "ast/StringConstant.h"
 #include "ast/SubsumptiveClause.h"
 #include "ast/UnnamedVariable.h"
+#include "ast2ram/utility/SipGraph.h"
 #include "ast2ram/utility/Utils.h"
 #include "ram/FloatConstant.h"
 #include "ram/SignedConstant.h"
@@ -48,11 +49,11 @@ namespace souffle::ast::analysis {
 analysis::StratumJoinSizeEstimates JoinSizeAnalysis::computeRuleVersionStatements(const RelationSet& scc,
         const ast::Clause& clause, std::size_t version, ast2ram::TranslationMode mode) {
     auto* prog = program;
-    auto* poly = polyAnalysis;
     auto sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(clause),
             [&](auto* atom) { return contains(scc, prog->getRelation(*atom)); });
 
-    auto translateConstant = [poly](const ast::Constant& constant) -> Own<souffle::ram::Expression> {
+    auto* poly = polyAnalysis;
+    auto astConstantTranslator = [poly](const ast::Constant& constant) -> Own<ram::Expression> {
         if (auto strConstant = as<ast::StringConstant>(constant)) {
             return mk<ram::StringConstant>(strConstant->getConstant());
         } else if (isA<ast::NilConstant>(&constant)) {
@@ -70,6 +71,7 @@ analysis::StratumJoinSizeEstimates JoinSizeAnalysis::computeRuleVersionStatement
             }
         }
         fatal("unaccounted-for constant");
+        return nullptr;
     };
 
     analysis::StratumJoinSizeEstimates statements;
@@ -79,280 +81,38 @@ analysis::StratumJoinSizeEstimates JoinSizeAnalysis::computeRuleVersionStatement
         return getAtomName(clause, atom, sccAtoms, version, isRecursive, mode);
     };
 
-    using AtomIdx = std::size_t;
-    using AtomSet = std::set<std::size_t>;
-
-    AtomSet recursiveInCurrentStratum;
+    std::set<const Atom*> recursiveInCurrentStratum;
     auto atoms = ast::getBodyLiterals<ast::Atom>(clause);
     auto constraints = ast::getBodyLiterals<ast::BinaryConstraint>(clause);
 
-    for (auto* a : sccAtoms) {
-        for (AtomIdx i = 0; i < atoms.size(); ++i) {
-            if (*atoms[i] == *a) {
-                recursiveInCurrentStratum.insert(i);
-            }
-        }
-    }
+    SipGraph sipGraph(&clause, astConstantTranslator);
 
-    using VarName = std::string;
-    using VarSet = std::set<VarName>;
-    using ArgIdx = std::size_t;
-
-    // map variable name to constants if possible
-    std::unordered_map<VarName, ast::Constant*> varToConstant;
-
-    // map variables to necessary variables on other side of the equality
-    // i.e. x = y + z we should map x -> { y, z }
-    std::unordered_map<VarName, VarSet> varToOtherVars;
-
-    // map variable name to the lower and upper bounds of the inequality
-    // i.e. EA < Addr < EA + Size we should map Addr -> { { EA }, { EA, Size } }
-    std::unordered_map<VarName, std::pair<VarSet, VarSet>> ineqToUpperLower;
-
-    for (auto* constraint : constraints) {
-        auto* lhs = constraint->getLHS();
-        auto* rhs = constraint->getRHS();
-
-        if (isIneqConstraint(constraint->getBaseOperator())) {
-            if (auto* var = as<ast::Variable>(lhs)) {
-                VarSet otherVars;
-                visit(rhs, [&](const ast::Variable& v) { otherVars.insert(v.getName()); });
-                if (isLessThan(constraint->getBaseOperator()) || isLessEqual(constraint->getBaseOperator())) {
-                    ineqToUpperLower[var->getName()].second = otherVars;
-                }
-                if (isGreaterThan(constraint->getBaseOperator()) ||
-                        isGreaterEqual(constraint->getBaseOperator())) {
-                    ineqToUpperLower[var->getName()].first = otherVars;
-                }
+    for (Atom* atom : atoms) {
+        auto constantMap = sipGraph.getConstantsMap(atom);
+        auto unnamedVariables = sipGraph.getUnnamedIndices(atom);
+        for (auto joinColumns : sipGraph.getPossibleBoundIndices(atom)) {
+            for (auto [k, _] : constantMap) {
+                joinColumns.insert(k);
             }
 
-            if (auto* var = as<ast::Variable>(rhs)) {
-                VarSet otherVars;
-                visit(lhs, [&](const ast::Variable& v) { otherVars.insert(v.getName()); });
-                if (isLessThan(constraint->getBaseOperator()) || isLessEqual(constraint->getBaseOperator())) {
-                    ineqToUpperLower[var->getName()].first = otherVars;
-                }
-                if (isGreaterThan(constraint->getBaseOperator()) ||
-                        isGreaterEqual(constraint->getBaseOperator())) {
-                    ineqToUpperLower[var->getName()].second = otherVars;
-                }
+            // construct a EstimateJoinSize ram node
+            bool isRecursive = contains(sccAtoms, atom);
+            auto relation = getClauseAtomName(clause, atom, isRecursive);
+
+            std::stringstream ss;
+            ss << relation << " " << joinColumns << " ";
+            for (auto& p : constantMap) {
+                ss << "(" << p.first << ", " << p.second << ") ";
             }
-        }
+            ss << isRecursive;
 
-        // only consider = constraint
-        if (!isEqConstraint(constraint->getBaseOperator())) {
-            continue;
-        }
+            if (!contains(seenNodes, ss.str())) {
+                auto node =
+                        mk<souffle::ram::EstimateJoinSize>(relation, joinColumns, constantMap, isRecursive);
+                seenNodes.insert(ss.str());
 
-        if (isA<ast::Variable>(lhs) && isA<ast::Constant>(rhs)) {
-            varToConstant[as<ast::Variable>(lhs)->getName()] = as<ast::Constant>(rhs);
-            continue;
-        }
-
-        if (isA<ast::Constant>(lhs) && isA<ast::Variable>(rhs)) {
-            varToConstant[as<ast::Variable>(rhs)->getName()] = as<ast::Constant>(lhs);
-            continue;
-        }
-
-        if (auto* var = as<ast::Variable>(lhs)) {
-            VarSet otherVars;
-            visit(rhs, [&](const ast::Variable& v) { otherVars.insert(v.getName()); });
-            varToOtherVars[var->getName()] = otherVars;
-            continue;
-        }
-
-        if (auto* var = as<ast::Variable>(rhs)) {
-            VarSet otherVars;
-            visit(lhs, [&](const ast::Variable& v) { otherVars.insert(v.getName()); });
-            varToOtherVars[var->getName()] = otherVars;
-            continue;
-        }
-    }
-
-    // check for bounded inequality i.e. EA < EA2 < EA + Size
-    for (auto& p : ineqToUpperLower) {
-        // consider this like an equality
-        auto& [lower, upper] = p.second;
-        if (!lower.empty() && !upper.empty() &&
-                std::includes(upper.begin(), upper.end(), lower.begin(), lower.end())) {
-            varToOtherVars[p.first] = upper;
-        }
-    }
-
-    std::unordered_map<AtomIdx, VarSet> atomIdxToGroundedVars;
-    for (AtomIdx i = 0; i < atoms.size(); ++i) {
-        VarSet groundedVars;
-        visit(*atoms[i], [&](const ast::Variable& v) { groundedVars.insert(v.getName()); });
-        atomIdxToGroundedVars[i] = groundedVars;
-    }
-
-    std::unordered_map<AtomIdx, std::map<ArgIdx, const ram::Expression*>> atomToIdxConstants;
-
-    VecOwn<const ram::Expression> constants;
-
-    AtomIdx atomIdx = 0;
-    for (auto* atom : atoms) {
-        bool isRecursive = recursiveInCurrentStratum.count(atomIdx) > 0;
-        std::string name = getClauseAtomName(clause, atom, isRecursive);
-        std::map<ArgIdx, const ram::Expression*> idxConstant;
-
-        ArgIdx varIdx = 0;
-        for (auto* argument : atom->getArguments()) {
-            // if we have a variable and a constraint of the form x = 2 then treat x as 2
-            if (auto* var = as<ast::Variable>(argument)) {
-                if (varToConstant.count(var->getName()) > 0) {
-                    argument = varToConstant.at(var->getName());
-                }
-            }
-
-            if (auto* constant = as<ast::Constant>(argument)) {
-                auto ramConstant = translateConstant(*constant);
-                idxConstant[varIdx] = ramConstant.get();
-                constants.push_back(std::move(ramConstant));
-            }
-            ++varIdx;
-        }
-
-        atomToIdxConstants[atomIdx] = std::move(idxConstant);
-        ++atomIdx;
-    }
-
-    // for each element in the atom
-    for (AtomIdx i = 0; i < atoms.size(); ++i) {
-        // construct the set S \ S[i] and S[i]
-        AtomSet otherAtoms;
-        for (AtomIdx j = 0; j < atoms.size(); ++j) {
-            if (i != j) {
-                otherAtoms.insert(j);
-            }
-        }
-
-        // construct the set of variables that can be used for an indexed scan on this atom
-        VarSet varDependencies;
-        for (const auto& arg : atoms[i]->getArguments()) {
-            if (const auto* var = as<const ast::Variable>(arg)) {
-                varDependencies.insert(var->getName());
-                auto& dependentVars = varToOtherVars[var->getName()];
-                varDependencies.insert(dependentVars.begin(), dependentVars.end());
-            }
-        }
-
-        // remove atoms which don't ground any variables in the current atom
-        AtomSet toRemove;
-        for (AtomIdx atomIdx : otherAtoms) {
-            auto& varsGroundedByAtom = atomIdxToGroundedVars[atomIdx];
-            bool requiredAtom = std::any_of(varsGroundedByAtom.begin(), varsGroundedByAtom.end(),
-                    [&varDependencies](const std::string& var) { return varDependencies.count(var) > 0; });
-            if (!requiredAtom) {
-                toRemove.insert(atomIdx);
-            }
-        }
-
-        for (auto idx : toRemove) {
-            otherAtoms.erase(idx);
-        }
-
-        // Next step is to remove atoms which ground the same set of variables in the current atom
-        toRemove.clear();
-        std::set<VarSet> relevantGroundedVars;
-        std::unordered_map<AtomIdx, VarSet> atomIdxToRelevantGroundedVars;
-        for (AtomIdx atomIdx : otherAtoms) {
-            VarSet groundedVars;
-            auto& varsGroundedByAtom = atomIdxToGroundedVars[atomIdx];
-            for (const auto& var : varsGroundedByAtom) {
-                if (varDependencies.count(var) > 0) {
-                    groundedVars.insert(var);
-                }
-            }
-            if (relevantGroundedVars.count(groundedVars) > 0) {
-                toRemove.insert(atomIdx);
-            } else {
-                relevantGroundedVars.insert(groundedVars);
-                atomIdxToRelevantGroundedVars[atomIdx] = groundedVars;
-            }
-        }
-
-        for (auto idx : toRemove) {
-            otherAtoms.erase(idx);
-        }
-
-        SubsetCache subsetCache;
-        auto N = otherAtoms.size();
-        for (AtomIdx K = 0; K <= N; ++K) {
-            for (auto& subset : subsetCache.getSubsets(N, K)) {
-                auto* atom = atoms[i];
-                // do set union of the atoms
-
-                VarSet providedVars;
-                for (auto x : subset) {
-                    auto it = otherAtoms.begin();
-                    std::advance(it, x);
-                    auto atomIdx = *it;
-                    auto& newVars = atomIdxToRelevantGroundedVars[atomIdx];
-                    providedVars.insert(newVars.begin(), newVars.end());
-                }
-
-                // construct the node
-                std::vector<ArgIdx> joinColumns;
-                const auto& args = atom->getArguments();
-                std::size_t numBound = 0;
-                for (ArgIdx argIdx = 0; argIdx < args.size(); ++argIdx) {
-                    auto* arg = args[argIdx];
-                    // if we have a constant or var = constant then we ignore
-                    if (atomToIdxConstants.at(i).count(argIdx) > 0) {
-                        ++numBound;
-                        joinColumns.push_back(argIdx);
-                        continue;
-                    }
-
-                    // unnamed variable i.e. _
-                    if (isA<ast::UnnamedVariable>(arg)) {
-                        ++numBound;
-                        continue;
-                    }
-
-                    if (auto* var = as<ast::Variable>(arg)) {
-                        // free variable so we can't join on it
-                        if (varToOtherVars.count(var->getName()) > 0) {
-                            auto& dependentVars = varToOtherVars.at(var->getName());
-                            if (!dependentVars.empty() &&
-                                    std::includes(providedVars.begin(), providedVars.end(),
-                                            dependentVars.begin(), dependentVars.end())) {
-                                joinColumns.push_back(argIdx);
-                                ++numBound;
-                                continue;
-                            }
-                        }
-
-                        // direct match on variable
-                        if (providedVars.count(var->getName()) > 0) {
-                            joinColumns.push_back(argIdx);
-                            ++numBound;
-                            continue;
-                        }
-                    }
-                }
-
-                // construct a EstimateJoinSize ram node
-                bool isRecursive = recursiveInCurrentStratum.count(i) > 0;
-                auto relation = getClauseAtomName(clause, atom, isRecursive);
-                auto& constantMap = atomToIdxConstants.at(i);
-
-                std::stringstream ss;
-                ss << relation << " " << joinColumns << " ";
-                for (auto& p : constantMap) {
-                    ss << "(" << p.first << ", " << *p.second << ") ";
-                }
-                ss << isRecursive;
-
-                if (seenNodes.count(ss.str()) == 0) {
-                    auto node = mk<souffle::ram::EstimateJoinSize>(
-                            relation, joinColumns, constantMap, isRecursive);
-                    seenNodes.insert(ss.str());
-
-                    if (!joinColumns.empty() || isRecursive) {
-                        statements.push_back(std::move(node));
-                    }
+                if (!joinColumns.empty() || isRecursive) {
+                    statements.push_back(std::move(node));
                 }
             }
         }
@@ -444,7 +204,7 @@ std::vector<analysis::StratumJoinSizeEstimates> JoinSizeAnalysis::computeJoinSiz
                 continue;
             }
 
-            if (relationToCompletedStratum.count(rel) == 0) {
+            if (!contains(relationToCompletedStratum, rel)) {
                 assert(i > 0 && "Can't access non-recursive relation on stratum 0");
                 relationToCompletedStratum[rel] = sccOrdering[i - 1];
             }
@@ -459,7 +219,7 @@ std::vector<analysis::StratumJoinSizeEstimates> JoinSizeAnalysis::computeJoinSiz
                 continue;
             }
             // sanity check that we have an earliest stratum
-            assert(relationToCompletedStratum.count(rel) > 0 &&
+            assert(contains(relationToCompletedStratum, rel) &&
                     "Must have earliest stratum where relation is fully computed!");
             std::size_t newStratum = relationToCompletedStratum.at(rel);
 

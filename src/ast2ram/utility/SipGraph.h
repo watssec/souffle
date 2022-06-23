@@ -18,6 +18,7 @@
 
 #include "ast/Clause.h"
 #include "ast/Constant.h"
+#include "ram/Expression.h"
 #include "souffle/utility/StreamUtil.h"
 #include <functional>
 #include <iostream>
@@ -30,7 +31,7 @@ namespace souffle::ast {
 
 class SipGraph {
 public:
-    using AstConstantTranslator = std::function<std::string(const ast::Constant& constant)>;
+    using AstConstantTranslator = std::function<Own<ram::Expression>(const ast::Constant& constant)>;
 
     SipGraph(const Clause* clause, AstConstantTranslator translateConstant)
             : clause(clause), translateConstant(translateConstant) {
@@ -49,7 +50,7 @@ public:
 
     std::set<std::set<std::size_t>> getPossibleBoundIndices(const Atom* to) const;
 
-    std::map<std::size_t, std::string> getConstantsMap(const Atom* atom) const {
+    std::map<std::size_t, const ram::Expression*> getConstantsMap(const Atom* atom) const {
         return atomConstantsMap.at(atom);
     }
 
@@ -72,7 +73,7 @@ private:
     std::unordered_map<VarName, VarSet> varToOtherVars;
 
     // map atom to the constants bound at each index
-    std::map<const Atom*, std::map<std::size_t, std::string>> atomConstantsMap;
+    std::map<const Atom*, std::map<std::size_t, const ram::Expression*>> atomConstantsMap;
 
     // map atom to the number of unnamed arguments
     std::map<const Atom*, std::set<std::size_t>> unnamedMap;

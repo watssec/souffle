@@ -48,7 +48,7 @@ columns
 
 class EstimateJoinSize : public RelationStatement {
 public:
-    EstimateJoinSize(std::string rel, const std::vector<std::size_t>& columns,
+    EstimateJoinSize(std::string rel, const std::set<std::size_t>& columns,
             const std::map<std::size_t, const ram::Expression*>& keyToConstants, bool isRecursive)
             : RelationStatement(rel), keyColumns(columns), recursiveRelation(isRecursive) {
         // copy the constants over
@@ -59,7 +59,7 @@ public:
         }
     }
 
-    const std::vector<std::size_t>& getKeyColumns() const {
+    const std::set<std::size_t>& getKeyColumns() const {
         return keyColumns;
     }
 
@@ -100,7 +100,7 @@ protected:
                constantsMap == other.getConstantsMap() && recursiveRelation == other.isRecursiveRelation();
     }
 
-    std::vector<std::size_t> keyColumns;
+    std::set<std::size_t> keyColumns;
     std::map<std::size_t, const ram::Expression*> constantsMap;
     VecOwn<const ram::Expression> constants;
     bool recursiveRelation;

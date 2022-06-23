@@ -1645,7 +1645,7 @@ RamDomain Engine::evalEstimateJoinSize(
     std::string columns = columnsStream.str();
 
     std::stringstream constantsStream;
-    constantsStream << "[";
+    constantsStream << "{";
     bool first = true;
     for (auto& [k, constant] : cur.getConstantsMap()) {
         if (first) {
@@ -1655,7 +1655,7 @@ RamDomain Engine::evalEstimateJoinSize(
         }
         constantsStream << k << "->" << *constant;
     }
-    constantsStream << "]";
+    constantsStream << "}";
 
     std::string constants = stringify(constantsStream.str());
 

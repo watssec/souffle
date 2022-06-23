@@ -21,6 +21,9 @@
 #include "ast/Variable.h"
 #include "ast/utility/Utils.h"
 #include "ast/utility/Visitor.h"
+#include "ram/Expression.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/SubsetCache.h"
 #include <set>
 
 namespace souffle::ast {
@@ -31,7 +34,7 @@ void SipGraph::computeBindings() {
     auto constraints = ast::getBodyLiterals<ast::BinaryConstraint>(*clause);
 
     // map variable name to constants if possible
-    std::unordered_map<VarName, std::string> varToConstant;
+    std::unordered_map<VarName, Own<ram::Expression>> varToConstant;
 
     // map variable name to the lower and upper bounds of the inequality
     // i.e. EA < Addr < EA + Size we should map Addr -> { { EA }, { EA, Size } }
@@ -118,21 +121,21 @@ void SipGraph::computeBindings() {
     for (const auto* atom : atoms) {
         auto arguments = atom->getArguments();
         std::set<std::size_t> unnamedIndices;
-        std::map<std::size_t, std::string> indexConstant;
+        std::map<std::size_t, const ram::Expression*> indexConstant;
         for (std::size_t argIdx = 0; argIdx < arguments.size(); ++argIdx) {
             auto* argument = arguments[argIdx];
 
             // Case 1: the argument is a constant
             if (auto* constant = as<ast::Constant>(argument)) {
-                std::string constantValue = translateConstant(*constant);
-                indexConstant.insert(std::make_pair(argIdx, constantValue));
+                auto* constantValue = translateConstant(*constant).release();
+                indexConstant.emplace(std::make_pair(argIdx, constantValue));
             }
 
             // Case 2: the argument is a variable i.e. x and we have a constraint x = <constant>
             else if (auto* var = as<ast::Variable>(argument)) {
-                if (varToConstant.count(var->getName())) {
-                    std::string constantValue = varToConstant[var->getName()];
-                    indexConstant.insert(std::make_pair(argIdx, constantValue));
+                if (contains(varToConstant, var->getName())) {
+                    auto* constantValue = varToConstant.at(var->getName()).release();
+                    indexConstant.emplace(std::make_pair(argIdx, constantValue));
                 }
             }
 
@@ -163,12 +166,12 @@ std::set<std::size_t> SipGraph::getBoundIndices(
         auto* argument = arguments[argIdx];
         if (auto* var = as<ast::Variable>(argument)) {
             // Case 1: this variable is bound by "groundedAtoms"
-            if (groundedVars.count(var->getName()) > 0) {
+            if (contains(groundedVars, var->getName())) {
                 boundColumns.insert(argIdx);
             }
 
             // Case 2: this variable is bound by multiple variables by "groundedAtoms"
-            else if (varToOtherVars.count(var->getName()) > 0) {
+            else if (contains(varToOtherVars, var->getName())) {
                 auto& dependentVars = varToOtherVars.at(var->getName());
 
                 // and all of these variables are grounded by "from"
@@ -182,4 +185,60 @@ std::set<std::size_t> SipGraph::getBoundIndices(
     return boundColumns;
 }
 
+std::set<std::set<std::size_t>> SipGraph::getPossibleBoundIndices(const Atom* to) const {
+    // get all other atoms
+    auto atoms = ast::getBodyLiterals<ast::Atom>(*clause);
+    std::set<const Atom*> otherAtoms(atoms.begin(), atoms.end());
+    otherAtoms.erase(to);
+
+    std::set<std::set<std::size_t>> res;
+
+    // collect variables that ground arguments in this atom
+    VarSet dependentVars;
+    auto arguments = to->getArguments();
+    for (std::size_t argIdx = 0; argIdx < arguments.size(); ++argIdx) {
+        auto* argument = arguments[argIdx];
+        if (auto* var = as<ast::Variable>(argument)) {
+            dependentVars.insert(var->getName());
+            if (contains(varToOtherVars, var->getName())) {
+                auto& otherVars = varToOtherVars.at(var->getName());
+                dependentVars.insert(otherVars.begin(), otherVars.end());
+            }
+        }
+    }
+
+    // for each "other atom" check which relevant variables it grounds
+    std::set<const Atom*> relevantAtoms;
+    std::set<VarSet> boundVariableSet;
+    for (const Atom* other : otherAtoms) {
+        // compute the relevant variables grounded by this atom
+        VarSet relevant;
+        VarSet grounded = atomToGroundedVars.at(other);
+        std::set_intersection(grounded.begin(), grounded.end(), dependentVars.begin(), dependentVars.end(),
+                std::inserter(relevant, relevant.begin()));
+
+        // if the relevant variables are new then keep the atom
+        if (!relevant.empty() && !contains(boundVariableSet, relevant)) {
+            boundVariableSet.insert(relevant);
+            relevantAtoms.insert(other);
+        }
+    }
+
+    // for each subset of relevant atoms compute the possible bindings
+    SubsetCache subsetCache;
+    std::size_t N = relevantAtoms.size();
+    for (std::size_t K = 0; K <= N; ++K) {
+        for (auto& subset : subsetCache.getSubsets(N, K)) {
+            std::set<const Atom*> atomSet;
+            for (auto idx : subset) {
+                const Atom* atom = *std::next(relevantAtoms.begin(), idx);
+                atomSet.insert(atom);
+            }
+
+            std::set<std::size_t> binding = getBoundIndices(atomSet, to);
+            res.insert(binding);
+        }
+    }
+    return res;
+}
 }  // namespace souffle::ast
