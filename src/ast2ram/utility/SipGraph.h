@@ -47,6 +47,8 @@ public:
 
     std::set<std::size_t> getBoundIndices(const std::set<const Atom*>& from, const Atom* to) const;
 
+    std::set<std::set<std::size_t>> getPossibleBoundIndices(const Atom* to) const;
+
     std::map<std::size_t, std::string> getConstantsMap(const Atom* atom) const {
         return atomConstantsMap.at(atom);
     }

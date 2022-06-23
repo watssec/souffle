@@ -24,15 +24,16 @@
 #include "ast/analysis/SCCGraph.h"
 #include "ast/analysis/typesystem/PolymorphicObjects.h"
 #include "ast/utility/BindingStore.h"
-#include "ast/utility/SipGraph.h"
 #include "ast/utility/Utils.h"
 #include "ast/utility/Visitor.h"
+#include "ast2ram/utility/SipGraph.h"
 #include "ast2ram/utility/Utils.h"
 #include "ram/Expression.h"
 #include "ram/FloatConstant.h"
 #include "ram/SignedConstant.h"
 #include "ram/StringConstant.h"
 #include "ram/UnsignedConstant.h"
+#include "souffle/utility/SubsetCache.h"
 #include <cmath>
 #include <limits>
 #include <numeric>
@@ -216,10 +217,11 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
     }
 
     // do selinger's algorithm
+    SubsetCache subsetCache;
     auto N = atoms.size();
     for (std::size_t K = 2; K <= N; ++K) {
         // for each K sized subset
-        for (auto& subset : getSubsets(N, K)) {
+        for (auto& subset : subsetCache.getSubsets(N, K)) {
             // remove an entry from the subset
             for (AtomIdx i = 0; i < subset.size(); ++i) {
                 // construct the set S \ S[i]
@@ -308,39 +310,6 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
     }
 
     return newOrder;
-}
-
-const ast::PowerSet& SelingerProfileSipsMetric::getSubsets(std::size_t N, std::size_t K) const {
-    if (cache.count({N, K})) {
-        return cache.at({N, K});
-    }
-    // this powerset represents all possible subsets of cardinality K of the set {1,...,N}
-    ast::PowerSet res;
-
-    // generate the next permutation of the bitmask
-    std::vector<std::size_t> cur;
-    cur.reserve(K);
-
-    // use bitmask for subset generation
-    std::string bitmask(K, 1);  // K leading 1's
-    bitmask.resize(N, 0);       // N-K trailing 0's
-
-    // generate the combination while there are combinations to go
-    do {
-        cur.clear();
-
-        // construct the subset using the set bits in the bitmask
-        for (std::size_t i = 0; i < N; ++i)  // [0..N-1] integers
-        {
-            if (bitmask[i]) {
-                cur.push_back(i);
-            }
-        }
-        res.push_back(cur);
-    } while (std::prev_permutation(bitmask.begin(), bitmask.end()));
-
-    cache[std::make_pair(N, K)] = res;
-    return cache.at({N, K});
 }
 
 /** Create a SIPS metric based on a given heuristic. */

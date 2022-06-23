@@ -15,7 +15,7 @@
  *
  ***********************************************************************/
 
-#include "ast/utility/SipGraph.h"
+#include "ast2ram/utility/SipGraph.h"
 #include "Global.h"
 #include "ast/Clause.h"
 #include "ast/Variable.h"

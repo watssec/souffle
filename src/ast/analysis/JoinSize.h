@@ -40,7 +40,6 @@ namespace souffle::ast::analysis {
 /**
  * Analysis pass computing a schedule for computing relations.
  */
-using PowerSet = std::vector<std::vector<std::size_t>>;
 using StratumJoinSizeEstimates = std::vector<Own<ram::EstimateJoinSize>>;
 
 class JoinSizeAnalysis : public Analysis {
@@ -73,8 +72,6 @@ private:
     StratumJoinSizeEstimates computeRuleVersionStatements(const RelationSet& sccRelations,
             const ast::Clause& clause, std::size_t version,
             ast2ram::TranslationMode mode = ast2ram::TranslationMode::DEFAULT);
-    const PowerSet& getSubsets(std::size_t N, std::size_t K) const;
-    mutable std::map<std::pair<std::size_t, std::size_t>, PowerSet> cache;
 };
 
 }  // namespace souffle::ast::analysis

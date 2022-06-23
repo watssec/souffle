@@ -33,6 +33,7 @@
 #include "ram/UnsignedConstant.h"
 #include "souffle/BinaryConstraintOps.h"
 #include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/SubsetCache.h"
 #include <algorithm>
 #include <cstddef>
 #include <iterator>
@@ -43,40 +44,6 @@
 #include <unordered_map>
 
 namespace souffle::ast::analysis {
-
-const analysis::PowerSet& JoinSizeAnalysis::getSubsets(std::size_t N, std::size_t K) const {
-    if (cache.count({N, K})) {
-        return cache.at({N, K});
-    }
-
-    // this powerset represents all possible subsets of cardinality K of the set {1,...,N}
-    analysis::PowerSet res;
-
-    // specific combination
-    std::vector<std::size_t> cur;
-    cur.reserve(K);
-
-    // use bitmask for subset generation
-    std::string bitmask(K, 1);  // K leading 1's
-    bitmask.resize(N, 0);       // N-K trailing 0's
-
-    // generate the next permutation of the bitmask
-    do {
-        cur.clear();
-
-        // construct the subset using the set bits in the bitmask
-        for (std::size_t i = 0; i < N; ++i)  // [0..N-1] integers
-        {
-            if (bitmask[i]) {
-                cur.push_back(i);
-            }
-        }
-        res.push_back(cur);
-    } while (std::prev_permutation(bitmask.begin(), bitmask.end()));
-
-    cache[std::make_pair(N, K)] = res;
-    return cache.at({N, K});
-}
 
 analysis::StratumJoinSizeEstimates JoinSizeAnalysis::computeRuleVersionStatements(const RelationSet& scc,
         const ast::Clause& clause, std::size_t version, ast2ram::TranslationMode mode) {
@@ -309,9 +276,10 @@ analysis::StratumJoinSizeEstimates JoinSizeAnalysis::computeRuleVersionStatement
             otherAtoms.erase(idx);
         }
 
+        SubsetCache subsetCache;
         auto N = otherAtoms.size();
         for (AtomIdx K = 0; K <= N; ++K) {
-            for (auto& subset : getSubsets(N, K)) {
+            for (auto& subset : subsetCache.getSubsets(N, K)) {
                 auto* atom = atoms[i];
                 // do set union of the atoms
 
