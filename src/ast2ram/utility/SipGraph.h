@@ -75,6 +75,9 @@ private:
     // map atom to the constants bound at each index
     std::map<const Atom*, std::map<std::size_t, const ram::Expression*>> atomConstantsMap;
 
+    // hold the memory for each translated constant
+    VecOwn<ram::Expression> constants;
+
     // map atom to the number of unnamed arguments
     std::map<const Atom*, std::set<std::size_t>> unnamedMap;
 };

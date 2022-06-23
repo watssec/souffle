@@ -34,7 +34,7 @@ void SipGraph::computeBindings() {
     auto constraints = ast::getBodyLiterals<ast::BinaryConstraint>(*clause);
 
     // map variable name to constants if possible
-    std::unordered_map<VarName, Own<ram::Expression>> varToConstant;
+    std::unordered_map<VarName, const ram::Expression*> varToConstant;
 
     // map variable name to the lower and upper bounds of the inequality
     // i.e. EA < Addr < EA + Size we should map Addr -> { { EA }, { EA, Size } }
@@ -78,12 +78,16 @@ void SipGraph::computeBindings() {
 
         // x = <constant>
         else if (isA<ast::Variable>(lhs) && isA<ast::Constant>(rhs)) {
-            varToConstant[as<ast::Variable>(lhs)->getName()] = translateConstant(*as<ast::Constant>(rhs));
+            auto constant = translateConstant(*as<ast::Constant>(rhs));
+            varToConstant[as<ast::Variable>(lhs)->getName()] = constant.get();
+            constants.push_back(std::move(constant));
         }
 
         // <constant> = x
         else if (isA<ast::Constant>(lhs) && isA<ast::Variable>(rhs)) {
-            varToConstant[as<ast::Variable>(rhs)->getName()] = translateConstant(*as<ast::Constant>(lhs));
+            auto constant = translateConstant(*as<ast::Constant>(lhs));
+            varToConstant[as<ast::Variable>(rhs)->getName()] = constant.get();
+            constants.push_back(std::move(constant));
         }
 
         // x = <expr>
@@ -127,14 +131,15 @@ void SipGraph::computeBindings() {
 
             // Case 1: the argument is a constant
             if (auto* constant = as<ast::Constant>(argument)) {
-                auto* constantValue = translateConstant(*constant).release();
-                indexConstant.emplace(std::make_pair(argIdx, constantValue));
+                auto constantValue = translateConstant(*constant);
+                indexConstant.emplace(std::make_pair(argIdx, constantValue.get()));
+                constants.push_back(std::move(constantValue));
             }
 
             // Case 2: the argument is a variable i.e. x and we have a constraint x = <constant>
             else if (auto* var = as<ast::Variable>(argument)) {
                 if (contains(varToConstant, var->getName())) {
-                    auto* constantValue = varToConstant.at(var->getName()).release();
+                    auto* constantValue = varToConstant.at(var->getName());
                     indexConstant.emplace(std::make_pair(argIdx, constantValue));
                 }
             }
