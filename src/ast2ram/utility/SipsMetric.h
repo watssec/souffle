@@ -42,8 +42,6 @@ class Constant;
 class Program;
 class TranslationUnit;
 
-using PowerSet = std::vector<std::vector<std::size_t>>;
-
 /**
  * Class for SIPS cost-metric functions
  * Each subclass represents a different heuristic used for evaluating
@@ -77,6 +75,11 @@ public:
     std::vector<std::size_t> getReordering(
             const Clause* clause, const std::vector<std::string>& atomNames) const override;
 
+    // type aliases
+    using AtomIdx = std::size_t;
+    using AtomSet = std::set<std::size_t>;
+    using ArgIdx = std::size_t;
+
 private:
     /* helper struct for Selinger */
     struct PlanTuplesCost {
@@ -85,13 +88,8 @@ private:
         std::vector<double> costsPerIteration;
     };
 
-    const PowerSet& getSubsets(std::size_t N, std::size_t K) const;
-
-    Own<ram::Expression> translateConstant(const ast::Constant& constant) const;
-
     const ast::analysis::PolymorphicObjectsAnalysis* polyAnalysis = nullptr;
     const ast::analysis::ProfileUseAnalysis* profileUseAnalysis = nullptr;
-    mutable std::map<std::pair<std::size_t, std::size_t>, PowerSet> cache;
 };
 
 class StaticSipsMetric : public SipsMetric {

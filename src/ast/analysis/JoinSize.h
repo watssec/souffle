@@ -40,8 +40,7 @@ namespace souffle::ast::analysis {
 /**
  * Analysis pass computing a schedule for computing relations.
  */
-using PowerSet = std::vector<std::vector<std::size_t>>;
-using StratumJoinSize = std::vector<Own<ram::EstimateJoinSize>>;
+using StratumJoinSizeEstimates = std::vector<Own<ram::EstimateJoinSize>>;
 
 class JoinSizeAnalysis : public Analysis {
 public:
@@ -54,12 +53,12 @@ public:
     /** Dump this relation schedule to standard error. */
     void print(std::ostream& os) const override;
 
-    const StratumJoinSize& getJoinSizeStatementsInSCC(std::size_t scc) const {
+    const StratumJoinSizeEstimates& getJoinSizeStatementsInSCC(std::size_t scc) const {
         return joinSizeStatements[scc];
     }
 
 private:
-    std::vector<StratumJoinSize> joinSizeStatements;
+    std::vector<StratumJoinSizeEstimates> joinSizeStatements;
 
     std::set<std::string> seenNodes;
     ast::Program* program = nullptr;
@@ -69,12 +68,10 @@ private:
     PolymorphicObjectsAnalysis* polyAnalysis = nullptr;
 
     // for each stratum compute the EstimateJoinSize nodes to emit
-    std::vector<StratumJoinSize> computeJoinSizeStatements();
-    StratumJoinSize computeRuleVersionStatements(const RelationSet& sccRelations, const ast::Clause& clause,
-            std::optional<std::size_t> version,
+    std::vector<StratumJoinSizeEstimates> computeJoinSizeStatements();
+    StratumJoinSizeEstimates computeRuleVersionStatements(const RelationSet& sccRelations,
+            const ast::Clause& clause, std::size_t version,
             ast2ram::TranslationMode mode = ast2ram::TranslationMode::DEFAULT);
-    const PowerSet& getSubsets(std::size_t N, std::size_t K) const;
-    mutable std::map<std::pair<std::size_t, std::size_t>, PowerSet> cache;
 };
 
 }  // namespace souffle::ast::analysis
