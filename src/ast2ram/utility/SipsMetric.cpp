@@ -157,10 +157,14 @@ std::vector<std::size_t> SelingerProfileSipsMetric::getReordering(
         cc << constantsStringMap;
         std::string constants = cc.str();
 
-        if (isRecursive) {
-            return prof->getRecursiveJoinSize(rel, attributes, constants, iteration);
-        } else {
-            return prof->getNonRecursiveJoinSize(rel, attributes, constants);
+        try {
+            if (isRecursive) {
+                return prof->getRecursiveJoinSize(rel, attributes, constants, iteration);
+            } else {
+                return prof->getNonRecursiveJoinSize(rel, attributes, constants);
+            }
+        } catch (...) {
+            fatal("Error: profile used for auto-scheduling doesn't match the provided program.");
         }
     };
 
