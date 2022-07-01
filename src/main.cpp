@@ -565,7 +565,7 @@ int main(int argc, char** argv) {
         /* if emit-statistics is set then check that the profiler is also set */
         if (Global::config().has("emit-statistics")) {
             if (!Global::config().has("profile"))
-                throw std::runtime_error("must be profiling to collect emit-statistics");
+                throw std::runtime_error("must be profiling to use emit-statistics");
         }
 
     } catch (std::exception& e) {
