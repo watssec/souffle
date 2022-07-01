@@ -435,7 +435,7 @@ int main(int argc, char** argv) {
                 {"dl-program", 'o', "FILE", "", false,
                         "Generate C++ source code, written to <FILE>, and compile this to a "
                         "binary executable (without executing it)."},
-                {"emit-statistics", '\x9', "", "", false, "Enable collection of index statistics"},
+                {"emit-statistics", '\x9', "", "", false, "Enable collection of statistics for auto-scheduling"},
                 {"live-profile", '\1', "", "", false, "Enable live profiling."},
                 {"profile", 'p', "FILE", "", false, "Enable profiling, and write profile data to <FILE>."},
                 {"profile-frequency", '\2', "", "", false, "Enable the frequency counter in the profiler."},
