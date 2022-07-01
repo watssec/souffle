@@ -435,7 +435,8 @@ int main(int argc, char** argv) {
                 {"dl-program", 'o', "FILE", "", false,
                         "Generate C++ source code, written to <FILE>, and compile this to a "
                         "binary executable (without executing it)."},
-                {"index-stats", '\x9', "", "", false, "Enable collection of index statistics"},
+                {"emit-statistics", '\x9', "", "", false,
+                        "Enable collection of statistics for auto-scheduling"},
                 {"live-profile", '\1', "", "", false, "Enable live profiling."},
                 {"profile", 'p', "FILE", "", false, "Enable profiling, and write profile data to <FILE>."},
                 {"profile-frequency", '\2', "", "", false, "Enable the frequency counter in the profiler."},
@@ -562,10 +563,10 @@ int main(int argc, char** argv) {
             Global::config().set("profile");
         }
 
-        /* if index-stats is set then check that the profiler is also set */
-        if (Global::config().has("index-stats")) {
+        /* if emit-statistics is set then check that the profiler is also set */
+        if (Global::config().has("emit-statistics")) {
             if (!Global::config().has("profile"))
-                throw std::runtime_error("must be profiling to collect index-stats");
+                throw std::runtime_error("must be profiling to use emit-statistics");
         }
 
     } catch (std::exception& e) {
