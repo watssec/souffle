@@ -134,7 +134,7 @@ std::vector<analysis::StratumJoinSizeEstimates> JoinSizeAnalysis::computeJoinSiz
     joinSizeStatements.resize(sccOrdering.size());
 
     auto& config = Global::config();
-    if (!config.has("index-stats")) {
+    if (!config.has("emit-statistics")) {
         return joinSizeStatements;
     }
 
