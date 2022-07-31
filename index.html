@@ -1,0 +1,81 @@
+<html>
+
+<head>
+
+
+
+
+</head>
+
+
+
+<textarea  spellcheck="false" id="code" rows="20" style="width:100%">
+.decl edge(x : number, y : number)
+edge(1,2).
+edge(2,3).
+.output edge(IO=stdout)
+
+.decl path(x : number, y :number)
+path(x,y) :- edge(x,y).
+path(x,z) :- edge(x,y), path(y,z).
+.output path
+</textarea>
+<button onclick="myrun()">Run</button>
+<div id="stdout"></div>
+<div id="stderr"></div>
+
+<script>
+
+
+
+</script>
+
+  <script src="build_wasm/src/souffle.js"></script>
+  <script>
+      /*
+      setTimeout(function() {
+//your code to be executed after 1 second
+FS.writeFile('file', 'foobar');
+  Module.arguments =  ["--help"]  // "edge.dl"]//
+  Module.run();
+}, 1000);
+
+*/
+// String.fromCharCode(...FS.readFile("file"))
+</script>
+<script>
+
+
+
+
+   function myrun(){
+      var code = document.getElementById("code").innerHTML;
+      document.getElementById("stdout").innerText  = "";
+      document.getElementById("stderr").innerText  = "";
+      //FS.writeFile('myfile.dl', code);
+      console.log(code);
+      //Module.arguments =  ["--no-preprocessor", "myfile.dl"];
+      //Module._main(["--no-preprocessor", "myfile.dl"]);
+      // callMain(["--no-preprocessor", "myfile.dl"]);
+      var myParams = {
+        'print': function(text) { 
+          document.getElementById("stdout").innerText += "\n" + text; console.log(text)  },
+        'printErr': function(text) {document.getElementById("stderr").innerText += "\n" + text; console.error(text) },
+        "noInitialRun": false,
+        "noExitRuntime": false,
+        "arguments" : ["--no-preprocessor",  "myfile.dl"], 
+        "preRun" : function(){
+          var code = document.getElementById("code").value;
+          console.log(code);
+          myParams.FS.writeFile('myfile.dl', code);
+}
+  }; 
+      Module(myParams)
+      //load_js();
+
+}
+
+
+
+  </script>
+</html>

@@ -139,6 +139,14 @@ if (WIN32)
   SET( CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${OUTPUT_DIRECTORY}")
 endif ()
 
+
+if(EMSCRIPTEN)
+  set(SOUFFLE_USE_SQLITE off)
+  set(SOUFFLE_USE_OPENMP off)
+  set(SOUFFLE_USE_ZLIB off)
+  set(SOUFFLE_USE_LIBFFI off)
+  set(SOUFFLE_USE_CURSES off)
+endif ()
 # --------------------------------------------------
 # curses libraries for Provenance information
 # --------------------------------------------------

@@ -217,7 +217,7 @@ set_target_properties(libsouffle PROPERTIES CXX_EXTENSIONS OFF)
 set_target_properties(compiled PROPERTIES CXX_EXTENSIONS OFF)
 
 if (NOT MSVC)
-  target_compile_options(libsouffle PUBLIC -Wall -Wextra -Werror -fwrapv)
+  target_compile_options(libsouffle PUBLIC -Wall -Wextra -fwrapv)
 else ()
   target_compile_options(libsouffle PUBLIC /W3 /WX)
 endif ()
@@ -312,6 +312,10 @@ add_executable(souffle
                main.cpp)
 target_link_libraries(souffle libsouffle)
 install(TARGETS souffle DESTINATION bin)
+
+if (EMSCRIPTEN)
+target_link_libraries(souffle -sMODULARIZE=1 -s'EXPORTED_RUNTIME_METHODS=["FS"]')
+endif()
 
 # Copy the dlls in the same directory as Souffle so that they will
 # be immediately found by the operating system.
