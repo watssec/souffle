@@ -146,6 +146,7 @@ if(EMSCRIPTEN)
   set(SOUFFLE_USE_ZLIB off)
   set(SOUFFLE_USE_LIBFFI off)
   set(SOUFFLE_USE_CURSES off)
+  set(SOUFFLE_ENABLE_TESTING off)
 endif ()
 # --------------------------------------------------
 # curses libraries for Provenance information
