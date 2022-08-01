@@ -169,7 +169,7 @@ flex_target(scanner parser/scanner.ll ${CMAKE_CURRENT_BINARY_DIR}/parser/scanner
   COMPILE_FLAGS "${SCANNER_COMPILE_FLAGS} -d")
 
 bison_target(parser parser/parser.yy ${CMAKE_CURRENT_BINARY_DIR}/parser/parser.cc
-             COMPILE_FLAGS "-Wall -Werror -Wno-error=deprecated -Wno-error=other -Wno-error=unused-but-set-variable -v -d")
+             COMPILE_FLAGS "-Wall -Werror -Wno-error=deprecated -Wno-error=other -v -d")
 add_flex_bison_dependency(scanner parser)
 
 
@@ -178,6 +178,9 @@ if (MSVC)
              COMPILE_FLAGS "/wd4005 /wd4996")
   set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/parser/parser.cc PROPERTIES
              COMPILE_FLAGS "/wd4005 /wd26819")
+elseif (EMSCRIPTEN)
+  set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/parser/parser.cc PROPERTIES
+             COMPILE_FLAGS "-Wno-error=unused-but-set-variable")
 else ()
   # OSX compiler doesn't recognise `(void)var;` ideom
   set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/parser/scanner.cc PROPERTIES
