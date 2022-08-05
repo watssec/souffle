@@ -439,7 +439,6 @@ Own<ram::Statement> UnitTranslator::makeNegationSubproofSubroutine(const ast::Cl
 
     // Create the search sequence
     VecOwn<ram::Statement> searchSequence;
-    std::size_t litNumber = 0;
     for (const auto* lit : lits) {
         if (const auto* atom = as<ast::Atom>(lit)) {
             auto existenceCheck = makeRamAtomExistenceCheck(atom, idToVarName, *dummyValueIndex);
@@ -467,8 +466,6 @@ Own<ram::Statement> UnitTranslator::makeNegationSubproofSubroutine(const ast::Cl
                 appendStmt(searchSequence, std::move(ifStatement));
             }
         }
-
-        litNumber++;
     }
 
     return mk<ram::Sequence>(std::move(searchSequence));

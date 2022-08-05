@@ -381,7 +381,11 @@ const std::vector<void*>& Engine::loadDLL() {
         void* tmp = nullptr;
         for (const std::string& path : paths) {
             std::string fullpath = path + "lib" + library + dynamicLibSuffix;
+#ifndef EMSCRIPTEN
             tmp = dlopen(fullpath.c_str(), RTLD_LAZY);
+#else
+            tmp = nullptr;
+#endif
             if (tmp != nullptr) {
                 dll.push_back(tmp);
                 break;

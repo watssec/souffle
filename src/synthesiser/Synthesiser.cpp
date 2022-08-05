@@ -2699,7 +2699,6 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     std::multimap<std::string /* stratum_* */, std::string> subroutineUses;
 
     // generate class for each subroutine
-    std::size_t subroutineNum = 0;
     std::vector<std::pair<std::string, std::string>> subroutineInits;
     for (auto& sub : prog.getSubroutines()) {
         GenClass& gen = db.getClass(convertStratumIdent("Stratum_" + sub.first),
@@ -2804,7 +2803,6 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
                               "\") functor.\\n\";\n"
                            << "} return result;\n";
         }
-        subroutineNum++;
     }
 
     GenFunction& constructor = mainClass.addConstructor(Visibility::Public);
@@ -2898,13 +2896,11 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
             constructor.setNextInitializer(wrapper_name.str(), init.str());
         }
     }
-    std::size_t i = 0;
     for (auto [name, value] : subroutineInits) {
         std::string clName = convertStratumIdent("Stratum_" + name);
         std::string fName = convertStratumIdent("stratum_" + name);
         mainClass.addField(clName, fName, Visibility::Private);
         constructor.setNextInitializer(fName, value);
-        i++;
     }
 
     if (Global::config().has("profile")) {
@@ -3149,13 +3145,11 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         executeSubroutine.setNextArg("const std::vector<RamDomain>&", "args");
         executeSubroutine.setNextArg("std::vector<RamDomain>&", "ret");
 
-        std::size_t subroutineNum = 0;
         for (auto& sub : prog.getSubroutines()) {
             executeSubroutine.body() << "if (name == \"" << sub.first << "\") {\n"
                                      << convertStratumIdent("stratum_" + sub.first) << ".run(args, ret);\n"
                                      << "return;"
                                      << "}\n";
-            subroutineNum++;
         }
         executeSubroutine.body() << "fatal((\"unknown subroutine \" + name).c_str());\n";
     }

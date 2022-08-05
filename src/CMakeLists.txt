@@ -178,6 +178,9 @@ if (MSVC)
              COMPILE_FLAGS "/wd4005 /wd4996")
   set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/parser/parser.cc PROPERTIES
              COMPILE_FLAGS "/wd4005 /wd26819")
+elseif (EMSCRIPTEN)
+  set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/parser/parser.cc PROPERTIES
+             COMPILE_FLAGS "-Wno-error=unused-but-set-variable")
 else ()
   # OSX compiler doesn't recognise `(void)var;` ideom
   set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/parser/scanner.cc PROPERTIES
@@ -312,6 +315,11 @@ add_executable(souffle
                main.cpp)
 target_link_libraries(souffle libsouffle)
 install(TARGETS souffle DESTINATION bin)
+
+if (EMSCRIPTEN)
+target_link_libraries(souffle -sMODULARIZE=1 
+                      -s'EXPORTED_RUNTIME_METHODS=["FS"]' -sEXPORT_NAME="SOUFFLE")
+endif()
 
 # Copy the dlls in the same directory as Souffle so that they will
 # be immediately found by the operating system.
