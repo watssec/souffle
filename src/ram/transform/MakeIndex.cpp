@@ -90,8 +90,9 @@ ExpressionPair MakeIndexTransformer::getExpressionPair(
 ExpressionPair MakeIndexTransformer::getLowerUpperExpression(Condition* c, std::size_t& element,
         const std::optional<std::size_t>& identifier, RelationRepresentation rep) {
     if (auto* binRelOp = as<Constraint>(c)) {
-        bool interpreter = !Global::config().has("compile") && !Global::config().has("dl-program") &&
-                           !Global::config().has("generate") && !Global::config().has("swig");
+        const bool interpreter = !Global::config().has("compile") && !Global::config().has("dl-program") &&
+                                 !Global::config().has("generate") &&
+                                 !Global::config().has("generate-many") && !Global::config().has("swig");
         bool provenance = rep == RelationRepresentation::PROVENANCE;
         bool btree = (rep == RelationRepresentation::BTREE || rep == RelationRepresentation::DEFAULT ||
                       rep == RelationRepresentation::BTREE_DELETE);
