@@ -150,7 +150,7 @@ if args.swiglang:
         cmd.append('"{}"'.format(conf['compiler']))
         cmd.append("-shared")
         cmd.append("SwigInterface_wrap.o")
-        cmd.append(str(args.output) + ".o")
+        cmd.append(os.path.basename(args.output) + ".o")
         cmd.append("-o")
         cmd.append(swig_outname)
         cmd.append(conf['definitions'])
