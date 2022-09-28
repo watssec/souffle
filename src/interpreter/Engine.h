@@ -27,6 +27,7 @@
 #include "souffle/RamTypes.h"
 #include "souffle/RecordTable.h"
 #include "souffle/SymbolTable.h"
+#include "souffle/datastructure/ConcurrentCache.h"
 #include "souffle/datastructure/RecordTableImpl.h"
 #include "souffle/datastructure/SymbolTableImpl.h"
 #include "souffle/utility/ContainerUtil.h"
@@ -35,6 +36,7 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <regex>
 #include <string>
 #include <vector>
 #ifdef _OPENMP
@@ -194,6 +196,8 @@ private:
     VecOwn<RelationHandle> relations;
     /** Symbol table */
     SymbolTableImpl symbolTable;
+    /** A cache for regexes */
+    ConcurrentCache<std::string, std::regex> regexCache;
 };
 
 }  // namespace souffle::interpreter
