@@ -2607,6 +2607,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         std::vector<std::tuple<Mode, std::string /*name*/, std::string /*type*/>> args;
         args.push_back(std::make_tuple(Reference, "symTable", "SymbolTable"));
         args.push_back(std::make_tuple(Reference, "recordTable", "RecordTable"));
+        args.push_back(std::make_tuple(Reference, "regexCache", "ConcurrentCache<std::string,std::regex>"));
         args.push_back(std::make_tuple(Reference, "pruneImdtRels", "bool"));
         args.push_back(std::make_tuple(Reference, "performIO", "bool"));
         args.push_back(std::make_tuple(Reference, "signalHandler", "SignalHandler*"));
@@ -2665,13 +2666,14 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         if (SubroutineUsingStdRegex) {
             // regex wrapper
             GenFunction& wrapper = gen.addFunction("regex_wrapper", Visibility::Private);
-            gen.addInclude("<regex>");
             wrapper.setRetType("inline bool");
             wrapper.setNextArg("const std::string&", "pattern");
             wrapper.setNextArg("const std::string&", "text");
             wrapper.body()
                     << "   bool result = false; \n"
-                    << "   try { result = std::regex_match(text, std::regex(pattern)); } catch(...) { \n"
+                    << "   try { result = std::regex_match(text, regexCache.getOrCreate(pattern)); } "
+                       "catch(...) { "
+                       "\n"
                     << "     std::cerr << \"warning: wrong pattern provided for match(\\\"\" << pattern << "
                        "\"\\\",\\\"\" "
                        "<< text << \"\\\").\\n\";\n}\n"
@@ -2727,6 +2729,9 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     rt << ">";
     mainClass.addField(rt.str(), "recordTable", Visibility::Private);
     constructor.setNextInitializer("recordTable", "");
+
+    mainClass.addField("ConcurrentCache<std::string,std::regex>", "regexCache", Visibility::Private);
+    constructor.setNextInitializer("regexCache", "");
 
     if (Global::config().has("profile")) {
         std::size_t numFreq = 0;
@@ -3024,6 +3029,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     setNumThreads.body() << "SouffleProgram::setNumThreads(numThreadsValue);\n";
     setNumThreads.body() << "symTable.setNumLanes(getNumThreads());\n";
     setNumThreads.body() << "recordTable.setNumLanes(getNumThreads());\n";
+    setNumThreads.body() << "regexCache.setNumLanes(getNumThreads());\n";
 
     if (!prog.getSubroutines().empty()) {
         // generate subroutine adapter
