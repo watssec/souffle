@@ -177,15 +177,15 @@ public:
         return static_cast<node_type>(BL);
     }
 
-    /** @brief Checks if the map contains an element with the given key.
+    /**
+     * @brief Lookup a value associated with a key.
      *
      * The search is done concurrently with possible insertion of the
-     * searched key. If return true, then there is definitely an element
-     * with the specified key, if return false then there was no such
-     * element when the search began.
+     * searched key. If the a nullpointer is returned, then the key
+     * was not associated with a value when the search began.
      */
     template <class K>
-    bool weakContains(const lane_id H, const K& X) const {
+    const value_type* weakFind(const lane_id H, const K& X) const {
         const size_t HashValue = Hasher(X);
         const auto Guard = Lanes.guard(H);
         const size_t Bucket = HashValue % BucketCount;
@@ -194,11 +194,23 @@ public:
         while (L != nullptr) {
             if (EqualTo(L->Value.first, X)) {
                 // found the key
-                return true;
+                return &L->Value;
             }
             L = L->Next;
         }
-        return false;
+        return nullptr;
+    }
+
+    /** @brief Checks if the map contains an element with the given key.
+     *
+     * The search is done concurrently with possible insertion of the
+     * searched key. If return true, then there is definitely an element
+     * with the specified key, if return false then there was no such
+     * element when the search began.
+     */
+    template <class K>
+    inline bool weakContains(const lane_id H, const K& X) const {
+        return weakFind(H, X) != nullptr;
     }
 
     /**
