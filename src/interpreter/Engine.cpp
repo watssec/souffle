@@ -1534,7 +1534,7 @@ RamDomain Engine::evalParallelScan(
         const Rel& rel, const ram::ParallelScan& cur, const ParallelScan& shadow, Context& ctxt) {
     auto viewContext = shadow.getViewContext();
 
-    auto pStream = rel.partitionScan(numOfThreads);
+    auto pStream = rel.partitionScan(numOfThreads * 20);
 
     PARALLEL_START
         Context newCtxt(ctxt);
@@ -1709,7 +1709,7 @@ RamDomain Engine::evalParallelIndexScan(
     CAL_SEARCH_BOUND(superInfo, low, high);
 
     std::size_t indexPos = shadow.getViewId();
-    auto pStream = rel.partitionRange(indexPos, low, high, numOfThreads);
+    auto pStream = rel.partitionRange(indexPos, low, high, numOfThreads * 20);
     PARALLEL_START
         Context newCtxt(ctxt);
         auto viewInfo = viewContext->getViewInfoForNested();
@@ -1754,7 +1754,7 @@ RamDomain Engine::evalParallelIfExists(
         const Rel& rel, const ram::ParallelIfExists& cur, const ParallelIfExists& shadow, Context& ctxt) {
     auto viewContext = shadow.getViewContext();
 
-    auto pStream = rel.partitionScan(numOfThreads);
+    auto pStream = rel.partitionScan(numOfThreads * 20);
     auto viewInfo = viewContext->getViewInfoForNested();
     PARALLEL_START
         Context newCtxt(ctxt);
@@ -1818,7 +1818,7 @@ RamDomain Engine::evalParallelIndexIfExists(const Rel& rel, const ram::ParallelI
     CAL_SEARCH_BOUND(superInfo, low, high);
 
     std::size_t indexPos = shadow.getViewId();
-    auto pStream = rel.partitionRange(indexPos, low, high, numOfThreads);
+    auto pStream = rel.partitionRange(indexPos, low, high, numOfThreads * 20);
 
     PARALLEL_START
         Context newCtxt(ctxt);
