@@ -100,14 +100,14 @@ std::optional<detail::LinuxWaitStatus> execute(
             // check that the fork child successfully `exec`'d
             if (WIFEXITED(status)) {
                 switch (WEXITSTATUS(status)) {
-                    default: break;
+                    default: return WEXITSTATUS(status);
 
                     case EC::cannot_execute:                // FALL THRU: command_not_found
                     case EC::command_not_found: return {};  // fork couldn't execute the program
                 }
             }
-
-            return status;
+            // what should be returned on signal? Treat as error
+            return EXIT_FAILURE;
         }
     }
 #else
