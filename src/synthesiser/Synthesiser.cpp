@@ -351,7 +351,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 out << "} catch (std::exception& e) {std::cerr << \"Error loading " << io.getRelation()
                     << " data: \" << e.what() "
                        "<< "
-                       "'\\n';}\n";
+                       "'\\n';\nexit(1);\n}\n";
             } else if (op == "output" || op == "printsize") {
                 out << "try {";
                 out << "std::map<std::string, std::string> directiveMap(";
@@ -2963,7 +2963,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         loadAll.body() << ");\n";
         loadAll.body() << "} catch (std::exception& e) {std::cerr << \"Error loading " << load->getRelation()
                        << " data: \" << e.what() << "
-                          "'\\n';}\n";
+                          "'\\n';\nexit(1);\n}\n";
     }
 
     // issue dump methods
