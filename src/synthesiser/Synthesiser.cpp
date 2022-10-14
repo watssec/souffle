@@ -1144,7 +1144,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                         break;
                 }
             } else if (const auto* uda = as<ram::UserDefinedAggregator>(aggregator)) {
-                out << "res0 = functors::" << uda->getName() << "(";
+                out << "res0 = " << uda->getName() << "(";
                 if (uda->isStateful()) {
                     out << "&symTable, &recordTable, ";
                 }
@@ -2422,6 +2422,14 @@ std::set<std::string> Synthesiser::accessedUserDefinedFunctors(Statement& stmt) 
         const std::string& name = node.getName();
         accessed.insert(name);
     });
+    auto visitAggregate = [&](const AbstractAggregate& op) {
+        const Aggregator& aggregator = op.getAggregator();
+        if (const auto* uda = as<UserDefinedAggregator>(aggregator)) {
+            accessed.insert(uda->getName());
+        }
+    };
+    visit(stmt, [&](const Aggregate& op) { visitAggregate(op); });
+    visit(stmt, [&](const IndexAggregate& op) { visitAggregate(op); });
     return accessed;
 };
 
