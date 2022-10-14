@@ -81,9 +81,7 @@ TEST(AstUtils, Grounded) {
     auto program = mk<Program>();
     program->addClause(std::move(clause));
     DebugReport dbgReport;
-    WarnSet warns;
-    warns.set();
-    ErrorReport errReport(warns);
+    ErrorReport errReport;
     TranslationUnit tu{std::move(program), errReport, dbgReport};
 
     // obtain groundness
@@ -97,9 +95,7 @@ TEST(AstUtils, Grounded) {
 }
 
 TEST(AstUtils, GroundedRecords) {
-    WarnSet warns;
-    warns.set();
-    ErrorReport e(warns);
+    ErrorReport e;
     DebugReport d;
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
             R"(
@@ -136,9 +132,7 @@ TEST(AstUtils, GroundedRecords) {
 }
 
 TEST(AstUtils, ReorderClauseAtoms) {
-    WarnSet warns;
-    warns.set();
-    ErrorReport e(warns);
+    ErrorReport e;
     DebugReport d;
 
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
@@ -174,9 +168,7 @@ TEST(AstUtils, ReorderClauseAtoms) {
 }
 
 TEST(AstUtils, RemoveEquivalentClauses) {
-    WarnSet warns;
-    warns.set();
-    ErrorReport e(warns);
+    ErrorReport e;
     DebugReport d;
 
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
