@@ -145,7 +145,6 @@ private:
     std::vector<DiagnosticMessage> additionalMessages;
 };
 
-// When warnings are added here, they must also be added to -Wall in main.cpp
 enum class WarnType : std::size_t {
     DeprecatedTypeDecl,
     DeprecatedQualifier,
@@ -158,12 +157,48 @@ enum class WarnType : std::size_t {
     VarAppearsOnce,
 };
 
-using WarnSet = std::bitset<(std::size_t)WarnType::VarAppearsOnce>;
+class WarnSet {
+public:
+    WarnSet() : warns(std::bitset<(std::size_t)WarnType::VarAppearsOnce + 1>()) {
+        this->set();  // default to enabling all warnings
+    }
 
-std::optional<WarnType> warn_type_from_string(std::string s);
+    WarnSet(const WarnSet& other) = default;
+
+    bool test(const WarnType warn);
+
+    // Enable all warnings
+    void set();
+
+    // Enable one warning
+    void set(const WarnType warn);
+
+    // Disable all warnings
+    void reset(const WarnType warn);
+
+    // Disable one warning
+    void reset();
+
+    // Enable one warning
+    //
+    // Returns whether or not the string was valid
+    bool setStr(const std::string& str);
+
+    // Disable one warning
+    //
+    // Returns whether or not the string was valid
+    bool resetStr(const std::string& str);
+
+private:
+    std::bitset<(std::size_t)WarnType::VarAppearsOnce + 1> warns;
+
+    std::optional<WarnType> warnTypeFromString(const std::string& s);
+};
 
 class ErrorReport {
 public:
+    ErrorReport() : warns(WarnSet()) {}
+
     ErrorReport(WarnSet warns) : warns(warns) {}
 
     ErrorReport(const ErrorReport& other) = default;
@@ -190,7 +225,7 @@ public:
 
     /** Adds a warning with the given message and location */
     void addWarning(const WarnType type, const std::string& message, SrcLocation location) {
-        if (warns[static_cast<std::size_t>(type)]) {
+        if (warns.test(type)) {
             diagnostics.insert(
                     Diagnostic(Diagnostic::Type::WARNING, DiagnosticMessage(message, std::move(location))));
         }

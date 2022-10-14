@@ -362,19 +362,16 @@ public:
     }
 };
 
-// TODO(lb): Encapsulate more into WarnSet
 static WarnSet process_warn_opts(void) {
-    WarnSet warns;  // WarnSet is a std::bitset
+    WarnSet warns;
     if (!Global::config().has("no-warn")) {
         if (Global::config().has("warn")) {
             for (auto&& option : Global::config().getMany("warn")) {
                 if (option == "all") {
                     warns.set();
                 } else {
-                    const auto warn = warn_type_from_string(option);
-                    if (warn.has_value()) {
-                        warns.set(static_cast<std::size_t>(warn.value()));
-                    } else {
+                    auto valid = warns.setStr(option);
+                    if (!valid) {
                       throw std::runtime_error("no such warning " + std::string(option));
                     }
                 }
@@ -386,12 +383,10 @@ static WarnSet process_warn_opts(void) {
                 } else if (option == "all") {
                     warns.reset();
                 } else {
-                    const auto warn = warn_type_from_string(option);
-                    if (warn.has_value()) {
-                        warns.reset(static_cast<std::size_t>(warn.value()));
-                    } else {
-                      throw std::runtime_error("no such warning " + std::string(option));
-                    }
+                  auto valid = warns.resetStr(option);
+                  if (!valid) {
+                    throw std::runtime_error("no such warning " + std::string(option));
+                  }
                 }
             }
         }
