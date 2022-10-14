@@ -7,7 +7,7 @@
 include(SouffleTests)
 
 function(POSITIVE_TEST NAME)
-    souffle_positive_test(${NAME} example)
+    souffle_positive_test(${NAME} example ${ARGN})
 endfunction()
 
 function(NEGATIVE_TEST NAME)

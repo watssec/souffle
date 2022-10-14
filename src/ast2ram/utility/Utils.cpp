@@ -19,9 +19,9 @@
 #include "ast/Clause.h"
 #include "ast/QualifiedName.h"
 #include "ast/Relation.h"
+#include "ast/SubsumptiveClause.h"
 #include "ast/UnnamedVariable.h"
 #include "ast/Variable.h"
-
 #include "ast/utility/Utils.h"
 #include "ast2ram/utility/Location.h"
 #include "ram/Clear.h"
@@ -34,6 +34,57 @@
 #include <vector>
 
 namespace souffle::ast2ram {
+
+std::string getAtomName(const ast::Clause& clause, const ast::Atom* atom,
+        const std::vector<ast::Atom*>& sccAtoms, std::size_t version, bool isRecursive,
+        TranslationMode mode) {
+    if (isA<ast::SubsumptiveClause>(clause)) {
+        // find the dominated / dominating heads
+        const auto& body = clause.getBodyLiterals();
+        auto dominatedHeadAtom = dynamic_cast<const ast::Atom*>(body[0]);
+        auto dominatingHeadAtom = dynamic_cast<const ast::Atom*>(body[1]);
+
+        if (clause.getHead() == atom) {
+            if (mode == SubsumeDeleteCurrentDelta || mode == SubsumeDeleteCurrentCurrent) {
+                return getDeleteRelationName(atom->getQualifiedName());
+            }
+            return getRejectRelationName(atom->getQualifiedName());
+        }
+
+        if (dominatedHeadAtom == atom) {
+            if (mode == SubsumeDeleteCurrentDelta || mode == SubsumeDeleteCurrentCurrent) {
+                return getConcreteRelationName(atom->getQualifiedName());
+            }
+            return getNewRelationName(atom->getQualifiedName());
+        }
+
+        if (dominatingHeadAtom == atom) {
+            switch (mode) {
+                case SubsumeRejectNewCurrent:
+                case SubsumeDeleteCurrentCurrent: return getConcreteRelationName(atom->getQualifiedName());
+                case SubsumeDeleteCurrentDelta: return getDeltaRelationName(atom->getQualifiedName());
+                default: return getNewRelationName(atom->getQualifiedName());
+            }
+        }
+
+        if (isRecursive) {
+            if (sccAtoms.at(version + 1) == atom) {
+                return getDeltaRelationName(atom->getQualifiedName());
+            }
+        }
+    }
+
+    if (!isRecursive) {
+        return getConcreteRelationName(atom->getQualifiedName());
+    }
+    if (clause.getHead() == atom) {
+        return getNewRelationName(atom->getQualifiedName());
+    }
+    if (sccAtoms.at(version) == atom) {
+        return getDeltaRelationName(atom->getQualifiedName());
+    }
+    return getConcreteRelationName(atom->getQualifiedName());
+}
 
 std::string getConcreteRelationName(const ast::QualifiedName& name, const std::string prefix) {
     return prefix + getRelationName(name);

@@ -63,7 +63,7 @@ set(SOUFFLE_SOURCES
     ast/analysis/RecursiveClauses.cpp
     ast/analysis/RedundantRelations.cpp
     ast/analysis/RelationSchedule.cpp
-    ast/analysis/UniqueKeys.cpp
+    ast/analysis/JoinSize.cpp
     ast/analysis/SCCGraph.cpp
     ast/analysis/TopologicallySortedSCCGraph.cpp
     ast/analysis/typesystem/PolymorphicObjects.cpp
@@ -109,7 +109,8 @@ set(SOUFFLE_SOURCES
     ast/transform/TypeChecker.cpp
     ast/transform/UniqueAggregationVariables.cpp
     ast/utility/BindingStore.cpp
-    ast/utility/SipsMetric.cpp
+    ast2ram/utility/SipsMetric.cpp
+    ast2ram/utility/SipGraph.cpp
     ast/utility/Utils.cpp
     ast2ram/provenance/ClauseTranslator.cpp
     ast2ram/provenance/ConstraintTranslator.cpp
@@ -157,6 +158,8 @@ set(SOUFFLE_SOURCES
     reports/DebugReport.cpp
     synthesiser/Synthesiser.cpp
     synthesiser/Relation.cpp
+    synthesiser/Utils.cpp
+    synthesiser/GenDb.cpp
 )
 
 # --------------------------------------------------
@@ -177,6 +180,9 @@ if (MSVC)
              COMPILE_FLAGS "/wd4005 /wd4996")
   set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/parser/parser.cc PROPERTIES
              COMPILE_FLAGS "/wd4005 /wd26819")
+elseif (EMSCRIPTEN)
+  set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/parser/parser.cc PROPERTIES
+             COMPILE_FLAGS "-Wno-error=unused-but-set-variable")
 else ()
   # OSX compiler doesn't recognise `(void)var;` ideom
   set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/parser/scanner.cc PROPERTIES
@@ -311,6 +317,11 @@ add_executable(souffle
                main.cpp)
 target_link_libraries(souffle libsouffle)
 install(TARGETS souffle DESTINATION bin)
+
+if (EMSCRIPTEN)
+target_link_libraries(souffle -sMODULARIZE=1 
+                      -s'EXPORTED_RUNTIME_METHODS=["FS"]' -sEXPORT_NAME="SOUFFLE")
+endif()
 
 # Copy the dlls in the same directory as Souffle so that they will
 # be immediately found by the operating system.

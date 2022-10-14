@@ -46,7 +46,7 @@ int main(int /* argc */, char** /* argv */) {
             }
 
             // run program
-            prog->run();
+            prog->runAll("", "", false, true);
 
             // print all relations to CSV files in current directory
             // NB: Defaul is current directory

@@ -1660,12 +1660,16 @@ public:
                         leftmost = nullptr;
                         res.cur = nullptr;
                         res.pos = 0;
+                        delete static_cast<leaf_node*>(iter.cur);
                     } else {
                         // Whole tree now contained in child at position 0
                         root = iter.cur->getChild(0);
                         root->parent = nullptr;
+                        for (unsigned i = 0; i <= iter.cur->asInnerNode().numElements; ++i) {
+                            iter.cur->asInnerNode().children[i] = nullptr;
+                        }
+                        delete static_cast<inner_node*>(iter.cur);
                     }
-                    delete iter.cur;
                 }
                 break;
             }
@@ -1913,7 +1917,14 @@ private:
         left->numElements += right->getNumElements() + 1;
 
         // Delete the right node
-        delete right;
+        if (right->isLeaf()) {
+            delete static_cast<leaf_node*>(right);
+        } else {
+            for (unsigned i = 0; i <= right->asInnerNode().numElements; ++i) {
+                right->asInnerNode().children[i] = nullptr;
+            }
+            delete static_cast<inner_node*>(right);
+        }
     }
 
     /**

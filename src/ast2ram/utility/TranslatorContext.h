@@ -19,8 +19,8 @@
 #include "ast/NumericConstant.h"
 #include "ast/QualifiedName.h"
 #include "ast/UserDefinedAggregator.h"
+#include "ast/analysis/JoinSize.h"
 #include "ast/analysis/ProfileUse.h"
-#include "ast/analysis/UniqueKeys.h"
 #include "ast/analysis/typesystem/Type.h"
 #include "ast2ram/ClauseTranslator.h"
 #include "souffle/BinaryConstraintOps.h"
@@ -64,7 +64,7 @@ class RelationScheduleAnalysis;
 class SumTypeBranchesAnalysis;
 class SCCGraphAnalysis;
 class TypeEnvironment;
-class UniqueKeysAnalysis;
+class JoinSizeAnalysis;
 }  // namespace souffle::ast::analysis
 
 namespace souffle::ast2ram {
@@ -96,14 +96,14 @@ public:
     /** SCC methods */
     std::size_t getNumberOfSCCs() const;
     bool isRecursiveSCC(std::size_t scc) const;
-    std::set<const ast::Relation*> getExpiredRelations(std::size_t scc) const;
-    std::set<const ast::Relation*> getRelationsInSCC(std::size_t scc) const;
-    std::set<const ast::Relation*> getInputRelationsInSCC(std::size_t scc) const;
-    std::set<const ast::Relation*> getOutputRelationsInSCC(std::size_t scc) const;
+    ast::RelationSet getExpiredRelations(std::size_t scc) const;
+    ast::RelationSet getRelationsInSCC(std::size_t scc) const;
+    ast::RelationSet getInputRelationsInSCC(std::size_t scc) const;
+    ast::RelationSet getOutputRelationsInSCC(std::size_t scc) const;
 
-    /** UniqueKeys methods */
-    VecOwn<ram::Statement> getRecursiveUniqueKeyStatementsInSCC(std::size_t scc) const;
-    VecOwn<ram::Statement> getNonRecursiveUniqueKeyStatementsInSCC(std::size_t scc) const;
+    /** JoinSize methods */
+    VecOwn<ram::Statement> getRecursiveJoinSizeStatementsInSCC(std::size_t scc) const;
+    VecOwn<ram::Statement> getNonRecursiveJoinSizeStatementsInSCC(std::size_t scc) const;
 
     /** Functor methods */
     TypeAttribute getFunctorReturnTypeAttribute(const ast::Functor& functor) const;
@@ -137,9 +137,8 @@ public:
     /** Translation strategy */
     Own<ram::Statement> translateNonRecursiveClause(
             const ast::Clause& clause, TranslationMode mode = DEFAULT) const;
-    Own<ram::Statement> translateRecursiveClause(const ast::Clause& clause,
-            const std::set<const ast::Relation*>& scc, std::size_t version,
-            TranslationMode mode = DEFAULT) const;
+    Own<ram::Statement> translateRecursiveClause(const ast::Clause& clause, const ast::RelationSet& scc,
+            std::size_t version, TranslationMode mode = DEFAULT) const;
 
     Own<ram::Condition> translateConstraint(const ValueIndex& index, const ast::Literal* lit) const;
 
@@ -156,7 +155,7 @@ private:
     const ast::analysis::TypeEnvironment* typeEnv;
     const ast::analysis::SumTypeBranchesAnalysis* sumTypeBranches;
     const ast::analysis::PolymorphicObjectsAnalysis* polyAnalysis;
-    const ast::analysis::UniqueKeysAnalysis* uniqueKeysAnalysis;
+    const ast::analysis::JoinSizeAnalysis* joinSizeAnalysis;
     std::map<const ast::Clause*, std::size_t> clauseNums;
     Own<ast::SipsMetric> sipsMetric;
     Own<TranslationStrategy> translationStrategy;

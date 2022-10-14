@@ -14,6 +14,7 @@ add_subdirectory(pathseq)
 function(SOUFFLE_POSITIVE_FUNCTOR_TEST TEST_NAME)
         souffle_run_test_helper(TEST_NAME ${TEST_NAME} FUNCTORS ${ARGN})
         souffle_run_test_helper(TEST_NAME ${TEST_NAME} COMPILED FUNCTORS ${ARGN})
+        souffle_run_test_helper(TEST_NAME ${TEST_NAME} COMPILED_SPLITTED FUNCTORS ${ARGN})
 endfunction()
 
 function(SOUFFLE_RUN_CPP_TEST)

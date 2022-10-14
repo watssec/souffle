@@ -23,22 +23,22 @@
 #include "ast/UserDefinedAggregator.h"
 #include "ast/analysis/Functor.h"
 #include "ast/analysis/IOType.h"
+#include "ast/analysis/JoinSize.h"
 #include "ast/analysis/RecursiveClauses.h"
 #include "ast/analysis/RelationSchedule.h"
 #include "ast/analysis/SCCGraph.h"
-#include "ast/analysis/UniqueKeys.h"
 #include "ast/analysis/typesystem/PolymorphicObjects.h"
 #include "ast/analysis/typesystem/SumTypeBranches.h"
 #include "ast/analysis/typesystem/Type.h"
 #include "ast/analysis/typesystem/TypeEnvironment.h"
 #include "ast/analysis/typesystem/TypeSystem.h"
-#include "ast/utility/SipsMetric.h"
 #include "ast/utility/Utils.h"
 #include "ast2ram/ClauseTranslator.h"
 #include "ast2ram/ConstraintTranslator.h"
 #include "ast2ram/ValueTranslator.h"
 #include "ast2ram/provenance/TranslationStrategy.h"
 #include "ast2ram/seminaive/TranslationStrategy.h"
+#include "ast2ram/utility/SipsMetric.h"
 #include "ram/Condition.h"
 #include "ram/Expression.h"
 #include "ram/Statement.h"
@@ -61,7 +61,7 @@ TranslatorContext::TranslatorContext(const ast::TranslationUnit& tu) {
     typeEnv = &tu.getAnalysis<ast::analysis::TypeEnvironmentAnalysis>().getTypeEnvironment();
     sumTypeBranches = &tu.getAnalysis<ast::analysis::SumTypeBranchesAnalysis>();
     polyAnalysis = &tu.getAnalysis<ast::analysis::PolymorphicObjectsAnalysis>();
-    uniqueKeysAnalysis = &tu.getAnalysis<ast::analysis::UniqueKeysAnalysis>();
+    joinSizeAnalysis = &tu.getAnalysis<ast::analysis::JoinSizeAnalysis>();
 
     // Set up clause nums
     for (const ast::Relation* rel : program->getRelations()) {
@@ -133,21 +133,21 @@ std::size_t TranslatorContext::getSizeLimit(const ast::Relation* relation) const
     return ioType->getLimitSize(relation);
 }
 
-std::set<const ast::Relation*> TranslatorContext::getRelationsInSCC(std::size_t scc) const {
+ast::RelationSet TranslatorContext::getRelationsInSCC(std::size_t scc) const {
     return sccGraph->getInternalRelations(scc);
 }
 
-std::set<const ast::Relation*> TranslatorContext::getInputRelationsInSCC(std::size_t scc) const {
+ast::RelationSet TranslatorContext::getInputRelationsInSCC(std::size_t scc) const {
     return sccGraph->getInternalInputRelations(scc);
 }
 
-std::set<const ast::Relation*> TranslatorContext::getOutputRelationsInSCC(std::size_t scc) const {
+ast::RelationSet TranslatorContext::getOutputRelationsInSCC(std::size_t scc) const {
     return sccGraph->getInternalOutputRelations(scc);
 }
 
-VecOwn<ram::Statement> TranslatorContext::getRecursiveUniqueKeyStatementsInSCC(std::size_t scc) const {
+VecOwn<ram::Statement> TranslatorContext::getRecursiveJoinSizeStatementsInSCC(std::size_t scc) const {
     VecOwn<ram::Statement> res;
-    for (auto&& s : uniqueKeysAnalysis->getUniqueKeyStatementsInSCC(scc)) {
+    for (auto&& s : joinSizeAnalysis->getJoinSizeStatementsInSCC(scc)) {
         if (s->isRecursiveRelation()) {
             res.push_back(clone(s));
         }
@@ -155,9 +155,9 @@ VecOwn<ram::Statement> TranslatorContext::getRecursiveUniqueKeyStatementsInSCC(s
     return res;
 }
 
-VecOwn<ram::Statement> TranslatorContext::getNonRecursiveUniqueKeyStatementsInSCC(std::size_t scc) const {
+VecOwn<ram::Statement> TranslatorContext::getNonRecursiveJoinSizeStatementsInSCC(std::size_t scc) const {
     VecOwn<ram::Statement> res;
-    for (auto&& s : uniqueKeysAnalysis->getUniqueKeyStatementsInSCC(scc)) {
+    for (auto&& s : joinSizeAnalysis->getJoinSizeStatementsInSCC(scc)) {
         if (!s->isRecursiveRelation()) {
             res.push_back(clone(s));
         }
@@ -165,7 +165,7 @@ VecOwn<ram::Statement> TranslatorContext::getNonRecursiveUniqueKeyStatementsInSC
     return res;
 }
 
-std::set<const ast::Relation*> TranslatorContext::getExpiredRelations(std::size_t scc) const {
+ast::RelationSet TranslatorContext::getExpiredRelations(std::size_t scc) const {
     return relationSchedule->schedule().at(scc).expired();
 }
 
@@ -260,7 +260,7 @@ Own<ram::Statement> TranslatorContext::translateNonRecursiveClause(
 }
 
 Own<ram::Statement> TranslatorContext::translateRecursiveClause(const ast::Clause& clause,
-        const std::set<const ast::Relation*>& scc, std::size_t version, TranslationMode mode) const {
+        const ast::RelationSet& scc, std::size_t version, TranslationMode mode) const {
     auto clauseTranslator = Own<ClauseTranslator>(translationStrategy->createClauseTranslator(*this, mode));
     return clauseTranslator->translateRecursiveClause(clause, scc, version);
 }

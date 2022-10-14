@@ -224,45 +224,45 @@ public:
 } nonRecursiveRuleNumberProcessor;
 
 /**
- * Non-Recursive Count Unique Keys Profile Event Processor
+ * Non-Recursive Estimate Join Size Profile Event Processor
  */
-const class NonRecursiveCountUniqueKeysProcessor : public EventProcessor {
+const class NonRecursiveEstimateJoinSizeProcessor : public EventProcessor {
 public:
-    NonRecursiveCountUniqueKeysProcessor() {
-        EventProcessorSingleton::instance().registerEventProcessor("@non-recursive-count-unique-keys", this);
+    NonRecursiveEstimateJoinSizeProcessor() {
+        EventProcessorSingleton::instance().registerEventProcessor("@non-recursive-estimate-join-size", this);
     }
     /** process event input */
     void process(ProfileDatabase& db, const std::vector<std::string>& signature, va_list& args) override {
         const std::string& relation = signature[1];
         const std::string& attributes = signature[2];
         const std::string& constants = signature[3];
-        std::size_t uniqueKeys = va_arg(args, std::size_t);
-        db.addSizeEntry({"program", "statistics", "relation", relation, "attributes", attributes, "constants",
+        std::string joinSize = std::to_string(va_arg(args, double));
+        db.addTextEntry({"program", "statistics", "relation", relation, "attributes", attributes, "constants",
                                 constants},
-                uniqueKeys);
+                joinSize);
     }
-} nonRecursiveCountUniqueKeysProcessor;
+} nonRecursiveEstimateJoinSizeProcessor;
 
 /**
- * Recursive Count Unique Keys Profile Event Processor
+ * Recursive Estimate Join Size Profile Event Processor
  */
-const class RecursiveCountUniqueKeysProcessor : public EventProcessor {
+const class RecursiveEstimateJoinSizeProcessor : public EventProcessor {
 public:
-    RecursiveCountUniqueKeysProcessor() {
-        EventProcessorSingleton::instance().registerEventProcessor("@recursive-count-unique-keys", this);
+    RecursiveEstimateJoinSizeProcessor() {
+        EventProcessorSingleton::instance().registerEventProcessor("@recursive-estimate-join-size", this);
     }
     /** process event input */
     void process(ProfileDatabase& db, const std::vector<std::string>& signature, va_list& args) override {
         const std::string& relation = signature[1];
         const std::string& attributes = signature[2];
         const std::string& constants = signature[3];
-        std::size_t uniqueKeys = va_arg(args, std::size_t);
+        std::string joinSize = std::to_string(va_arg(args, double));
         std::string iteration = std::to_string(va_arg(args, std::size_t));
-        db.addSizeEntry({"program", "statistics", "relation", relation, "iteration", iteration, "attributes",
+        db.addTextEntry({"program", "statistics", "relation", relation, "iteration", iteration, "attributes",
                                 attributes, "constants", constants},
-                uniqueKeys);
+                joinSize);
     }
-} recursiveCountUniqueKeysProcessor;
+} recursiveEstimateJoinSizeProcessor;
 
 /**
  * Recursive Rule Timing Profile Event Processor

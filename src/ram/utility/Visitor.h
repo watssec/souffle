@@ -30,10 +30,10 @@
 #include "ram/Condition.h"
 #include "ram/Conjunction.h"
 #include "ram/Constraint.h"
-#include "ram/CountUniqueKeys.h"
 #include "ram/DebugInfo.h"
 #include "ram/EmptinessCheck.h"
 #include "ram/Erase.h"
+#include "ram/EstimateJoinSize.h"
 #include "ram/ExistenceCheck.h"
 #include "ram/Exit.h"
 #include "ram/Expression.h"
@@ -169,7 +169,7 @@ struct Visitor : souffle::detail::VisitorBase<R, NodeType, Params...> {
         SOUFFLE_VISITOR_FORWARD(Query);
         SOUFFLE_VISITOR_FORWARD(Clear);
         SOUFFLE_VISITOR_FORWARD(LogSize);
-        SOUFFLE_VISITOR_FORWARD(CountUniqueKeys);
+        SOUFFLE_VISITOR_FORWARD(EstimateJoinSize);
 
         SOUFFLE_VISITOR_FORWARD(Swap);
         SOUFFLE_VISITOR_FORWARD(MergeExtend);
@@ -195,7 +195,7 @@ protected:
     SOUFFLE_VISITOR_LINK(Query, Statement);
     SOUFFLE_VISITOR_LINK(Clear, RelationStatement);
     SOUFFLE_VISITOR_LINK(LogSize, RelationStatement);
-    SOUFFLE_VISITOR_LINK(CountUniqueKeys, RelationStatement);
+    SOUFFLE_VISITOR_LINK(EstimateJoinSize, RelationStatement);
 
     SOUFFLE_VISITOR_LINK(RelationStatement, Statement);
 

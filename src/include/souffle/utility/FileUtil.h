@@ -17,6 +17,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <climits>
 #include <cstdio>
 #include <cstdlib>
@@ -322,19 +323,20 @@ inline std::string tempFile() {
 }
 
 inline std::stringstream execStdOut(char const* cmd) {
-    FILE* in = popen(cmd, "r");
     std::stringstream data;
+    std::shared_ptr<FILE> command_pipe(popen(cmd, "r"), pclose);
 
-    if (in == nullptr) {
+    if (command_pipe.get() == nullptr) {
         return data;
     }
 
-    while (!feof(in)) {
-        int c = fgetc(in);
-        data << static_cast<char>(c);
+    std::array<char, 256> buffer;
+    while (!feof(command_pipe.get())) {
+        if (fgets(buffer.data(), 256, command_pipe.get()) != nullptr) {
+            data << buffer.data();
+        }
     }
 
-    pclose(in);
     return data;
 }
 

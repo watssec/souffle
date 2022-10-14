@@ -104,7 +104,7 @@ struct RelationWrapper;
     Forward(LogTimer)\
     Forward(DebugInfo)\
     FOR_EACH(Expand, Clear)\
-    FOR_EACH(Expand, CountUniqueKeys)\
+    FOR_EACH(Expand, EstimateJoinSize)\
     Forward(LogSize)\
     Forward(IO)\
     Forward(Query)\
@@ -893,11 +893,11 @@ public:
 };
 
 /**
- * @class CountUniqueKeys
+ * @class EstimateJoinSize
  */
-class CountUniqueKeys : public Node, public RelationalOperation, public ViewOperation {
+class EstimateJoinSize : public Node, public RelationalOperation, public ViewOperation {
 public:
-    CountUniqueKeys(enum NodeType ty, const ram::Node* sdw, RelationHandle* handle, std::size_t viewId)
+    EstimateJoinSize(enum NodeType ty, const ram::Node* sdw, RelationHandle* handle, std::size_t viewId)
             : Node(ty, sdw), RelationalOperation(handle), ViewOperation(viewId) {}
 };
 
@@ -906,15 +906,15 @@ public:
  */
 class Call : public Node {
 public:
-    Call(enum NodeType ty, const ram::Node* sdw, std::size_t subroutineId)
-            : Node(ty, sdw), subroutineId(subroutineId) {}
+    Call(enum NodeType ty, const ram::Node* sdw, std::string subroutineName)
+            : Node(ty, sdw), subroutineName(subroutineName) {}
 
-    std::size_t getSubroutineId() const {
-        return subroutineId;
+    const std::string& getSubroutineName() const {
+        return subroutineName;
     }
 
 private:
-    const std::size_t subroutineId;
+    const std::string subroutineName;
 };
 
 /**

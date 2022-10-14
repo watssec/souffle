@@ -31,19 +31,19 @@
 #include "ast/SubsumptiveClause.h"
 #include "ast/UnnamedVariable.h"
 #include "ast/analysis/Functor.h"
-#include "ast/utility/SipsMetric.h"
 #include "ast/utility/Utils.h"
 #include "ast/utility/Visitor.h"
 #include "ast2ram/utility/Location.h"
+#include "ast2ram/utility/SipsMetric.h"
 #include "ast2ram/utility/TranslatorContext.h"
 #include "ast2ram/utility/Utils.h"
 #include "ast2ram/utility/ValueIndex.h"
 #include "ram/Aggregate.h"
 #include "ram/Break.h"
 #include "ram/Constraint.h"
-#include "ram/CountUniqueKeys.h"
 #include "ram/DebugInfo.h"
 #include "ram/EmptinessCheck.h"
+#include "ram/EstimateJoinSize.h"
 #include "ram/ExistenceCheck.h"
 #include "ram/Filter.h"
 #include "ram/FloatConstant.h"
@@ -101,8 +101,12 @@ std::string ClauseTranslator::getClauseString(const ast::Clause& clause) const {
     return toString(*renamedClone);
 }
 
+std::string ClauseTranslator::getClauseAtomName(const ast::Clause& clause, const ast::Atom* atom) const {
+    return getAtomName(clause, atom, sccAtoms, version, isRecursive(), mode);
+}
+
 Own<ram::Statement> ClauseTranslator::translateRecursiveClause(
-        const ast::Clause& clause, const std::set<const ast::Relation*>& scc, std::size_t version) {
+        const ast::Clause& clause, const ast::RelationSet& scc, std::size_t version) {
     // Update version config
     sccAtoms = filter(ast::getBodyLiterals<ast::Atom>(clause),
             [&](auto* atom) { return contains(scc, context.getProgram()->getRelation(*atom)); });
@@ -140,55 +144,6 @@ Own<ram::Statement> ClauseTranslator::translateNonRecursiveClause(const ast::Cla
         return createRamFactQuery(clause);
     }
     return createRamRuleQuery(clause);
-}
-
-std::string ClauseTranslator::getClauseAtomName(const ast::Clause& clause, const ast::Atom* atom) const {
-    if (isA<ast::SubsumptiveClause>(clause)) {
-        // find the dominated / dominating heads
-        const auto& body = clause.getBodyLiterals();
-        auto dominatedHeadAtom = dynamic_cast<const ast::Atom*>(body[0]);
-        auto dominatingHeadAtom = dynamic_cast<const ast::Atom*>(body[1]);
-
-        if (clause.getHead() == atom) {
-            if (mode == SubsumeDeleteCurrentDelta || mode == SubsumeDeleteCurrentCurrent) {
-                return getDeleteRelationName(atom->getQualifiedName());
-            }
-            return getRejectRelationName(atom->getQualifiedName());
-        }
-
-        if (dominatedHeadAtom == atom) {
-            if (mode == SubsumeDeleteCurrentDelta || mode == SubsumeDeleteCurrentCurrent) {
-                return getConcreteRelationName(atom->getQualifiedName());
-            }
-            return getNewRelationName(atom->getQualifiedName());
-        }
-
-        if (dominatingHeadAtom == atom) {
-            switch (mode) {
-                case SubsumeRejectNewCurrent:
-                case SubsumeDeleteCurrentCurrent: return getConcreteRelationName(atom->getQualifiedName());
-                case SubsumeDeleteCurrentDelta: return getDeltaRelationName(atom->getQualifiedName());
-                default: return getNewRelationName(atom->getQualifiedName());
-            }
-        }
-
-        if (isRecursive()) {
-            if (sccAtoms.at(version + 1) == atom) {
-                return getDeltaRelationName(atom->getQualifiedName());
-            }
-        }
-    }
-
-    if (!isRecursive()) {
-        return getConcreteRelationName(atom->getQualifiedName());
-    }
-    if (clause.getHead() == atom) {
-        return getNewRelationName(atom->getQualifiedName());
-    }
-    if (sccAtoms.at(version) == atom) {
-        return getDeltaRelationName(atom->getQualifiedName());
-    }
-    return getConcreteRelationName(atom->getQualifiedName());
 }
 
 Own<ram::Statement> ClauseTranslator::createRamFactQuery(const ast::Clause& clause) const {
@@ -723,7 +678,11 @@ std::vector<ast::Atom*> ClauseTranslator::getAtomOrdering(const ast::Clause& cla
         }
     }
 
-    auto newOrder = context.getSipsMetric()->getReordering(&clause, version, mode);
+    std::vector<std::string> atomNames;
+    for (auto* atom : atoms) {
+        atomNames.push_back(getClauseAtomName(clause, atom));
+    }
+    auto newOrder = context.getSipsMetric()->getReordering(&clause, atomNames);
     return reorderAtoms(atoms, newOrder);
 }
 

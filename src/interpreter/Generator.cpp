@@ -36,9 +36,9 @@ NodePtr NodeGenerator::generateTree(const ram::Node& root) {
         if (isA<ram::Query>(&node)) {
             newQueryBlock();
         }
-        if (const auto* countUniqueKeys = as<ram::CountUniqueKeys>(node)) {
-            encodeIndexPos(*countUniqueKeys);
-            encodeView(countUniqueKeys);
+        if (const auto* estimateJoinSize = as<ram::EstimateJoinSize>(node)) {
+            encodeIndexPos(*estimateJoinSize);
+            encodeView(estimateJoinSize);
         } else if (const auto* indexSearch = as<ram::IndexOperation>(node)) {
             encodeIndexPos(*indexSearch);
             encodeView(indexSearch);
@@ -516,9 +516,7 @@ NodePtr NodeGenerator::visit_(type_identity<ram::Call>, const ram::Call& call) {
     // in the interpreter. The index is stored in the
     // data array of the Node as the first
     // entry.
-    auto subs = engine.tUnit.getProgram().getSubroutines();
-    std::size_t subroutineId = distance(subs.begin(), subs.find(call.getName()));
-    return mk<Call>(I_Call, &call, subroutineId);
+    return mk<Call>(I_Call, &call, call.getName());
 }
 
 NodePtr NodeGenerator::visit_(type_identity<ram::LogRelationTimer>, const ram::LogRelationTimer& timer) {
@@ -542,11 +540,12 @@ NodePtr NodeGenerator::visit_(type_identity<ram::Clear>, const ram::Clear& clear
     return mk<Clear>(type, &clear, rel);
 }
 
-NodePtr NodeGenerator::visit_(type_identity<ram::CountUniqueKeys>, const ram::CountUniqueKeys& count) {
-    std::size_t relId = encodeRelation(count.getRelation());
+NodePtr NodeGenerator::visit_(
+        type_identity<ram::EstimateJoinSize>, const ram::EstimateJoinSize& estimateJoinSize) {
+    std::size_t relId = encodeRelation(estimateJoinSize.getRelation());
     auto rel = getRelationHandle(relId);
-    NodeType type = constructNodeType("CountUniqueKeys", lookup(count.getRelation()));
-    return mk<CountUniqueKeys>(type, &count, rel, encodeIndexPos(count));
+    NodeType type = constructNodeType("EstimateJoinSize", lookup(estimateJoinSize.getRelation()));
+    return mk<EstimateJoinSize>(type, &estimateJoinSize, rel, encodeIndexPos(estimateJoinSize));
 }
 
 NodePtr NodeGenerator::visit_(type_identity<ram::LogSize>, const ram::LogSize& size) {

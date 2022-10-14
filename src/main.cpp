@@ -101,12 +101,14 @@
 #include "souffle/utility/StreamUtil.h"
 #include "souffle/utility/StringUtil.h"
 #include "souffle/utility/SubProcess.h"
+#include "synthesiser/GenDb.h"
 #include "synthesiser/Synthesiser.h"
 #include <cassert>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -118,6 +120,8 @@
 #include <thread>
 #include <utility>
 #include <vector>
+
+namespace fs = std::filesystem;
 
 namespace souffle {
 
@@ -168,7 +172,7 @@ namespace souffle {
 /**
  * Compiles the given source file to a binary file.
  */
-void compileToBinary(const std::string& command, std::string_view sourceFilename) {
+void compileToBinary(const std::string& command, std::vector<fs::path>& sourceFilenames, fs::path binary) {
     std::vector<std::string> argv;
 
     argv.push_back(command);
@@ -193,7 +197,12 @@ void compileToBinary(const std::string& command, std::string_view sourceFilename
         argv.push_back(tfm::format("-l%s", library));
     }
 
-    argv.push_back(std::string(sourceFilename));
+    for (fs::path srcFile : sourceFilenames) {
+        argv.push_back(srcFile.string());
+    }
+
+    argv.push_back("-o");
+    argv.push_back(binary.string());
 
 #if defined(_MSC_VER)
     const char* interpreter = "python";
@@ -202,8 +211,7 @@ void compileToBinary(const std::string& command, std::string_view sourceFilename
 #endif
     auto exit = execute(interpreter, argv);
     if (!exit) throw std::invalid_argument(tfm::format("unable to execute tool <python3 %s>", command));
-    if (exit != 0)
-        throw std::invalid_argument(tfm::format("failed to compile C++ source <%s>", sourceFilename));
+    if (exit != 0) throw std::invalid_argument("failed to compile C++ sources");
 }
 
 class InputProvider {
@@ -397,9 +405,16 @@ int main(int argc, char** argv) {
                 {"compile", 'c', "", "", false,
                         "Generate C++ source code, compile to a binary executable, then run this "
                         "executable."},
+                {"compile-many", 'C', "", "", false,
+                        "Generate C++ source code in multiple files, compile to a binary executable, then "
+                        "run this "
+                        "executable."},
                 {"generate", 'g', "FILE", "", false,
                         "Generate C++ source code for the given Datalog program and write it to "
                         "<FILE>. If <FILE> is `-` then stdout is used."},
+                {"generate-many", 'G', "DIR", "", false,
+                        "Generate C++ source code in multiple files for the given Datalog program "
+                        "and write it to <DIR>."},
                 {"inline-exclude", '\x7', "RELATIONS", "", false,
                         "Prevent the given relations from being inlined. Overrides any `inline` qualifiers."},
                 {"swig", 's', "LANG", "", false,
@@ -420,7 +435,8 @@ int main(int argc, char** argv) {
                 {"dl-program", 'o', "FILE", "", false,
                         "Generate C++ source code, written to <FILE>, and compile this to a "
                         "binary executable (without executing it)."},
-                {"index-stats", '\x9', "", "", false, "Enable collection of index statistics"},
+                {"emit-statistics", '\x9', "", "", false,
+                        "Enable collection of statistics for auto-scheduling"},
                 {"live-profile", '\1', "", "", false, "Enable live profiling."},
                 {"profile", 'p', "FILE", "", false, "Enable profiling, and write profile data to <FILE>."},
                 {"profile-frequency", '\2', "", "", false, "Enable the frequency counter in the profiler."},
@@ -547,10 +563,10 @@ int main(int argc, char** argv) {
             Global::config().set("profile");
         }
 
-        /* if index-stats is set then check that the profiler is also set */
-        if (Global::config().has("index-stats")) {
+        /* if emit-statistics is set then check that the profiler is also set */
+        if (Global::config().has("emit-statistics")) {
             if (!Global::config().has("profile"))
-                throw std::runtime_error("must be profiling to collect index-stats");
+                throw std::runtime_error("must be profiling to use emit-statistics");
         }
 
     } catch (std::exception& e) {
@@ -839,12 +855,13 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    const bool execute_mode = Global::config().has("compile");
+    const bool execute_mode = Global::config().has("compile") || Global::config().has("compile-many");
     const bool compile_mode = Global::config().has("dl-program");
     const bool generate_mode = Global::config().has("generate");
+    const bool generate_many_mode = Global::config().has("generate-many");
 
-    const bool must_interpret =
-            !execute_mode && !compile_mode && !generate_mode && !Global::config().has("swig");
+    const bool must_interpret = !execute_mode && !compile_mode && !generate_mode && !generate_many_mode &&
+                                !Global::config().has("swig");
     const bool must_execute = execute_mode;
     const bool must_compile = must_execute || compile_mode || Global::config().has("swig");
 
@@ -900,6 +917,8 @@ int main(int argc, char** argv) {
                 if (baseFilename.size() >= 4 && baseFilename.substr(baseFilename.size() - 4) == ".cpp") {
                     baseFilename = baseFilename.substr(0, baseFilename.size() - 4);
                 }
+            } else if (generate_many_mode) {
+                baseFilename = Global::config().get("generate-many");
             } else {
                 baseFilename = tempFile();
             }
@@ -909,17 +928,32 @@ int main(int argc, char** argv) {
             }
 
             std::string baseIdentifier = identifier(simpleName(baseFilename));
-            std::string sourceFilename = baseFilename + ".cpp";
+
+            std::string binaryFilename = baseFilename;
 
             bool withSharedLibrary;
             auto synthesisStart = std::chrono::high_resolution_clock::now();
             const bool emitToStdOut = Global::config().has("generate", "-");
+            const bool emitMultipleFiles =
+                    Global::config().has("generate-many") || Global::config().has("compile-many");
+
+            synthesiser::GenDb db;
+            synthesiser->generateCode(db, baseIdentifier, withSharedLibrary);
+            std::vector<fs::path> srcFiles;
             if (emitToStdOut)
-                synthesiser->generateCode(std::cout, baseIdentifier, withSharedLibrary);
-            else {
+                db.emitSingleFile(std::cout);
+            else if (emitMultipleFiles) {
+                fs::path directory = Global::config().has("generate-many")
+                                             ? fs::path(Global::config().get("generate-many"))
+                                             : fs::temp_directory_path() / baseIdentifier;
+                std::string mainClass = db.emitMultipleFilesInDir(directory, srcFiles);
+                binaryFilename = (directory / fs::path(mainClass)).string();
+            } else {
+                std::string sourceFilename = baseFilename + ".cpp";
                 std::ofstream os{sourceFilename};
-                synthesiser->generateCode(os, baseIdentifier, withSharedLibrary);
+                db.emitSingleFile(os);
                 os.close();
+                srcFiles.push_back(fs::path(sourceFilename));
             }
             if (Global::config().has("verbose")) {
                 auto synthesisEnd = std::chrono::high_resolution_clock::now();
@@ -942,7 +976,8 @@ int main(int argc, char** argv) {
                 if (!souffle_compile) throw std::runtime_error("failed to locate souffle-compile.py");
 
                 auto t_bgn = std::chrono::high_resolution_clock::now();
-                compileToBinary(*souffle_compile, sourceFilename);
+                fs::path output(binaryFilename);
+                compileToBinary(*souffle_compile, srcFiles, output);
                 auto t_end = std::chrono::high_resolution_clock::now();
 
                 if (Global::config().has("verbose")) {
@@ -953,7 +988,6 @@ int main(int argc, char** argv) {
 
             // run compiled C++ program if requested.
             if (must_execute) {
-                std::string binaryFilename = baseFilename;
 #if defined(_MSC_VER)
                 binaryFilename += ".exe";
 #endif

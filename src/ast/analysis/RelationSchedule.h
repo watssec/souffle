@@ -36,16 +36,16 @@ namespace souffle::ast::analysis {
  */
 class RelationScheduleAnalysisStep {
 public:
-    RelationScheduleAnalysisStep(std::set<const Relation*> computedRelations,
-            std::set<const Relation*> expiredRelations, const bool isRecursive)
+    RelationScheduleAnalysisStep(
+            RelationSet computedRelations, RelationSet expiredRelations, const bool isRecursive)
             : computedRelations(std::move(computedRelations)), expiredRelations(std::move(expiredRelations)),
               isRecursive(isRecursive) {}
 
-    const std::set<const Relation*>& computed() const {
+    const RelationSet& computed() const {
         return computedRelations;
     }
 
-    const std::set<const Relation*>& expired() const {
+    const RelationSet& expired() const {
         return expiredRelations;
     }
 
@@ -62,8 +62,8 @@ public:
     }
 
 private:
-    std::set<const Relation*> computedRelations;
-    std::set<const Relation*> expiredRelations;
+    RelationSet computedRelations;
+    RelationSet expiredRelations;
     const bool isRecursive;
 };
 
@@ -92,8 +92,7 @@ private:
     /** Relations computed and expired relations at each step */
     std::vector<RelationScheduleAnalysisStep> relationSchedule;
 
-    std::vector<std::set<const Relation*>> computeRelationExpirySchedule(
-            const TranslationUnit& translationUnit);
+    std::vector<RelationSet> computeRelationExpirySchedule(const TranslationUnit& translationUnit);
 };
 
 }  // namespace souffle::ast::analysis

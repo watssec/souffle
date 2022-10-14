@@ -114,8 +114,8 @@ private:
             const Rel& rel, const ram::ParallelScan& cur, const ParallelScan& shadow, Context& ctxt);
 
     template <typename Rel>
-    RamDomain evalCountUniqueKeys(
-            const Rel& rel, const ram::CountUniqueKeys& cur, const CountUniqueKeys& shadow, Context& ctxt);
+    RamDomain evalEstimateJoinSize(
+            const Rel& rel, const ram::EstimateJoinSize& cur, const EstimateJoinSize& shadow, Context& ctxt);
 
     template <typename Rel>
     RamDomain evalIndexScan(const ram::IndexScan& cur, const IndexScan& shadow, Context& ctxt);
@@ -169,7 +169,7 @@ private:
     const bool profileEnabled;
     const bool frequencyCounterEnabled;
     /** subroutines */
-    VecOwn<Node> subroutine;
+    std::map<std::string /*name*/, Own<Node>> subroutine;
     /** main program */
     Own<Node> main;
     /** Number of threads enabled for this program */

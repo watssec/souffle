@@ -43,7 +43,7 @@ bool ExecutionPlanChecker::transform(TranslationUnit& translationUnit) {
 
     Program& program = translationUnit.getProgram();
     for (const analysis::RelationScheduleAnalysisStep& step : relationSchedule.schedule()) {
-        const std::set<const Relation*>& scc = step.computed();
+        const RelationSet& scc = step.computed();
         for (const Relation* rel : scc) {
             for (auto&& clause : program.getClauses(*rel)) {
                 if (!recursiveClauses.recursive(clause)) {
@@ -74,8 +74,14 @@ bool ExecutionPlanChecker::transform(TranslationUnit& translationUnit) {
                         }
                     }
                     auto numAtoms = getBodyLiterals<Atom>(*clause).size();
-                    if (order.size() != numAtoms || !isComplete) {
-                        report.addError("Invalid execution order in plan", cur.second->getSrcLoc());
+                    if (order.size() != numAtoms) {
+                        report.addError("Invalid execution order in plan (expected " +
+                                                std::to_string(numAtoms) + " atoms, not " +
+                                                std::to_string(order.size()) + ")",
+                                cur.second->getSrcLoc());
+                    } else if (!isComplete) {
+                        report.addError(
+                                "Invalid execution order in plan (incomplete)", cur.second->getSrcLoc());
                     }
                 }
 

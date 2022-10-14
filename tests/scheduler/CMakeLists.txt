@@ -24,7 +24,7 @@ function(SOUFFLE_ADD_SCHEDULER_TEST TEST_NAME)
 
     set(QUALIFIED_TEST_NAME scheduler/${TEST_NAME}_stats_collection)
     # Run stats collection
-    set(SOUFFLE_PARAMS "-p" "${OUTPUT_DIR}/${TEST_NAME}.prof" "--index-stats")
+    set(SOUFFLE_PARAMS "-p" "${OUTPUT_DIR}/${TEST_NAME}.prof" "--emit-statistics")
     add_test(NAME ${QUALIFIED_TEST_NAME}
       COMMAND
       ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/cmake/redirect.py

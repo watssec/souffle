@@ -30,10 +30,10 @@
 #include "ram/Clear.h"
 #include "ram/Conjunction.h"
 #include "ram/Constraint.h"
-#include "ram/CountUniqueKeys.h"
 #include "ram/DebugInfo.h"
 #include "ram/EmptinessCheck.h"
 #include "ram/Erase.h"
+#include "ram/EstimateJoinSize.h"
 #include "ram/ExistenceCheck.h"
 #include "ram/Exit.h"
 #include "ram/False.h"
@@ -395,7 +395,11 @@ const std::vector<void*>& Engine::loadDLL() {
         void* tmp = nullptr;
         for (const std::string& path : paths) {
             std::string fullpath = path + "lib" + library + dynamicLibSuffix;
+#ifndef EMSCRIPTEN
             tmp = dlopen(fullpath.c_str(), RTLD_LAZY);
+#else
+            tmp = nullptr;
+#endif
             if (tmp != nullptr) {
                 dll.push_back(tmp);
                 break;
@@ -487,7 +491,7 @@ void Engine::generateIR() {
     NodeGenerator generator(*this);
     if (subroutine.empty()) {
         for (const auto& sub : program.getSubroutines()) {
-            subroutine.push_back(generator.generateTree(*sub.second));
+            subroutine.emplace(std::make_pair("stratum_" + sub.first, generator.generateTree(*sub.second)));
         }
     }
     if (main == nullptr) {
@@ -501,10 +505,7 @@ void Engine::executeSubroutine(
     ctxt.setReturnValues(ret);
     ctxt.setArguments(args);
     generateIR();
-    const ram::Program& program = tUnit.getProgram();
-    auto subs = program.getSubroutines();
-    std::size_t i = distance(subs.begin(), subs.find(name));
-    execute(subroutine[i].get(), ctxt);
+    execute(subroutine["stratum_" + name].get(), ctxt);
 }
 
 RamDomain Engine::execute(const Node* node, Context& ctxt) {
@@ -1332,17 +1333,17 @@ RamDomain Engine::execute(const Node* node, Context& ctxt) {
         FOR_EACH(CLEAR)
 #undef CLEAR
 
-#define COUNTUNIQUEKEYS(Structure, Arity, ...)                          \
-    CASE(CountUniqueKeys, Structure, Arity)                             \
+#define ESTIMATEJOINSIZE(Structure, Arity, ...)                         \
+    CASE(EstimateJoinSize, Structure, Arity)                            \
         const auto& rel = *static_cast<RelType*>(shadow.getRelation()); \
-        return evalCountUniqueKeys<RelType>(rel, cur, shadow, ctxt);    \
-    ESAC(CountUniqueKeys)
+        return evalEstimateJoinSize<RelType>(rel, cur, shadow, ctxt);   \
+    ESAC(EstimateJoinSize)
 
-        FOR_EACH(COUNTUNIQUEKEYS)
-#undef COUNTUNIQUEKEYS
+        FOR_EACH(ESTIMATEJOINSIZE)
+#undef ESTIMATEJOINSIZE
 
         CASE(Call)
-            execute(subroutine[shadow.getSubroutineId()].get(), ctxt);
+            execute(subroutine[shadow.getSubroutineName()].get(), ctxt);
             return true;
         ESAC(Call)
 
@@ -1546,7 +1547,7 @@ RamDomain Engine::evalParallelScan(
         const Rel& rel, const ram::ParallelScan& cur, const ParallelScan& shadow, Context& ctxt) {
     auto viewContext = shadow.getViewContext();
 
-    auto pStream = rel.partitionScan(numOfThreads);
+    auto pStream = rel.partitionScan(numOfThreads * 20);
 
     PARALLEL_START
         Context newCtxt(ctxt);
@@ -1574,8 +1575,8 @@ RamDomain Engine::evalParallelScan(
 }
 
 template <typename Rel>
-RamDomain Engine::evalCountUniqueKeys(
-        const Rel& rel, const ram::CountUniqueKeys& cur, const CountUniqueKeys& shadow, Context& ctxt) {
+RamDomain Engine::evalEstimateJoinSize(
+        const Rel& rel, const ram::EstimateJoinSize& cur, const EstimateJoinSize& shadow, Context& ctxt) {
     (void)ctxt;
     constexpr std::size_t Arity = Rel::Arity;
     bool onlyConstants = true;
@@ -1625,8 +1626,8 @@ RamDomain Engine::evalCountUniqueKeys(
     // ensure range is non-empty
     auto* index = rel.getIndex(indexPos);
     // initial values
-    std::size_t total = 0;
-    std::size_t duplicates = 0;
+    double total = 0;
+    double duplicates = 0;
 
     if (!index->scan().empty()) {
         // assign first tuple as prev as a dummy
@@ -1654,14 +1655,14 @@ RamDomain Engine::evalCountUniqueKeys(
             ++total;
         }
     }
-    std::size_t uniqueKeys = (onlyConstants ? total : total - duplicates);
+    double joinSize = (onlyConstants ? total : total / std::max(1.0, (total - duplicates)));
 
     std::stringstream columnsStream;
     columnsStream << cur.getKeyColumns();
     std::string columns = columnsStream.str();
 
     std::stringstream constantsStream;
-    constantsStream << "[";
+    constantsStream << "{";
     bool first = true;
     for (auto& [k, constant] : cur.getConstantsMap()) {
         if (first) {
@@ -1671,18 +1672,18 @@ RamDomain Engine::evalCountUniqueKeys(
         }
         constantsStream << k << "->" << *constant;
     }
-    constantsStream << "]";
+    constantsStream << "}";
 
     std::string constants = stringify(constantsStream.str());
 
     if (cur.isRecursiveRelation()) {
         std::string txt =
-                "@recursive-count-unique-keys;" + cur.getRelation() + ";" + columns + ";" + constants;
-        ProfileEventSingleton::instance().makeRecursiveCountEvent(txt, uniqueKeys, getIterationNumber());
+                "@recursive-estimate-join-size;" + cur.getRelation() + ";" + columns + ";" + constants;
+        ProfileEventSingleton::instance().makeRecursiveCountEvent(txt, joinSize, getIterationNumber());
     } else {
         std::string txt =
-                "@non-recursive-count-unique-keys;" + cur.getRelation() + ";" + columns + ";" + constants;
-        ProfileEventSingleton::instance().makeNonRecursiveCountEvent(txt, uniqueKeys);
+                "@non-recursive-estimate-join-size;" + cur.getRelation() + ";" + columns + ";" + constants;
+        ProfileEventSingleton::instance().makeNonRecursiveCountEvent(txt, joinSize);
     }
     return true;
 }
@@ -1721,7 +1722,7 @@ RamDomain Engine::evalParallelIndexScan(
     CAL_SEARCH_BOUND(superInfo, low, high);
 
     std::size_t indexPos = shadow.getViewId();
-    auto pStream = rel.partitionRange(indexPos, low, high, numOfThreads);
+    auto pStream = rel.partitionRange(indexPos, low, high, numOfThreads * 20);
     PARALLEL_START
         Context newCtxt(ctxt);
         auto viewInfo = viewContext->getViewInfoForNested();
@@ -1766,7 +1767,7 @@ RamDomain Engine::evalParallelIfExists(
         const Rel& rel, const ram::ParallelIfExists& cur, const ParallelIfExists& shadow, Context& ctxt) {
     auto viewContext = shadow.getViewContext();
 
-    auto pStream = rel.partitionScan(numOfThreads);
+    auto pStream = rel.partitionScan(numOfThreads * 20);
     auto viewInfo = viewContext->getViewInfoForNested();
     PARALLEL_START
         Context newCtxt(ctxt);
@@ -1830,7 +1831,7 @@ RamDomain Engine::evalParallelIndexIfExists(const Rel& rel, const ram::ParallelI
     CAL_SEARCH_BOUND(superInfo, low, high);
 
     std::size_t indexPos = shadow.getViewId();
-    auto pStream = rel.partitionRange(indexPos, low, high, numOfThreads);
+    auto pStream = rel.partitionRange(indexPos, low, high, numOfThreads * 20);
 
     PARALLEL_START
         Context newCtxt(ctxt);
