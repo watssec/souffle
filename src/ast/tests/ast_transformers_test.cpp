@@ -44,7 +44,9 @@ namespace souffle::ast::transform::test {
 using namespace analysis;
 
 TEST(Transformers, GroundTermPropagation) {
-    ErrorReport errorReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errorReport(warns);
     DebugReport debugReport;
     // load some test program
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
@@ -75,7 +77,9 @@ TEST(Transformers, GroundTermPropagation) {
 }
 
 TEST(Transformers, GroundTermPropagation2) {
-    ErrorReport errorReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errorReport(warns);
     DebugReport debugReport;
     // load some test program
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
@@ -103,7 +107,9 @@ TEST(Transformers, GroundTermPropagation2) {
 
 TEST(Transformers, ResolveGroundedAliases) {
     // load some test program
-    ErrorReport errorReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errorReport(warns);
     DebugReport debugReport;
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
             R"(
@@ -126,7 +132,9 @@ TEST(Transformers, ResolveGroundedAliases) {
 
 TEST(Transformers, ResolveAliasesWithTermsInAtoms) {
     // load some test program
-    ErrorReport errorReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errorReport(warns);
     DebugReport debugReport;
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
             R"(
@@ -163,7 +171,9 @@ TEST(Transformers, ResolveAliasesWithTermsInAtoms) {
  */
 
 TEST(Transformers, RemoveRelationCopies) {
-    ErrorReport errorReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errorReport(warns);
     DebugReport debugReport;
     // load some test program
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
@@ -208,7 +218,9 @@ TEST(Transformers, RemoveRelationCopies) {
  *
  */
 TEST(Transformers, RemoveRelationCopiesOutput) {
-    ErrorReport errorReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errorReport(warns);
     DebugReport debugReport;
     // load some test program
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
@@ -242,7 +254,9 @@ TEST(Transformers, RemoveRelationCopiesOutput) {
  * Test the equivalence (or lack of equivalence) of clauses using the MinimiseProgramTransfomer.
  */
 TEST(Transformers, CheckClausalEquivalence) {
-    ErrorReport errorReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errorReport(warns);
     DebugReport debugReport;
 
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
@@ -333,7 +347,9 @@ TEST(Transformers, CheckClausalEquivalence) {
  * Test the equivalence (or lack of equivalence) of aggregators using the MinimiseProgramTransfomer.
  */
 TEST(Transformers, CheckAggregatorEquivalence) {
-    ErrorReport errorReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errorReport(warns);
     DebugReport debugReport;
 
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
@@ -396,7 +412,9 @@ TEST(Transformers, CheckAggregatorEquivalence) {
  *          e.g. a(x) :- a(x), x != 0. is only true if a(x) is already true
  */
 TEST(Transformers, RemoveClauseRedundancies) {
-    ErrorReport errorReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errorReport(warns);
     DebugReport debugReport;
 
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
@@ -453,7 +471,9 @@ TEST(Transformers, RemoveClauseRedundancies) {
  *      (4) MagicSetTransformer
  */
 TEST(Transformers, MagicSetComprehensive) {
-    ErrorReport e;
+    WarnSet warns;
+    warns.set();
+    ErrorReport e(warns);
     DebugReport d;
 
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(

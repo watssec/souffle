@@ -61,7 +61,9 @@ RamDomain evalExpression(Own<Expression> expression) {
 
     Own<Program> prog = mk<Program>(std::move(rels), mk<ram::Sequence>(), std::move(subs));
 
-    ErrorReport errReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errReport(warns);
     DebugReport debugReport;
 
     TranslationUnit translationUnit(std::move(prog), errReport, debugReport);

@@ -362,6 +362,43 @@ public:
     }
 };
 
+// TODO(lb): Encapsulate more into WarnSet
+static WarnSet process_warn_opts(void) {
+    WarnSet warns;  // WarnSet is a std::bitset
+    if (!Global::config().has("no-warn")) {
+        if (Global::config().has("warn")) {
+            for (auto&& option : Global::config().getMany("warn")) {
+                if (option == "all") {
+                    warns.set();
+                } else {
+                    const auto warn = warn_type_from_string(option);
+                    if (warn.has_value()) {
+                        warns.set(static_cast<std::size_t>(warn.value()));
+                    } else {
+                      throw std::runtime_error("no such warning " + std::string(option));
+                    }
+                }
+            }
+        }
+        if (Global::config().has("wno")) {
+            for (auto&& option : Global::config().getMany("wno")) {
+                if (option == "none") {  // default
+                } else if (option == "all") {
+                    warns.reset();
+                } else {
+                    const auto warn = warn_type_from_string(option);
+                    if (warn.has_value()) {
+                        warns.reset(static_cast<std::size_t>(warn.value()));
+                    } else {
+                      throw std::runtime_error("no such warning " + std::string(option));
+                    }
+                }
+            }
+        }
+    }
+    return warns;
+}
+
 int main(int argc, char** argv) {
     /* Time taking for overall runtime */
     auto souffle_start = std::chrono::high_resolution_clock::now();
@@ -423,6 +460,10 @@ int main(int argc, char** argv) {
                 {"library-dir", 'L', "DIR", "", true, "Specify directory for library files."},
                 {"libraries", 'l', "FILE", "", true, "Specify libraries."},
                 {"no-warn", 'w', "", "", false, "Disable warnings."},
+                {"warn", 'W', "WARN", "all", true, "Enable a warning."},
+                {"wno", '\xb', "WARN", "none", true, "Disable a specific warning."},
+                // TODO(lb):
+                // {"Werror", '\xc', "WARN", "none", false, "Turn a warning into an error."},
                 {"magic-transform", 'm', "RELATIONS", "", false,
                         "Enable magic set transformation changes on the given relations, use '*' "
                         "for all."},
@@ -619,7 +660,8 @@ int main(int argc, char** argv) {
     // ------- parse program -------------
 
     // parse file
-    ErrorReport errReport(Global::config().has("no-warn"));
+    ErrorReport errReport(process_warn_opts());
+
     DebugReport debugReport;
     Own<ast::TranslationUnit> astTranslationUnit = ParserDriver::parseTranslationUnit(
             InputPath.string(), Input->getInputStream(), errReport, debugReport);

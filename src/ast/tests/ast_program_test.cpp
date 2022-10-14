@@ -42,7 +42,9 @@
 namespace souffle::ast::test {
 
 inline Own<TranslationUnit> makeATU(std::string program) {
-    ErrorReport e;
+    WarnSet warns;
+    warns.set();
+    ErrorReport e(warns);
     DebugReport d;
     return ParserDriver::parseTranslationUnit(program, e, d);
 }
@@ -55,7 +57,9 @@ inline Own<Clause> makeClause(std::string name, Own<Argument> headArgument) {
 }
 
 TEST(Program, Parse) {
-    ErrorReport e;
+    WarnSet warns;
+    warns.set();
+    ErrorReport e(warns);
     DebugReport d;
     // check the empty program
     Own<TranslationUnit> empty = ParserDriver::parseTranslationUnit("", e, d);
@@ -88,7 +92,9 @@ TEST(Program, Parse) {
 
 #define TESTASTCLONEANDEQUAL(SUBTYPE, DL)                                       \
     TEST(Ast, CloneAndEqual##SUBTYPE) {                                         \
-        ErrorReport e;                                                          \
+        WarnSet warns; \
+        warns.set(); \
+        ErrorReport e(warns); \
         DebugReport d;                                                          \
         Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(DL, e, d); \
         Program& program = tu->getProgram();                                    \

@@ -18,9 +18,11 @@
 
 #include "parser/SrcLocation.h"
 #include <algorithm>
+#include <bitset>
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -143,9 +145,26 @@ private:
     std::vector<DiagnosticMessage> additionalMessages;
 };
 
+// When warnings are added here, they must also be added to -Wall in main.cpp
+enum class WarnType : std::size_t {
+    DeprecatedTypeDecl,
+    DeprecatedQualifier,
+    DollarSign,
+    NoRulesNorFacts,
+    NoSubsumptiveRule,
+    // This last element is used as the size parameter to std::bitset in the
+    // definition of WarnSet. If the last element changes, the definition of
+    // WarnSet must be updated accordingly.
+    VarAppearsOnce,
+};
+
+using WarnSet = std::bitset<(std::size_t)WarnType::VarAppearsOnce>;
+
+std::optional<WarnType> warn_type_from_string(std::string s);
+
 class ErrorReport {
 public:
-    ErrorReport(bool nowarn = false) : nowarn(nowarn) {}
+    ErrorReport(WarnSet warns) : warns(warns) {}
 
     ErrorReport(const ErrorReport& other) = default;
 
@@ -170,8 +189,8 @@ public:
     }
 
     /** Adds a warning with the given message and location */
-    void addWarning(const std::string& message, SrcLocation location) {
-        if (!nowarn) {
+    void addWarning(const WarnType type, const std::string& message, SrcLocation location) {
+        if (warns[static_cast<std::size_t>(type)]) {
             diagnostics.insert(
                     Diagnostic(Diagnostic::Type::WARNING, DiagnosticMessage(message, std::move(location))));
         }
@@ -203,7 +222,7 @@ public:
 
 private:
     std::set<Diagnostic> diagnostics;
-    bool nowarn;
+    WarnSet warns;
 };
 
 }  // end of namespace souffle

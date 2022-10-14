@@ -80,7 +80,9 @@ const std::string testInterpreterStore(
     std::map<std::string, Own<Statement>> subs;
     Own<ram::Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    ErrorReport errReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errReport(warns);
     DebugReport debugReport;
 
     TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
@@ -274,7 +276,9 @@ TEST(IO_store, SignedChangedDelimiter) {
     std::map<std::string, Own<Statement>> subs;
     Own<Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    ErrorReport errReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errReport(warns);
     DebugReport debugReport;
 
     TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
@@ -329,7 +333,9 @@ TEST(IO_store, MixedTypes) {
             {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
     std::map<std::string, std::string> ioDirs = std::map<std::string, std::string>(dirs);
 
-    ErrorReport errReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errReport(warns);
     DebugReport debugReport;
 
     VecOwn<Expression> exprs;
@@ -410,7 +416,9 @@ TEST(IO_load, Signed) {
     std::map<std::string, Own<Statement>> subs;
     Own<Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    ErrorReport errReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errReport(warns);
     DebugReport debugReport;
 
     TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
@@ -470,7 +478,9 @@ TEST(IO_load, Float) {
     std::map<std::string, Own<Statement>> subs;
     Own<Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    ErrorReport errReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errReport(warns);
     DebugReport debugReport;
 
     TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
@@ -530,7 +540,9 @@ TEST(IO_load, Unsigned) {
     std::map<std::string, Own<Statement>> subs;
     Own<Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    ErrorReport errReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errReport(warns);
     DebugReport debugReport;
 
     TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
@@ -590,7 +602,9 @@ TEST(IO_load, MixedTypesLoad) {
     std::map<std::string, Own<Statement>> subs;
     Own<Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    ErrorReport errReport;
+    WarnSet warns;
+    warns.set();
+    ErrorReport errReport(warns);
     DebugReport debugReport;
 
     TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
