@@ -18,7 +18,7 @@
 
 namespace souffle {
 
-std::optional<WarnType> WarnSet::warnTypeFromString(const std::string &s) {
+std::optional<WarnType> WarnSet::warnTypeFromString(const std::string& s) {
     if (s == "deprecated-type-decl") {
         return std::optional<WarnType>(WarnType::DeprecatedTypeDecl);
     } else if (s == "deprecated-qualifier") {
@@ -26,51 +26,51 @@ std::optional<WarnType> WarnSet::warnTypeFromString(const std::string &s) {
     } else if (s == "dollar-sign") {
         return std::optional<WarnType>(WarnType::DollarSign);
     } else if (s == "no-rules-nor-facts") {
-      return std::optional<WarnType>(WarnType::NoRulesNorFacts);
+        return std::optional<WarnType>(WarnType::NoRulesNorFacts);
     } else if (s == "no-subsumptive-rule") {
-      return std::optional<WarnType>(WarnType::NoSubsumptiveRule);
+        return std::optional<WarnType>(WarnType::NoSubsumptiveRule);
     } else if (s == "var-appears-once") {
-      return std::optional<WarnType>(WarnType::VarAppearsOnce);
+        return std::optional<WarnType>(WarnType::VarAppearsOnce);
     }
     return std::optional<WarnType>();
 }
 
 bool WarnSet::test(const WarnType warn) {
-  return warns.test(static_cast<std::size_t>(warn));
+    return warns.test(static_cast<std::size_t>(warn));
 }
 
 void WarnSet::set(const WarnType warn) {
-  warns.set(static_cast<std::size_t>(warn));
+    warns.set(static_cast<std::size_t>(warn));
 }
 
 void WarnSet::set() {
-  warns.set();
+    warns.set();
 }
 
 void WarnSet::reset(const WarnType warn) {
-  warns.reset(static_cast<std::size_t>(warn));
+    warns.reset(static_cast<std::size_t>(warn));
 }
 
 void WarnSet::reset() {
-  warns.reset();
+    warns.reset();
 }
 
-bool WarnSet::setStr(const std::string &str) {
-  const auto warn = warnTypeFromString(str);
-  if (warn.has_value()) {
-      this->set(warn.value());
-      return true;
-  }
-  return false;
+bool WarnSet::setStr(const std::string& str) {
+    const auto warn = warnTypeFromString(str);
+    if (warn.has_value()) {
+        this->set(warn.value());
+        return true;
+    }
+    return false;
 }
 
-bool WarnSet::resetStr(const std::string &str) {
-  const auto warn = warnTypeFromString(str);
-  if (warn.has_value()) {
-    this->reset(warn.value());
-    return true;
-  }
-  return false;
+bool WarnSet::resetStr(const std::string& str) {
+    const auto warn = warnTypeFromString(str);
+    if (warn.has_value()) {
+        this->reset(warn.value());
+        return true;
+    }
+    return false;
 }
 
-};
+};  // namespace souffle

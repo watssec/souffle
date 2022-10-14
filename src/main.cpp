@@ -372,7 +372,7 @@ static WarnSet process_warn_opts(void) {
                 } else {
                     auto valid = warns.setStr(option);
                     if (!valid) {
-                      throw std::runtime_error("no such warning " + std::string(option));
+                        throw std::runtime_error("no such warning " + std::string(option));
                     }
                 }
             }
@@ -383,10 +383,10 @@ static WarnSet process_warn_opts(void) {
                 } else if (option == "all") {
                     warns.reset();
                 } else {
-                  auto valid = warns.resetStr(option);
-                  if (!valid) {
-                    throw std::runtime_error("no such warning " + std::string(option));
-                  }
+                    auto valid = warns.resetStr(option);
+                    if (!valid) {
+                        throw std::runtime_error("no such warning " + std::string(option));
+                    }
                 }
             }
         }
