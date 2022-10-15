@@ -32,7 +32,7 @@ std::optional<WarnType> WarnSet::warnTypeFromString(const std::string& s) {
     } else if (s == "var-appears-once") {
         return std::optional<WarnType>(WarnType::VarAppearsOnce);
     }
-    return std::optional<WarnType>();
+    return std::optional<WarnType>(std::nullopt);
 }
 
 bool WarnSet::test(const WarnType warn) {
