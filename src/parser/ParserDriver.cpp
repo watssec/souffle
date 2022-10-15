@@ -216,7 +216,8 @@ std::set<RelationTag> ParserDriver::addDeprecatedTag(
 
 Own<ast::Counter> ParserDriver::addDeprecatedCounter(SrcLocation tagLoc) {
     if (!Global::config().has("legacy")) {
-        warning(WarnType::DollarSign, tagLoc, "Deprecated $ symbol was used. Use functor 'autoinc()' instead.");
+        warning(WarnType::DollarSign, tagLoc,
+                "Deprecated $ symbol was used. Use functor 'autoinc()' instead.");
     }
     return mk<ast::Counter>();
 }
@@ -250,7 +251,7 @@ Own<ast::SubsetType> ParserDriver::mkDeprecatedSubType(
 }
 
 void ParserDriver::warning(const WarnType type, const SrcLocation& loc, const std::string& msg) {
-  translationUnit->getErrorReport().addWarning(type, msg, loc);
+    translationUnit->getErrorReport().addWarning(type, msg, loc);
 }
 void ParserDriver::error(const SrcLocation& loc, const std::string& msg) {
     translationUnit->getErrorReport().addError(msg, loc);
