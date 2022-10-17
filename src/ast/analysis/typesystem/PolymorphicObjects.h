@@ -26,7 +26,7 @@ enum class FunctorOp;
 }  // namespace souffle
 
 namespace souffle::ast {
-class Aggregator;
+class IntrinsicAggregator;
 class BinaryConstraint;
 class IntrinsicFunctor;
 class TranslationUnit;
@@ -57,7 +57,7 @@ public:
     BinaryConstraintOp getOverloadedOperator(const BinaryConstraint& bc) const;
 
     // Aggregators
-    AggregateOp getOverloadedOperator(const Aggregator& agg) const;
+    AggregateOp getOverloadedOperator(const IntrinsicAggregator& agg) const;
 
 private:
     const TypeAnalysis* typeAnalysis = nullptr;

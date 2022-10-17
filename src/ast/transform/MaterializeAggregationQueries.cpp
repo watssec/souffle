@@ -19,6 +19,7 @@
 #include "ast/Atom.h"
 #include "ast/Attribute.h"
 #include "ast/Clause.h"
+#include "ast/IntrinsicAggregator.h"
 #include "ast/Literal.h"
 #include "ast/Node.h"
 #include "ast/Program.h"
@@ -33,6 +34,7 @@
 #include "ast/analysis/typesystem/TypeSystem.h"
 #include "ast/utility/Utils.h"
 #include "ast/utility/Visitor.h"
+#include "ram/IntrinsicOperator.h"
 #include "souffle/TypeAttribute.h"
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/NodeMapper.h"
@@ -285,8 +287,10 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
             // quickly copy in all the literals from the aggregate body
             auto aggClause = mk<Clause>(aggregateBodyRelationName);
             aggClause->setBodyLiterals(clone(agg.getBodyLiterals()));
-            if (agg.getBaseOperator() == AggregateOp::COUNT) {
-                instantiateUnnamedVariables(*aggClause);
+            if (const auto* intrinsicAgg = as<IntrinsicAggregator>(agg)) {
+                if (intrinsicAgg->getBaseOperator() == AggregateOp::COUNT) {
+                    instantiateUnnamedVariables(*aggClause);
+                }
             }
             // pull in any necessary grounding atoms
             groundInjectedParameters(translationUnit, *aggClause, clause, agg);

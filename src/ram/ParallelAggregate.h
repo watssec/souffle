@@ -48,13 +48,14 @@ namespace souffle::ram {
  */
 class ParallelAggregate : public Aggregate, public AbstractParallel {
 public:
-    ParallelAggregate(Own<Operation> nested, AggregateOp fun, std::string rel, Own<Expression> expression,
+    ParallelAggregate(Own<Operation> nested, Own<Aggregator> fun, std::string rel, Own<Expression> expression,
             Own<Condition> condition, std::size_t ident)
-            : Aggregate(std::move(nested), fun, rel, std::move(expression), std::move(condition), ident) {}
+            : Aggregate(std::move(nested), std::move(fun), rel, std::move(expression), std::move(condition),
+                      ident) {}
 
     ParallelAggregate* cloning() const override {
-        return new ParallelAggregate(
-                clone(getOperation()), function, relation, clone(expression), clone(condition), identifier);
+        return new ParallelAggregate(clone(getOperation()), clone(function), relation, clone(expression),
+                clone(condition), identifier);
     }
 
 protected:

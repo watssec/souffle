@@ -31,6 +31,7 @@
 #include "ast/StringConstant.h"
 #include "ast/TranslationUnit.h"
 #include "ast/UnnamedVariable.h"
+#include "ast/UserDefinedAggregator.h"
 #include "ast/analysis/IOType.h"
 #include "ast/analysis/PrecedenceGraph.h"
 #include "ast/analysis/SCCGraph.h"
@@ -534,10 +535,20 @@ bool NormaliseDatabaseTransformer::normaliseArguments(TranslationUnit& translati
                 append(newBodyLiterals, cloneRange(subConstraints));
 
                 // Update the node to reflect normalised aggregator
-                node = aggr->getTargetExpression() != nullptr
-                               ? mk<Aggregator>(aggr->getBaseOperator(), clone(aggr->getTargetExpression()),
-                                         std::move(newBodyLiterals))
-                               : mk<Aggregator>(aggr->getBaseOperator(), nullptr, std::move(newBodyLiterals));
+                node = [&]() -> Own<Aggregator> {
+                    if (auto* intrinsicAggr = as<IntrinsicAggregator>(aggr)) {
+                        return mk<IntrinsicAggregator>(intrinsicAggr->getBaseOperator(),
+                                (aggr->getTargetExpression() != nullptr ? clone(aggr->getTargetExpression())
+                                                                        : nullptr),
+                                std::move(newBodyLiterals));
+                    } else {
+                        auto* uda = as<UserDefinedAggregator>(aggr);
+                        return mk<UserDefinedAggregator>(uda->getBaseOperatorName(), clone(uda->getInit()),
+                                (aggr->getTargetExpression() != nullptr ? clone(aggr->getTargetExpression())
+                                                                        : nullptr),
+                                std::move(newBodyLiterals));
+                    }
+                }();
             } else {
                 // Otherwise, just normalise children as usual.
                 node->apply(*this);

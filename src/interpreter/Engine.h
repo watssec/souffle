@@ -138,9 +138,12 @@ private:
     RamDomain evalParallelIndexIfExists(const Rel& rel, const ram::ParallelIndexIfExists& cur,
             const ParallelIndexIfExists& shadow, Context& ctxt);
 
-    template <typename Aggregate, typename Iter>
-    RamDomain evalAggregate(const Aggregate& aggregate, const Node& filter, const Node* expression,
-            const Node& nestedOperation, const Iter& ranges, Context& ctxt);
+    template <typename Shadow>
+    RamDomain initValue(const ram::Aggregator& aggregator, const Shadow& shadow, Context& ctxt);
+
+    template <typename Aggregate, typename Shadow, typename Iter>
+    RamDomain evalAggregate(
+            const Aggregate& aggregate, const Shadow& shadow, const Iter& ranges, Context& ctxt);
 
     template <typename Rel>
     RamDomain evalParallelAggregate(const Rel& rel, const ram::ParallelAggregate& cur,

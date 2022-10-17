@@ -19,6 +19,7 @@
 #include "ast/FunctorDeclaration.h"
 #include "ast/IntrinsicFunctor.h"
 #include "ast/TranslationUnit.h"
+#include "ast/UserDefinedAggregator.h"
 #include "ast/UserDefinedFunctor.h"
 #include "ast/utility/Visitor.h"
 
@@ -36,6 +37,10 @@ bool FunctorAnalysis::isStatefulFunctor(const UserDefinedFunctor& functor) const
     return getFunctorDeclaration(functor).isStateful();
 }
 
+bool FunctorAnalysis::isStatefulFunctor(const UserDefinedAggregator& aggregator) const {
+    return getFunctorDeclaration(aggregator).isStateful();
+}
+
 QualifiedName const& FunctorAnalysis::getFunctorReturnType(const UserDefinedFunctor& functor) const {
     return getFunctorDeclaration(functor).getReturnType().getTypeName();
 }
@@ -46,6 +51,11 @@ std::size_t FunctorAnalysis::getFunctorArity(const UserDefinedFunctor& functor) 
 
 FunctorDeclaration const& FunctorAnalysis::getFunctorDeclaration(const UserDefinedFunctor& functor) const {
     return *functorNameToDeclaration.at(functor.getName());
+}
+
+FunctorDeclaration const& FunctorAnalysis::getFunctorDeclaration(
+        const UserDefinedAggregator& aggregator) const {
+    return *functorNameToDeclaration.at(aggregator.getBaseOperatorName());
 }
 
 bool FunctorAnalysis::isMultiResult(const Functor& functor) {

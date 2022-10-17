@@ -81,7 +81,13 @@ Aggregator* SimplifyAggregateTargetExpressionTransformer::simplifyTargetExpressi
     });
 
     // Create the new simplified aggregator
-    return new Aggregator(aggregator.getBaseOperator(), std::move(newTargetExpression), std::move(newBody));
+    if (auto* intrinsicAgg = as<IntrinsicAggregator>(aggregator)) {
+        return new IntrinsicAggregator(
+                intrinsicAgg->getBaseOperator(), std::move(newTargetExpression), std::move(newBody));
+    } else {
+        assert(false && "todo");
+        return nullptr;
+    }
 }
 
 bool SimplifyAggregateTargetExpressionTransformer::transform(TranslationUnit& translationUnit) {

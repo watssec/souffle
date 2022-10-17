@@ -5,6 +5,7 @@
 # - <souffle root>/licenses/SOUFFLE-UPL.txt
 
 # Make sure that the functor library is built
+add_subdirectory(aggregates)
 add_subdirectory(functors)
 add_subdirectory(graph_coloring)
 add_subdirectory(pathseq)
@@ -154,6 +155,7 @@ function(SOUFFLE_POSITIVE_CPP_TEST TEST_NAME)
     souffle_run_cpp_test_helper(TEST_NAME ${TEST_NAME} ${ARGN})
 endfunction()
 
+souffle_positive_functor_test(aggregates CATEGORY interface)
 souffle_positive_functor_test(functors CATEGORY interface)
 souffle_positive_functor_test(pathseq CATEGORY interface)
 souffle_positive_functor_test(graph_coloring CATEGORY interface)

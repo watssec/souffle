@@ -36,6 +36,7 @@
 #include "ast/FunctionalConstraint.h"
 #include "ast/Functor.h"
 #include "ast/FunctorDeclaration.h"
+#include "ast/IntrinsicAggregator.h"
 #include "ast/IntrinsicFunctor.h"
 #include "ast/Literal.h"
 #include "ast/Negation.h"
@@ -55,6 +56,7 @@
 #include "ast/TypeCast.h"
 #include "ast/UnionType.h"
 #include "ast/UnnamedVariable.h"
+#include "ast/UserDefinedAggregator.h"
 #include "ast/UserDefinedFunctor.h"
 #include "ast/Variable.h"
 #include "souffle/utility/FunctionalUtil.h"
@@ -94,7 +96,8 @@ struct Visitor : souffle::detail::VisitorBase<R, NodeType, Params...> {
         SOUFFLE_VISITOR_FORWARD(TypeCast)
         SOUFFLE_VISITOR_FORWARD(RecordInit)
         SOUFFLE_VISITOR_FORWARD(BranchInit)
-        SOUFFLE_VISITOR_FORWARD(Aggregator)
+        SOUFFLE_VISITOR_FORWARD(IntrinsicAggregator)
+        SOUFFLE_VISITOR_FORWARD(UserDefinedAggregator)
 
         // literals
         SOUFFLE_VISITOR_FORWARD(Atom)
@@ -151,6 +154,8 @@ struct Visitor : souffle::detail::VisitorBase<R, NodeType, Params...> {
     SOUFFLE_VISITOR_LINK(Term, Argument)
 
     SOUFFLE_VISITOR_LINK(Aggregator, Argument)
+    SOUFFLE_VISITOR_LINK(IntrinsicAggregator, Aggregator)
+    SOUFFLE_VISITOR_LINK(UserDefinedAggregator, Aggregator)
 
     SOUFFLE_VISITOR_LINK(Argument, Node);
 

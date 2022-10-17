@@ -474,13 +474,9 @@ class IntrinsicOperator : public CompoundNode {
     using CompoundNode::CompoundNode;
 };
 
-/**
- * @class UserDefinedOperator
- */
-class UserDefinedOperator : public CompoundNode {
+class FunctorNode {
 public:
-    UserDefinedOperator(NodeType ty, const ram::Node* sdw, VecOwn<Node> children, void* functionPointer)
-            : CompoundNode(ty, sdw, std::move(children)), functionPointer(functionPointer) {
+    FunctorNode(void* functionPointer) : functionPointer(functionPointer) {
 #ifdef USE_LIBFFI
         cif = mk<ffi_cif>();
 #endif
@@ -507,6 +503,15 @@ private:
     Own<ffi_cif> cif;
     Own<ffi_type*[]> args;
 #endif
+};
+
+/**
+ * @class UserDefinedOperator
+ */
+class UserDefinedOperator : public CompoundNode, public FunctorNode {
+public:
+    UserDefinedOperator(NodeType ty, const ram::Node* sdw, VecOwn<Node> children, void* functionPointer)
+            : CompoundNode(ty, sdw, std::move(children)), FunctorNode(functionPointer) {}
 };
 
 /**
@@ -725,19 +730,26 @@ protected:
 class Aggregate : public Node,
                   public ConditionalOperation,
                   public NestedOperation,
-                  public RelationalOperation {
+                  public RelationalOperation,
+                  public FunctorNode {
 public:
     Aggregate(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> expr,
-            Own<Node> filter, Own<Node> nested)
+            Own<Node> filter, Own<Node> nested, Own<Node> init, void*& functorPtr)
             : Node(ty, sdw), ConditionalOperation(std::move(filter)), NestedOperation(std::move(nested)),
-              RelationalOperation(relHandle), expr(std::move(expr)) {}
+              RelationalOperation(relHandle), FunctorNode(functorPtr), expr(std::move(expr)),
+              init(std::move(init)) {}
 
     inline const Node* getExpr() const {
         return expr.get();
     }
 
+    inline const Node* getInit() const {
+        return init.get();
+    }
+
 protected:
     Own<Node> expr;
+    Own<Node> init;
 };
 
 /**
@@ -753,8 +765,10 @@ class ParallelAggregate : public Aggregate, public AbstractParallel {
 class IndexAggregate : public Aggregate, public SuperOperation, public ViewOperation {
 public:
     IndexAggregate(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> expr,
-            Own<Node> filter, Own<Node> nested, std::size_t viewId, SuperInstruction superInst)
-            : Aggregate(ty, sdw, relHandle, std::move(expr), std::move(filter), std::move(nested)),
+            Own<Node> filter, Own<Node> nested, Own<Node> init, void*& functorPtr, std::size_t viewId,
+            SuperInstruction superInst)
+            : Aggregate(ty, sdw, relHandle, std::move(expr), std::move(filter), std::move(nested),
+                      std::move(init), functorPtr),
               SuperOperation(std::move(superInst)), ViewOperation(viewId) {}
 };
 

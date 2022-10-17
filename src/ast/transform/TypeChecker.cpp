@@ -134,7 +134,8 @@ private:
     void visit_(type_identity<IntrinsicFunctor>, const IntrinsicFunctor& fun) override;
     void visit_(type_identity<UserDefinedFunctor>, const UserDefinedFunctor& fun) override;
     void visit_(type_identity<BinaryConstraint>, const BinaryConstraint& constraint) override;
-    void visit_(type_identity<Aggregator>, const Aggregator& aggregator) override;
+    void visit_(type_identity<IntrinsicAggregator>, const IntrinsicAggregator& aggregator) override;
+    void visit_(type_identity<UserDefinedAggregator>, const UserDefinedAggregator& aggregator) override;
 };  // namespace souffle::ast::transform
 
 void TypeChecker::verify(TranslationUnit& tu) {
@@ -665,7 +666,7 @@ void TypeCheckerImpl::visit_(type_identity<BinaryConstraint>, const BinaryConstr
     }
 }
 
-void TypeCheckerImpl::visit_(type_identity<Aggregator>, const Aggregator& aggregator) {
+void TypeCheckerImpl::visit_(type_identity<IntrinsicAggregator>, const IntrinsicAggregator& aggregator) {
     auto op = polyAnalysis.getOverloadedOperator(aggregator);
 
     auto aggregatorType = typeAnalysis.getTypes(&aggregator);
@@ -676,6 +677,11 @@ void TypeCheckerImpl::visit_(type_identity<Aggregator>, const Aggregator& aggreg
     if (!isOfKind(aggregatorType, opType)) {
         report.addError("Couldn't assign types to the aggregator", aggregator.getSrcLoc());
     }
+}
+
+void TypeCheckerImpl::visit_(type_identity<UserDefinedAggregator>, const UserDefinedAggregator& aggregator) {
+    // TODO
+    /*const TypeSet& resultTypes =*/typeAnalysis.getTypes(&aggregator);
 }
 
 void TypeCheckerImpl::visit_(type_identity<Negation>, const Negation& neg) {

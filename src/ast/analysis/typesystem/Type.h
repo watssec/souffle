@@ -21,6 +21,7 @@
 #include "ast/Clause.h"
 #include "ast/NumericConstant.h"
 #include "ast/TranslationUnit.h"
+#include "ast/UserDefinedAggregator.h"
 #include "ast/analysis/Functor.h"
 #include "ast/analysis/typesystem/SumTypeBranches.h"
 #include "ast/analysis/typesystem/TypeEnvironment.h"
@@ -36,6 +37,7 @@
 namespace souffle::ast {
 class Argument;
 class Aggregator;
+class IntrinsicAggregator;
 class BinaryConstraint;
 class Clause;
 class Functor;
@@ -96,10 +98,19 @@ public:
     TypeAttribute getFunctorParamTypeAttribute(const Functor& functor, std::size_t idx) const;
     std::vector<TypeAttribute> getFunctorParamTypeAttributes(const UserDefinedFunctor& functor) const;
 
+    /** -- User-defined Aggregator-related methods -- */
+    TypeAttribute getAggregatorReturnTypeAttribute(const UserDefinedAggregator& aggregator) const;
+    Type const& getAggregatorReturnType(const UserDefinedAggregator& aggregator) const;
+    Type const& getAggregatorParamType(const UserDefinedAggregator& aggregator, std::size_t idx) const;
+    TypeAttribute getAggregatorParamTypeAttribute(
+            const UserDefinedAggregator& aggregator, std::size_t idx) const;
+    std::vector<TypeAttribute> getAggregatorParamTypeAttributes(
+            const UserDefinedAggregator& aggregator) const;
+
     /** -- Polymorphism-related methods -- */
     NumericConstant::Type getPolymorphicNumericConstantType(const NumericConstant& nc) const;
     const std::map<const NumericConstant*, NumericConstant::Type>& getNumericConstantTypes() const;
-    AggregateOp getPolymorphicOperator(const Aggregator& agg) const;
+    AggregateOp getPolymorphicOperator(const IntrinsicAggregator& agg) const;
     BinaryConstraintOp getPolymorphicOperator(const BinaryConstraint& bc) const;
     FunctorOp getPolymorphicOperator(const IntrinsicFunctor& inf) const;
 
@@ -119,7 +130,7 @@ private:
     // Polymorphic objects analysis
     std::map<const IntrinsicFunctor*, const IntrinsicFunctorInfo*> functorInfo;
     std::map<const NumericConstant*, NumericConstant::Type> numericConstantType;
-    std::map<const Aggregator*, AggregateOp> aggregatorType;
+    std::map<const IntrinsicAggregator*, AggregateOp> aggregatorType;
     std::map<const BinaryConstraint*, BinaryConstraintOp> constraintType;
 
     bool analyseIntrinsicFunctors(const TranslationUnit& translationUnit);

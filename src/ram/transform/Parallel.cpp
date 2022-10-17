@@ -15,6 +15,7 @@
 #include "ram/transform/Parallel.h"
 #include "ram/Condition.h"
 #include "ram/Expression.h"
+#include "ram/IntrinsicAggregator.h"
 #include "ram/Node.h"
 #include "ram/Operation.h"
 #include "ram/Program.h"
@@ -79,19 +80,26 @@ bool ParallelTransformer::parallelizeOperations(Program& program) {
                 }
             } else if (const Aggregate* aggregate = as<Aggregate>(node)) {
                 const Relation& rel = relAnalysis->lookup(aggregate->getRelation());
-                if (aggregate->getTupleId() == 0 && !rel.isNullary()) {
+                if (aggregate->getTupleId() == 0 &&
+                        !rel.isNullary()
+                        // We can only parallelize intrinsic aggregators for
+                        && isA<ram::IntrinsicAggregator>(aggregate->getAggregator())) {
                     changed = true;
-                    return mk<ParallelAggregate>(clone(aggregate->getOperation()), aggregate->getFunction(),
-                            aggregate->getRelation(), clone(aggregate->getExpression()),
-                            clone(aggregate->getCondition()), aggregate->getTupleId());
+                    return mk<ParallelAggregate>(clone(aggregate->getOperation()),
+                            clone(aggregate->getAggregator()), aggregate->getRelation(),
+                            clone(aggregate->getExpression()), clone(aggregate->getCondition()),
+                            aggregate->getTupleId());
                 }
             } else if (const IndexAggregate* indexAggregate = as<IndexAggregate>(node)) {
                 const Relation& rel = relAnalysis->lookup(indexAggregate->getRelation());
-                if (indexAggregate->getTupleId() == 0 && !rel.isNullary()) {
+                if (indexAggregate->getTupleId() == 0 &&
+                        !rel.isNullary()
+                        // We can only parallelize intrinsic aggregators
+                        && isA<ram::IntrinsicAggregator>(indexAggregate->getAggregator())) {
                     changed = true;
                     RamPattern queryPattern = clone(indexAggregate->getRangePattern());
                     return mk<ParallelIndexAggregate>(clone(indexAggregate->getOperation()),
-                            indexAggregate->getFunction(), indexAggregate->getRelation(),
+                            clone(indexAggregate->getAggregator()), indexAggregate->getRelation(),
                             clone(indexAggregate->getExpression()), clone(indexAggregate->getCondition()),
                             std::move(queryPattern), indexAggregate->getTupleId());
                 }

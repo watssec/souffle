@@ -47,14 +47,16 @@ namespace souffle::ram {
  */
 class Aggregate : public RelationOperation, public AbstractAggregate {
 public:
-    Aggregate(Own<Operation> nested, AggregateOp fun, std::string rel, Own<Expression> expression,
+    Aggregate(Own<Operation> nested, Own<Aggregator> fun, std::string rel, Own<Expression> expression,
             Own<Condition> condition, std::size_t ident)
             : RelationOperation(rel, ident, std::move(nested)),
-              AbstractAggregate(fun, std::move(expression), std::move(condition)) {}
+              AbstractAggregate(std::move(fun), std::move(expression), std::move(condition)) {}
+
+    ~Aggregate() override = default;
 
     Aggregate* cloning() const override {
-        return new Aggregate(
-                clone(getOperation()), function, relation, clone(expression), clone(condition), getTupleId());
+        return new Aggregate(clone(getOperation()), clone(function), relation, clone(expression),
+                clone(condition), getTupleId());
     }
 
     void apply(const NodeMapper& map) override {

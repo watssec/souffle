@@ -14,8 +14,8 @@
 
 #include "ast/transform/RemoveRedundantSums.h"
 #include "AggregateOp.h"
-#include "ast/Aggregator.h"
 #include "ast/Argument.h"
+#include "ast/IntrinsicAggregator.h"
 #include "ast/IntrinsicFunctor.h"
 #include "ast/Literal.h"
 #include "ast/Node.h"
@@ -37,12 +37,12 @@ bool RemoveRedundantSumsTransformer::transform(TranslationUnit& translationUnit)
         Own<Node> operator()(Own<Node> node) const override {
             // Apply to all aggregates of the form
             // sum k : { .. } where k is a constant
-            if (auto* agg = as<Aggregator>(node)) {
+            if (auto* agg = as<IntrinsicAggregator>(node)) {
                 if (agg->getBaseOperator() == AggregateOp::SUM) {
                     if (const auto* constant = as<NumericConstant>(agg->getTargetExpression())) {
                         changed = true;
                         // Then construct the new thing to replace it with
-                        auto count = mk<Aggregator>(AggregateOp::COUNT);
+                        auto count = mk<IntrinsicAggregator>(AggregateOp::COUNT);
                         // Duplicate the body of the aggregate
                         VecOwn<Literal> newBody;
                         for (const auto& lit : agg->getBodyLiterals()) {

@@ -22,6 +22,7 @@
 #include "ast/Atom.h"
 #include "ast/Attribute.h"
 #include "ast/Clause.h"
+#include "ast/IntrinsicAggregator.h"
 #include "ast/Literal.h"
 #include "ast/Node.h"
 #include "ast/Program.h"
@@ -199,7 +200,7 @@ TESTASTCLONEANDEQUAL(RelationCopies,
 TEST(Program, RemoveClauseByEquality) {
     auto atom = mk<Atom>("B");
     atom->addArgument(mk<Variable>("x"));
-    auto sum = mk<Aggregator>(AggregateOp::SUM, mk<Variable>("x"));
+    auto sum = mk<IntrinsicAggregator>(AggregateOp::SUM, mk<Variable>("x"));
     VecOwn<Literal> body;
     body.push_back(std::move(atom));
     sum->setBodyLiterals(std::move(body));

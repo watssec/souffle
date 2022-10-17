@@ -27,6 +27,7 @@
 #include "ast/Constant.h"
 #include "ast/Constraint.h"
 #include "ast/Functor.h"
+#include "ast/IntrinsicAggregator.h"
 #include "ast/IntrinsicFunctor.h"
 #include "ast/Literal.h"
 #include "ast/Negation.h"
@@ -562,7 +563,15 @@ NullableVector<Argument*> getInlinedArgument(Program& program, const Argument* a
 
                 // Create a new aggregator per version of the target expression
                 for (Argument* newArg : argumentVersions.getVector()) {
-                    auto* newAggr = new Aggregator(aggr->getBaseOperator(), Own<Argument>(newArg));
+                    auto* newAggr = [&]() -> Aggregator* {
+                        if (const auto* aggr = as<IntrinsicAggregator>(arg)) {
+                            return new IntrinsicAggregator(aggr->getBaseOperator(), Own<Argument>(newArg));
+                        } else {
+                            // TODO
+                            assert(false && "TODO");
+                            return nullptr;
+                        }
+                    }();
                     VecOwn<Literal> newBody;
                     for (Literal* lit : aggr->getBodyLiterals()) {
                         newBody.push_back(clone(lit));
@@ -586,8 +595,6 @@ NullableVector<Argument*> getInlinedArgument(Program& program, const Argument* a
                     // Literal can be inlined!
                     changed = true;
 
-                    AggregateOp op = aggr->getBaseOperator();
-
                     // Create an aggregator (with the same operation) for each possible body
                     std::vector<Aggregator*> aggrVersions;
                     for (std::vector<Literal*> inlineVersions : literalVersions.getVector()) {
@@ -595,7 +602,15 @@ NullableVector<Argument*> getInlinedArgument(Program& program, const Argument* a
                         if (aggr->getTargetExpression() != nullptr) {
                             target = clone(aggr->getTargetExpression());
                         }
-                        auto* newAggr = new Aggregator(aggr->getBaseOperator(), std::move(target));
+                        auto* newAggr = [&]() -> Aggregator* {
+                            if (const auto* aggr = as<IntrinsicAggregator>(arg)) {
+                                return new IntrinsicAggregator(aggr->getBaseOperator(), std::move(target));
+                            } else {
+                                // TODO
+                                assert(false && "TODO");
+                                return nullptr;
+                            }
+                        }();
 
                         VecOwn<Literal> newBody;
                         // Add in everything except the current literal being replaced
@@ -634,8 +649,12 @@ NullableVector<Argument*> getInlinedArgument(Program& program, const Argument* a
                     };
                     // Create the actual overall aggregator that ties the replacement aggregators together.
                     // example: min x : { a(x) }. <=> min ( min x : { a1(x) }, min x : { a2(x) }, ... )
-                    if (op != AggregateOp::MEAN) {
-                        versions.push_back(combineAggregators(aggrVersions, aggregateToFunctor(op)));
+                    if (const auto* intrinsicAggr = as<IntrinsicAggregator>(aggr)) {
+                        // TODO not complete
+                        AggregateOp op = intrinsicAggr->getBaseOperator();
+                        if (op != AggregateOp::MEAN) {
+                            versions.push_back(combineAggregators(aggrVersions, aggregateToFunctor(op)));
+                        }
                     }
                 }
 

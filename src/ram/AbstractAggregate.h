@@ -15,9 +15,12 @@
 #pragma once
 
 #include "AggregateOp.h"
+#include "ram/Aggregator.h"
 #include "ram/Condition.h"
 #include "ram/Expression.h"
+#include "ram/IntrinsicAggregator.h"
 #include "ram/Node.h"
+#include "ram/UserDefinedAggregator.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
 #include <cassert>
@@ -38,8 +41,8 @@ namespace souffle::ram {
  */
 class AbstractAggregate {
 public:
-    AbstractAggregate(AggregateOp fun, Own<Expression> expr, Own<Condition> cond)
-            : function(fun), expression(std::move(expr)), condition(std::move(cond)) {
+    AbstractAggregate(Own<Aggregator> op, Own<Expression> expr, Own<Condition> cond)
+            : function(std::move(op)), expression(std::move(expr)), condition(std::move(cond)) {
         assert(condition != nullptr && "Condition is a null-pointer");
         assert(expression != nullptr && "Expression is a null-pointer");
     }
@@ -52,9 +55,9 @@ public:
         return *condition;
     }
 
-    /** @brief Get aggregation function */
-    AggregateOp getFunction() const {
-        return function;
+    const Aggregator& getAggregator() const {
+        assert(function != nullptr && "Aggregator of aggregate is a null-pointer");
+        return *function;
     }
 
     /** @brief Get target expression */
@@ -72,37 +75,28 @@ public:
     }
 
 protected:
-    void print(std::ostream& os, int /* tabpos */) const {
-        switch (function) {
-            case AggregateOp::MIN:
-            case AggregateOp::FMIN:
-            case AggregateOp::UMIN: os << "min "; break;
-            case AggregateOp::MAX:
-            case AggregateOp::UMAX:
-            case AggregateOp::FMAX: os << "max "; break;
-            case AggregateOp::SUM:
-            case AggregateOp::FSUM:
-            case AggregateOp::USUM: os << "sum "; break;
-            case AggregateOp::COUNT: os << "count "; break;
-            case AggregateOp::MEAN: os << "mean "; break;
-        }
-        if (function != AggregateOp::COUNT) {
+    void print(std::ostream& os, int tabpos) const {
+        function->print(os, tabpos);
+        if (expression) {
             os << *expression << " ";
         }
     }
 
     bool equal(const Node& node) const {
         const auto& other = asAssert<AbstractAggregate, AllowCrossCast>(node);
-        return function == other.function && equal_ptr(expression, other.expression) &&
+        return equal_ptr(function, other.function) && equal_ptr(expression, other.expression) &&
                equal_ptr(condition, other.condition);
     }
 
     std::vector<const Node*> getChildren() const {
-        return {expression.get(), condition.get()};
+        std::vector<const Node*> res = function->getChildren();
+        res.push_back(expression.get());
+        res.push_back(condition.get());
+        return res;
     }
 
     /** Aggregation function */
-    const AggregateOp function;
+    Own<Aggregator> function;
 
     /** Aggregation expression */
     Own<Expression> expression;

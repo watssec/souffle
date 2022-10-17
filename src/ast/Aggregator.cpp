@@ -16,9 +16,8 @@
 #include <utility>
 
 namespace souffle::ast {
-Aggregator::Aggregator(AggregateOp baseOperator, Own<Argument> expr, VecOwn<Literal> body, SrcLocation loc)
-        : Argument(std::move(loc)), baseOperator(baseOperator), targetExpression(std::move(expr)),
-          body(std::move(body)) {
+Aggregator::Aggregator(Own<Argument> expr, VecOwn<Literal> body, SrcLocation loc)
+        : Argument(std::move(loc)), targetExpression(std::move(expr)), body(std::move(body)) {
     // NOTE: targetExpression can be nullptr - it's used e.g. when aggregator
     // has no parameters, such as count: { body }
     assert(allValidPtrs(this->body));
@@ -39,24 +38,6 @@ void Aggregator::apply(const NodeMapper& map) {
     }
 
     mapAll(body, map);
-}
-
-void Aggregator::print(std::ostream& os) const {
-    os << baseOperator;
-    if (targetExpression) {
-        os << " " << *targetExpression;
-    }
-    os << " : { " << join(body) << " }";
-}
-
-bool Aggregator::equal(const Node& node) const {
-    const auto& other = asAssert<Aggregator>(node);
-    return baseOperator == other.baseOperator && equal_ptr(targetExpression, other.targetExpression) &&
-           equal_targets(body, other.body);
-}
-
-Aggregator* Aggregator::cloning() const {
-    return new Aggregator(baseOperator, clone(targetExpression), clone(body), getSrcLoc());
 }
 
 Node::NodeVec Aggregator::getChildren() const {
