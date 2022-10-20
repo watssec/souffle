@@ -63,6 +63,18 @@ public:
     }
 
 protected:
+    bool readNextLine(std::string& line) {
+        if (!getline(file, line)) {
+            return false;
+        }
+        // Handle Windows line endings on non-Windows systems
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        ++lineNumber;
+        return true;
+    }
+
     /**
      * Read and return the next tuple.
      *
@@ -76,14 +88,9 @@ protected:
         std::string line;
         Own<RamDomain[]> tuple = mk<RamDomain[]>(typeAttributes.size());
 
-        if (!getline(file, line)) {
+        if (!readNextLine(line)) {
             return nullptr;
         }
-        // Handle Windows line endings on non-Windows systems
-        if (!line.empty() && line.back() == '\r') {
-            line.pop_back();
-        }
-        ++lineNumber;
 
         std::size_t start = 0;
         std::size_t columnsFilled = 0;
