@@ -10,7 +10,7 @@ jobs:
 
     steps:
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 2
 
@@ -28,7 +28,7 @@ jobs:
       chunks: ${{ steps.set-test-ids.outputs.chunks }}
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - id: set-test-ids
         uses: ./.github/actions/set-test-ids
         with:
@@ -51,7 +51,7 @@ jobs:
 
     steps:
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: install-lcov
       if: ${{ matrix.domain == '32bit' }}
@@ -120,7 +120,7 @@ jobs:
         xcode-version: '13.4'
 
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: install-deps
       run: sh/setup/install_macos_deps.sh
@@ -147,7 +147,7 @@ jobs:
 
     steps:
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: install-deps
       run: sudo sh/setup/install_ubuntu_deps.sh
@@ -167,7 +167,7 @@ jobs:
 
     steps:
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
 
