@@ -63,6 +63,19 @@ public:
     }
 
 protected:
+    bool readNextLine(std::string& line, bool& isCRLF) {
+        if (!getline(file, line)) {
+            return false;
+        }
+        // Handle Windows line endings on non-Windows systems
+        isCRLF = !line.empty() && line.back() == '\r';
+        if (isCRLF) {
+            line.pop_back();
+        }
+        ++lineNumber;
+        return true;
+    }
+
     /**
      * Read and return the next tuple.
      *
@@ -75,21 +88,16 @@ protected:
         }
         std::string line;
         Own<RamDomain[]> tuple = mk<RamDomain[]>(typeAttributes.size());
-
-        if (!getline(file, line)) {
+        bool wasCRLF = false;
+        if (!readNextLine(line, wasCRLF)) {
             return nullptr;
         }
-        // Handle Windows line endings on non-Windows systems
-        if (!line.empty() && line.back() == '\r') {
-            line = line.substr(0, line.length() - 1);
-        }
-        ++lineNumber;
 
         std::size_t start = 0;
         std::size_t columnsFilled = 0;
         for (uint32_t column = 0; columnsFilled < arity; column++) {
             std::size_t charactersRead = 0;
-            std::string element = nextElement(line, start);
+            std::string element = nextElement(line, start, wasCRLF);
             if (inputMap.count(column) == 0) {
                 continue;
             }
@@ -162,16 +170,37 @@ protected:
         return value;
     }
 
-    std::string nextElement(const std::string& line, std::size_t& start) {
+    std::string nextElement(std::string& line, std::size_t& start, bool& wasCRLF) {
         std::string element;
 
         if (rfc4180) {
             if (line[start] == '"') {
                 // quoted field
-                const std::size_t end = line.length();
+                std::size_t end = line.length();
                 std::size_t pos = start + 1;
                 bool foundEndQuote = false;
-                while (pos < end) {
+                while (!foundEndQuote) {
+                    if (pos == end) {
+                        bool newWasCRLF = false;
+                        if (!readNextLine(line, newWasCRLF)) {
+                            break;
+                        }
+                        // account for \r\n or \n that we had previously
+                        // read and thrown out.
+                        // since we're in a quote, we should restore
+                        // what the user provided
+                        if (wasCRLF) {
+                            element.push_back('\r');
+                        }
+                        element.push_back('\n');
+
+                        // remember if we just read a CRLF sequence
+                        wasCRLF = newWasCRLF;
+
+                        // start over
+                        pos = 0;
+                        end = line.length();
+                    }
                     char c = line[pos++];
                     if (c == '"' && (pos < end) && line[pos] == '"') {
                         // two double-quote => one double-quote
@@ -179,7 +208,6 @@ protected:
                         ++pos;
                     } else if (c == '"') {
                         foundEndQuote = true;
-                        break;
                     } else {
                         element.push_back(c);
                     }
