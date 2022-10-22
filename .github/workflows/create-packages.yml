@@ -41,8 +41,8 @@ jobs:
         run: |-
           docker cp container:/souffle/build/ . &&
           cd build &&
-          echo "::set-output name=pkg_name::$(ls *${{ matrix.extension }} | head -n1)"
-          echo "::set-output name=artifact_name::x86_64-${{ matrix.release }}-$(ls *${{ matrix.extension }} | head -n1)"
+          echo "pkg_name=$(ls *${{ matrix.extension }} | head -n1)" >> $GITHUB_OUTPUT
+          echo "artifact_name=x86_64-${{ matrix.release }}-$(ls *${{ matrix.extension }} | head -n1)" >> $GITHUB_OUTPUT
 
       - name: Naming Artifact
         run: cp build/${{ steps.extract_pkg.outputs.pkg_name }} build/${{ steps.extract_pkg.outputs.artifact_name }}
@@ -64,7 +64,7 @@ jobs:
       - name: Prepare
         id: prepare
         run: |-
-          echo "::set-output name=release_tag::$(git describe --tags --always | sed "s/-.*$//")"
+          echo "release_tag=$(git describe --tags --always | sed \"s/-.*$//\")" >> $GITHUB_OUTPUT
 
       - name: Build Container
         run: docker build ./.github/images/arch-linux/ -t package_builder
