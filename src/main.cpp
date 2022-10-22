@@ -166,7 +166,7 @@ namespace souffle {
         remove((binaryFilename + ".cpp").c_str());
     }
 
-    std::exit(exit ? *exit : EXIT_FAILURE);
+    std::exit(*exit);
 }
 
 /**
