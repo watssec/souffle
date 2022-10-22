@@ -35,7 +35,7 @@ jobs:
     - name: Library Dependencies (vcpkg)
       uses: lukka/run-vcpkg@v7
       with:
-        vcpkgGitCommitId: 'af2287382b1991dbdcb7e5112d236f3323b9dd7a'
+        vcpkgGitCommitId: '94ce0dab56f4d8ba6bd631ba59ed682b02d45c46'
         vcpkgTriplet: x64-windows
         vcpkgArguments: 'sqlite3 zlib libffi'
 
