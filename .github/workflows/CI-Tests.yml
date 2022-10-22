@@ -94,7 +94,7 @@ jobs:
 
     - name: upload-coverage-artifact
       if: ${{ matrix.domain == '32bit' }}
-      uses: actions/upload-artifact@v3.1.1
+      uses: actions/upload-artifact@v3
       with:
         name: coverage-${{ matrix.domain }}-${{ matrix.chunk }}
         path: coverage.info
@@ -175,13 +175,13 @@ jobs:
       run: sudo apt-get update && sudo apt-get install lcov
 
     - name: download-coverage-artifacts
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
 
     - name: merge-coverage-report
       run: lcov $(for i in coverage-*-*/coverage.info; do echo -a $i; done) --output-file coverage.info
 
     - name: upload-coverage-report
-      uses: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: coverage.info
