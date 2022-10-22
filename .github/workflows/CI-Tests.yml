@@ -94,7 +94,7 @@ jobs:
 
     - name: upload-coverage-artifact
       if: ${{ matrix.domain == '32bit' }}
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3.1.1
       with:
         name: coverage-${{ matrix.domain }}-${{ matrix.chunk }}
         path: coverage.info
