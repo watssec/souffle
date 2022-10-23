@@ -10,7 +10,7 @@ jobs:
 
     steps:
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 2
 
@@ -28,7 +28,7 @@ jobs:
       chunks: ${{ steps.set-test-ids.outputs.chunks }}
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - id: set-test-ids
         uses: ./.github/actions/set-test-ids
         with:
@@ -51,7 +51,7 @@ jobs:
 
     steps:
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: install-lcov
       if: ${{ matrix.domain == '32bit' }}
@@ -94,7 +94,7 @@ jobs:
 
     - name: upload-coverage-artifact
       if: ${{ matrix.domain == '32bit' }}
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: coverage-${{ matrix.domain }}-${{ matrix.chunk }}
         path: coverage.info
@@ -120,7 +120,7 @@ jobs:
         xcode-version: '13.4'
 
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: install-deps
       run: sh/setup/install_macos_deps.sh
@@ -147,7 +147,7 @@ jobs:
 
     steps:
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: install-deps
       run: sudo sh/setup/install_ubuntu_deps.sh
@@ -167,7 +167,7 @@ jobs:
 
     steps:
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
 
@@ -175,13 +175,13 @@ jobs:
       run: sudo apt-get update && sudo apt-get install lcov
 
     - name: download-coverage-artifacts
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
 
     - name: merge-coverage-report
       run: lcov $(for i in coverage-*-*/coverage.info; do echo -a $i; done) --output-file coverage.info
 
     - name: upload-coverage-report
-      uses: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: coverage.info

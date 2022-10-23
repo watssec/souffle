@@ -13,10 +13,10 @@ jobs:
   Windows-CMake-MSVC:
     runs-on: windows-2019
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Dependencies Cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       env:
         cache-name: cache-chocolatey
       with:
@@ -35,7 +35,7 @@ jobs:
     - name: Library Dependencies (vcpkg)
       uses: lukka/run-vcpkg@v7
       with:
-        vcpkgGitCommitId: 'af2287382b1991dbdcb7e5112d236f3323b9dd7a'
+        vcpkgGitCommitId: '94ce0dab56f4d8ba6bd631ba59ed682b02d45c46'
         vcpkgTriplet: x64-windows
         vcpkgArguments: 'sqlite3 zlib libffi'
 

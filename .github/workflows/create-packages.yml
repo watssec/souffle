@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -41,14 +41,14 @@ jobs:
         run: |-
           docker cp container:/souffle/build/ . &&
           cd build &&
-          echo "::set-output name=pkg_name::$(ls *${{ matrix.extension }} | head -n1)"
-          echo "::set-output name=artifact_name::x86_64-${{ matrix.release }}-$(ls *${{ matrix.extension }} | head -n1)"
+          echo "pkg_name=$(ls *${{ matrix.extension }} | head -n1)" >> $GITHUB_OUTPUT
+          echo "artifact_name=x86_64-${{ matrix.release }}-$(ls *${{ matrix.extension }} | head -n1)" >> $GITHUB_OUTPUT
 
       - name: Naming Artifact
         run: cp build/${{ steps.extract_pkg.outputs.pkg_name }} build/${{ steps.extract_pkg.outputs.artifact_name }}
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ steps.extract_pkg.outputs.artifact_name }}
           path: build/${{ steps.extract_pkg.outputs.artifact_name }}
@@ -57,14 +57,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Prepare
         id: prepare
         run: |-
-          echo "::set-output name=release_tag::$(git describe --tags --always | sed "s/-.*$//")"
+          echo "release_tag=$(git describe --tags --always | sed \"s/-.*$//\")" >> $GITHUB_OUTPUT
 
       - name: Build Container
         run: docker build ./.github/images/arch-linux/ -t package_builder
@@ -109,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download All Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           path: ./downloads
 
@@ -133,13 +133,13 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           clean: false
 
       - name: Download All Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           path: ./downloads
 

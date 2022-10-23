@@ -13,5 +13,5 @@ runs:
     - id: set-test-ids
       run: |
         CHUNKS=$(python3 -c "print(list(range(${{ inputs.n-chunks }})))")
-        echo "::set-output name=chunks::${CHUNKS}"
+        echo "chunks=${CHUNKS}" >> $GITHUB_OUTPUT
       shell: bash
