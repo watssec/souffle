@@ -37,6 +37,7 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
+#include <regex>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -437,6 +438,22 @@ public:
 
 private:
     std::size_t constant;
+};
+
+/**
+ * @class RegexConstant
+ */
+class RegexConstant : public StringConstant {
+public:
+    RegexConstant(const StringConstant& c, std::optional<std::regex> r)
+            : StringConstant(c.getType(), c.getShadow(), c.getConstant()), regex(std::move(r)) {}
+
+    inline const std::optional<std::regex>& getRegex() const {
+        return regex;
+    }
+
+private:
+    const std::optional<std::regex> regex;
 };
 
 /**

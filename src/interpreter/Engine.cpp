@@ -1023,33 +1023,53 @@ RamDomain Engine::execute(const Node* node, Context& ctxt) {
                 COMPARE(GE, >=)
 
                 case BinaryConstraintOp::MATCH: {
-                    RamDomain left = execute(shadow.getLhs(), ctxt);
-                    RamDomain right = execute(shadow.getRhs(), ctxt);
-                    const std::string& pattern = getSymbolTable().decode(left);
-                    const std::string& text = getSymbolTable().decode(right);
                     bool result = false;
-                    try {
-                        const std::regex& regex = regexCache.getOrCreate(pattern);
-                        result = std::regex_match(text, regex);
-                    } catch (...) {
-                        std::cerr << "warning: wrong pattern provided for match(\"" << pattern << "\",\""
-                                  << text << "\").\n";
+                    RamDomain right = execute(shadow.getRhs(), ctxt);
+                    const std::string& text = getSymbolTable().decode(right);
+
+                    const Node* patternNode = shadow.getLhs();
+                    if (const RegexConstant* regexNode = dynamic_cast<const RegexConstant*>(patternNode);
+                            regexNode) {
+                        const auto& regex = regexNode->getRegex();
+                        if (regex) {
+                            result = std::regex_match(text, *regex);
+                        }
+                    } else {
+                        RamDomain left = execute(patternNode, ctxt);
+                        const std::string& pattern = getSymbolTable().decode(left);
+                        try {
+                            const std::regex& regex = regexCache.getOrCreate(pattern);
+                            result = std::regex_match(text, regex);
+                        } catch (...) {
+                            std::cerr << "warning: wrong pattern provided for match(\"" << pattern << "\",\""
+                                      << text << "\").\n";
+                        }
                     }
 
                     return result;
                 }
                 case BinaryConstraintOp::NOT_MATCH: {
-                    RamDomain left = execute(shadow.getLhs(), ctxt);
-                    RamDomain right = execute(shadow.getRhs(), ctxt);
-                    const std::string& pattern = getSymbolTable().decode(left);
-                    const std::string& text = getSymbolTable().decode(right);
                     bool result = false;
-                    try {
-                        const std::regex& regex = regexCache.getOrCreate(pattern);
-                        result = !std::regex_match(text, regex);
-                    } catch (...) {
-                        std::cerr << "warning: wrong pattern provided for !match(\"" << pattern << "\",\""
-                                  << text << "\").\n";
+                    RamDomain right = execute(shadow.getRhs(), ctxt);
+                    const std::string& text = getSymbolTable().decode(right);
+
+                    const Node* patternNode = shadow.getLhs();
+                    if (const RegexConstant* regexNode = dynamic_cast<const RegexConstant*>(patternNode);
+                            regexNode) {
+                        const auto& regex = regexNode->getRegex();
+                        if (regex) {
+                            result = !std::regex_match(text, *regex);
+                        }
+                    } else {
+                        RamDomain left = execute(patternNode, ctxt);
+                        const std::string& pattern = getSymbolTable().decode(left);
+                        try {
+                            const std::regex& regex = regexCache.getOrCreate(pattern);
+                            result = !std::regex_match(text, regex);
+                        } catch (...) {
+                            std::cerr << "warning: wrong pattern provided for !match(\"" << pattern << "\",\""
+                                      << text << "\").\n";
+                        }
                     }
                     return result;
                 }

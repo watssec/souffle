@@ -209,6 +209,21 @@ ram::RelationSet Synthesiser::getReferencedRelations(const Operation& op) {
     return res;
 }
 
+std::optional<std::size_t> Synthesiser::compileRegex(const std::string& pattern) {
+    auto i = regexes.find(pattern);
+    if (i != regexes.end()) {
+        return i->second;
+    }
+    try {
+        const std::regex regex(pattern);
+        std::size_t index = regexes.size();
+        return regexes.emplace(pattern, index).first->second;
+    } catch (const std::exception&) {
+        std::cerr << "warning: wrong pattern provided \"" << pattern << "\"\n";
+        return std::nullopt;
+    }
+}
+
 void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
     class CodeEmitter : public ram::Visitor<void, Node const, std::ostream&> {
         using ram::Visitor<void, Node const, std::ostream&>::visit_;
@@ -1828,21 +1843,43 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
                 // strings
                 case BinaryConstraintOp::MATCH: {
-                    synthesiser.SubroutineUsingStdRegex = true;
-                    out << "regex_wrapper(symTable.decode(";
-                    dispatch(rel.getLHS(), out);
-                    out << "),symTable.decode(";
-                    dispatch(rel.getRHS(), out);
-                    out << "))";
+                    if (const StringConstant* str = dynamic_cast<const StringConstant*>(&rel.getLHS()); str) {
+                        const auto& regex = synthesiser.compileRegex(str->getConstant());
+                        if (regex) {
+                            out << "std::regex_match(symTable.decode(";
+                            dispatch(rel.getRHS(), out);
+                            out << "), regexes.at(" << *regex << "))";
+                        } else {
+                            out << "false";
+                        }
+                    } else {
+                        synthesiser.SubroutineUsingStdRegex = true;
+                        out << "regex_wrapper(symTable.decode(";
+                        dispatch(rel.getLHS(), out);
+                        out << "),symTable.decode(";
+                        dispatch(rel.getRHS(), out);
+                        out << "))";
+                    }
                     break;
                 }
                 case BinaryConstraintOp::NOT_MATCH: {
-                    synthesiser.SubroutineUsingStdRegex = true;
-                    out << "!regex_wrapper(symTable.decode(";
-                    dispatch(rel.getLHS(), out);
-                    out << "),symTable.decode(";
-                    dispatch(rel.getRHS(), out);
-                    out << "))";
+                    if (const StringConstant* str = dynamic_cast<const StringConstant*>(&rel.getLHS()); str) {
+                        const auto& regex = synthesiser.compileRegex(str->getConstant());
+                        if (regex) {
+                            out << "!std::regex_match(symTable.decode(";
+                            dispatch(rel.getRHS(), out);
+                            out << "), regexes.at(" << *regex << "))";
+                        } else {
+                            out << "false";
+                        }
+                    } else {
+                        synthesiser.SubroutineUsingStdRegex = true;
+                        out << "!regex_wrapper(symTable.decode(";
+                        dispatch(rel.getLHS(), out);
+                        out << "),symTable.decode(";
+                        dispatch(rel.getRHS(), out);
+                        out << "))";
+                    }
                     break;
                 }
                 case BinaryConstraintOp::CONTAINS: {
@@ -2678,6 +2715,27 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
                        "\"\\\",\\\"\" "
                        "<< text << \"\\\").\\n\";\n}\n"
                     << "   return result;\n";
+        }
+
+        if (!regexes.empty()) {
+            gen.addField("std::vector<std::regex>", "regexes", Visibility::Private);
+            std::stringstream rst;
+            // we need to collect the patterns first and place each
+            // one into the correct slot
+            std::vector<std::string> patterns;
+            patterns.resize(regexes.size());
+            for (const auto& pi : regexes) {
+                patterns.at(pi.second) = pi.first;
+            }
+            rst << "{\n";
+            for (const auto& p : patterns) {
+                const std::string escaped = escape(p);
+                rst << "\tstd::regex(\"" << escaped << "\"),\n";
+            }
+            rst << "}";
+
+            constructor.setNextInitializer("regexes", rst.str());
+            regexes.clear();
         }
 
         // substring wrapper

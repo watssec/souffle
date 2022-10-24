@@ -241,7 +241,29 @@ NodePtr NodeGenerator::visit_(
 }
 
 NodePtr NodeGenerator::visit_(type_identity<ram::Constraint>, const ram::Constraint& relOp) {
-    return mk<Constraint>(I_Constraint, &relOp, dispatch(relOp.getLHS()), dispatch(relOp.getRHS()));
+    auto left = dispatch(relOp.getLHS());
+    auto right = dispatch(relOp.getRHS());
+    switch (relOp.getOperator()) {
+        case BinaryConstraintOp::MATCH:
+        case BinaryConstraintOp::NOT_MATCH:
+            if (const StringConstant* str = dynamic_cast<const StringConstant*>(left.get()); str) {
+                const std::string& pattern = engine.getSymbolTable().unsafeDecode(str->getConstant());
+                try {
+                    std::regex regex(pattern);
+                    // treat the string constant as a regex
+                    left = mk<RegexConstant>(*str, std::move(regex));
+                } catch (const std::exception&) {
+                    std::cerr << "warning: wrong pattern provided \"" << pattern << "\"\n";
+
+                    // we could not compile the pattern
+                    left = mk<RegexConstant>(*str, std::nullopt);
+                }
+            }
+            break;
+        default: break;
+    }
+
+    return mk<Constraint>(I_Constraint, &relOp, std::move(left), std::move(right));
 }
 
 NodePtr NodeGenerator::visit_(type_identity<ram::NestedOperation>, const ram::NestedOperation& nested) {
