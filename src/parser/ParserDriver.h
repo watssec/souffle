@@ -75,7 +75,7 @@ public:
     static Own<ast::TranslationUnit> parseTranslationUnit(
             const std::string& code, ErrorReport& errorReport, DebugReport& debugReport);
 
-    void warning(const SrcLocation& loc, const std::string& msg);
+    void warning(const WarnType warn, const SrcLocation& loc, const std::string& msg);
     void error(const SrcLocation& loc, const std::string& msg);
     void error(const std::string& msg);
 

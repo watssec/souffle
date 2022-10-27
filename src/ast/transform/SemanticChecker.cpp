@@ -499,7 +499,8 @@ void SemanticCheckerImpl::checkClause(const Clause& clause) {
         if (varName[0] == '_') {
             assert(varName.size() > 1 && "named variable should not be a single underscore");
             if (numAppearances > 1) {
-                report.addWarning("Variable " + varName + " marked as singleton but occurs more than once",
+                report.addWarning(WarnType::VarAppearsOnce,
+                        "Variable " + varName + " marked as singleton but occurs more than once",
                         varLocation);
             }
         }
@@ -549,7 +550,8 @@ void SemanticCheckerImpl::checkComplexRule(const std::set<const Clause*>& multiR
         const auto& varName = cur.first;
         const auto& varLocation = var_pos[varName]->getSrcLoc();
         if (varName[0] != '_' && numAppearances == 1) {
-            report.addWarning("Variable " + varName + " only occurs once", varLocation);
+            report.addWarning(
+                    WarnType::VarAppearsOnce, "Variable " + varName + " only occurs once", varLocation);
         }
     }
 }
@@ -644,7 +646,8 @@ void SemanticCheckerImpl::checkRelation(const Relation& relation) {
         return sClause.getHead()->getQualifiedName() == relation.getQualifiedName();
     });
     if (relation.getRepresentation() == RelationRepresentation::BTREE_DELETE && !hasSubsumptiveRule) {
-        report.addWarning("No subsumptive rule for relation " + toString(relation.getQualifiedName()),
+        report.addWarning(WarnType::NoSubsumptiveRule,
+                "No subsumptive rule for relation " + toString(relation.getQualifiedName()),
                 relation.getSrcLoc());
     } else if (relation.getRepresentation() != RelationRepresentation::BTREE_DELETE && hasSubsumptiveRule) {
         report.addError("Relation \"" + toString(relation.getQualifiedName()) +
@@ -667,7 +670,8 @@ void SemanticCheckerImpl::checkRelation(const Relation& relation) {
     // check whether this relation is empty
     if (program.getClauses(relation).empty() && !ioTypes.isInput(&relation) &&
             !relation.hasQualifier(RelationQualifier::SUPPRESSED)) {
-        report.addWarning("No rules/facts defined for relation " + toString(relation.getQualifiedName()),
+        report.addWarning(WarnType::NoRulesNorFacts,
+                "No rules/facts defined for relation " + toString(relation.getQualifiedName()),
                 relation.getSrcLoc());
     }
 }

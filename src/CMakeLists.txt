@@ -155,6 +155,7 @@ set(SOUFFLE_SOURCES
     ram/transform/Transformer.cpp
     ram/transform/TupleId.cpp
     ram/utility/NodeMapper.cpp
+    reports/ErrorReport.cpp
     reports/DebugReport.cpp
     synthesiser/Synthesiser.cpp
     synthesiser/Relation.cpp
@@ -319,7 +320,7 @@ target_link_libraries(souffle libsouffle)
 install(TARGETS souffle DESTINATION bin)
 
 if (EMSCRIPTEN)
-target_link_libraries(souffle -sMODULARIZE=1 
+target_link_libraries(souffle -sMODULARIZE=1
                       -s'EXPORTED_RUNTIME_METHODS=["FS"]' -sEXPORT_NAME="SOUFFLE")
 endif()
 

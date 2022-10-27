@@ -18,9 +18,11 @@
 
 #include "parser/SrcLocation.h"
 #include <algorithm>
+#include <bitset>
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -143,9 +145,61 @@ private:
     std::vector<DiagnosticMessage> additionalMessages;
 };
 
+enum class WarnType : std::size_t {
+    DeprecatedTypeDecl,
+    DeprecatedQualifier,
+    DollarSign,
+    NoRulesNorFacts,
+    NoSubsumptiveRule,
+    // This last element is used as the size parameter to std::bitset in the
+    // definition of WarnSet. If the last element changes, the definition of
+    // WarnSet must be updated accordingly.
+    VarAppearsOnce,
+};
+
+class WarnSet {
+public:
+    WarnSet() : warns(std::bitset<(std::size_t)WarnType::VarAppearsOnce + 1>()) {
+        this->set();  // default to enabling all warnings
+    }
+
+    WarnSet(const WarnSet& other) = default;
+
+    bool test(const WarnType warn);
+
+    // Enable all warnings
+    void set();
+
+    // Enable one warning
+    void set(const WarnType warn);
+
+    // Disable all warnings
+    void reset(const WarnType warn);
+
+    // Disable one warning
+    void reset();
+
+    // Enable one warning
+    //
+    // Returns whether or not the string was valid
+    bool setStr(const std::string& str);
+
+    // Disable one warning
+    //
+    // Returns whether or not the string was valid
+    bool resetStr(const std::string& str);
+
+private:
+    std::bitset<(std::size_t)WarnType::VarAppearsOnce + 1> warns;
+
+    std::optional<WarnType> warnTypeFromString(const std::string& s);
+};
+
 class ErrorReport {
 public:
-    ErrorReport(bool nowarn = false) : nowarn(nowarn) {}
+    ErrorReport() : warns(WarnSet()) {}
+
+    ErrorReport(WarnSet warns) : warns(warns) {}
 
     ErrorReport(const ErrorReport& other) = default;
 
@@ -170,8 +224,8 @@ public:
     }
 
     /** Adds a warning with the given message and location */
-    void addWarning(const std::string& message, SrcLocation location) {
-        if (!nowarn) {
+    void addWarning(const WarnType type, const std::string& message, SrcLocation location) {
+        if (warns.test(type)) {
             diagnostics.insert(
                     Diagnostic(Diagnostic::Type::WARNING, DiagnosticMessage(message, std::move(location))));
         }
@@ -203,7 +257,7 @@ public:
 
 private:
     std::set<Diagnostic> diagnostics;
-    bool nowarn;
+    WarnSet warns;
 };
 
 }  // end of namespace souffle
