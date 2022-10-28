@@ -19,6 +19,7 @@
 #include "souffle/RamTypes.h"
 #include "souffle/RecordTable.h"
 #include "souffle/SymbolTable.h"
+#include "souffle/datastructure/ConcurrentCache.h"
 #include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <cassert>
@@ -29,6 +30,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <regex>
 #include <string>
 #include <tuple>
 #include <utility>

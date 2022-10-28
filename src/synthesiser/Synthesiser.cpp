@@ -209,6 +209,21 @@ ram::RelationSet Synthesiser::getReferencedRelations(const Operation& op) {
     return res;
 }
 
+std::optional<std::size_t> Synthesiser::compileRegex(const std::string& pattern) {
+    auto i = regexes.find(pattern);
+    if (i != regexes.end()) {
+        return i->second;
+    }
+    try {
+        const std::regex regex(pattern);
+        std::size_t index = regexes.size();
+        return regexes.emplace(pattern, index).first->second;
+    } catch (const std::exception&) {
+        std::cerr << "warning: wrong pattern provided \"" << pattern << "\"\n";
+        return std::nullopt;
+    }
+}
+
 void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
     class CodeEmitter : public ram::Visitor<void, Node const, std::ostream&> {
         using ram::Visitor<void, Node const, std::ostream&>::visit_;
@@ -1828,21 +1843,43 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
                 // strings
                 case BinaryConstraintOp::MATCH: {
-                    synthesiser.SubroutineUsingStdRegex = true;
-                    out << "regex_wrapper(symTable.decode(";
-                    dispatch(rel.getLHS(), out);
-                    out << "),symTable.decode(";
-                    dispatch(rel.getRHS(), out);
-                    out << "))";
+                    if (const StringConstant* str = dynamic_cast<const StringConstant*>(&rel.getLHS()); str) {
+                        const auto& regex = synthesiser.compileRegex(str->getConstant());
+                        if (regex) {
+                            out << "std::regex_match(symTable.decode(";
+                            dispatch(rel.getRHS(), out);
+                            out << "), regexes.at(" << *regex << "))";
+                        } else {
+                            out << "false";
+                        }
+                    } else {
+                        synthesiser.SubroutineUsingStdRegex = true;
+                        out << "regex_wrapper(symTable.decode(";
+                        dispatch(rel.getLHS(), out);
+                        out << "),symTable.decode(";
+                        dispatch(rel.getRHS(), out);
+                        out << "))";
+                    }
                     break;
                 }
                 case BinaryConstraintOp::NOT_MATCH: {
-                    synthesiser.SubroutineUsingStdRegex = true;
-                    out << "!regex_wrapper(symTable.decode(";
-                    dispatch(rel.getLHS(), out);
-                    out << "),symTable.decode(";
-                    dispatch(rel.getRHS(), out);
-                    out << "))";
+                    if (const StringConstant* str = dynamic_cast<const StringConstant*>(&rel.getLHS()); str) {
+                        const auto& regex = synthesiser.compileRegex(str->getConstant());
+                        if (regex) {
+                            out << "!std::regex_match(symTable.decode(";
+                            dispatch(rel.getRHS(), out);
+                            out << "), regexes.at(" << *regex << "))";
+                        } else {
+                            out << "false";
+                        }
+                    } else {
+                        synthesiser.SubroutineUsingStdRegex = true;
+                        out << "!regex_wrapper(symTable.decode(";
+                        dispatch(rel.getLHS(), out);
+                        out << "),symTable.decode(";
+                        dispatch(rel.getRHS(), out);
+                        out << "))";
+                    }
                     break;
                 }
                 case BinaryConstraintOp::CONTAINS: {
@@ -2607,6 +2644,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         std::vector<std::tuple<Mode, std::string /*name*/, std::string /*type*/>> args;
         args.push_back(std::make_tuple(Reference, "symTable", "SymbolTable"));
         args.push_back(std::make_tuple(Reference, "recordTable", "RecordTable"));
+        args.push_back(std::make_tuple(Reference, "regexCache", "ConcurrentCache<std::string,std::regex>"));
         args.push_back(std::make_tuple(Reference, "pruneImdtRels", "bool"));
         args.push_back(std::make_tuple(Reference, "performIO", "bool"));
         args.push_back(std::make_tuple(Reference, "signalHandler", "SignalHandler*"));
@@ -2665,17 +2703,39 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
         if (SubroutineUsingStdRegex) {
             // regex wrapper
             GenFunction& wrapper = gen.addFunction("regex_wrapper", Visibility::Private);
-            gen.addInclude("<regex>");
             wrapper.setRetType("inline bool");
             wrapper.setNextArg("const std::string&", "pattern");
             wrapper.setNextArg("const std::string&", "text");
             wrapper.body()
                     << "   bool result = false; \n"
-                    << "   try { result = std::regex_match(text, std::regex(pattern)); } catch(...) { \n"
+                    << "   try { result = std::regex_match(text, regexCache.getOrCreate(pattern)); } "
+                       "catch(...) { "
+                       "\n"
                     << "     std::cerr << \"warning: wrong pattern provided for match(\\\"\" << pattern << "
                        "\"\\\",\\\"\" "
                        "<< text << \"\\\").\\n\";\n}\n"
                     << "   return result;\n";
+        }
+
+        if (!regexes.empty()) {
+            gen.addField("std::vector<std::regex>", "regexes", Visibility::Private);
+            std::stringstream rst;
+            // we need to collect the patterns first and place each
+            // one into the correct slot
+            std::vector<std::string> patterns;
+            patterns.resize(regexes.size());
+            for (const auto& pi : regexes) {
+                patterns.at(pi.second) = pi.first;
+            }
+            rst << "{\n";
+            for (const auto& p : patterns) {
+                const std::string escaped = escape(p);
+                rst << "\tstd::regex(\"" << escaped << "\"),\n";
+            }
+            rst << "}";
+
+            constructor.setNextInitializer("regexes", rst.str());
+            regexes.clear();
         }
 
         // substring wrapper
@@ -2727,6 +2787,9 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     rt << ">";
     mainClass.addField(rt.str(), "recordTable", Visibility::Private);
     constructor.setNextInitializer("recordTable", "");
+
+    mainClass.addField("ConcurrentCache<std::string,std::regex>", "regexCache", Visibility::Private);
+    constructor.setNextInitializer("regexCache", "");
 
     if (Global::config().has("profile")) {
         std::size_t numFreq = 0;
@@ -3024,6 +3087,7 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     setNumThreads.body() << "SouffleProgram::setNumThreads(numThreadsValue);\n";
     setNumThreads.body() << "symTable.setNumLanes(getNumThreads());\n";
     setNumThreads.body() << "recordTable.setNumLanes(getNumThreads());\n";
+    setNumThreads.body() << "regexCache.setNumLanes(getNumThreads());\n";
 
     if (!prog.getSubroutines().empty()) {
         // generate subroutine adapter

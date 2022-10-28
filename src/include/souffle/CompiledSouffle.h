@@ -23,6 +23,7 @@
 #include "souffle/SymbolTable.h"
 #include "souffle/datastructure/BTreeDelete.h"
 #include "souffle/datastructure/Brie.h"
+#include "souffle/datastructure/ConcurrentCache.h"
 #include "souffle/datastructure/EqRel.h"
 #include "souffle/datastructure/Info.h"
 #include "souffle/datastructure/Nullaries.h"

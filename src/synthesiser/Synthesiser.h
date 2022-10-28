@@ -29,6 +29,7 @@
 #include <map>
 #include <memory>
 #include <ostream>
+#include <regex>
 #include <set>
 #include <string>
 
@@ -72,6 +73,12 @@ private:
     bool SubroutineUsingStdRegex = false;
     bool SubroutineUsingSubstr = false;
 
+    /** A mapping of valid regex patterns to to a unique index.
+     * The index to which the pattern is mapped is in
+     *  the range from 0 regexes.size()-1.
+     */
+    std::map<std::string, std::size_t> regexes;
+
     /** Pointer to the subroutine class currently being built */
     GenClass* currentClass = nullptr;
 
@@ -106,6 +113,9 @@ protected:
 
     /** Get referenced relations */
     ram::RelationSet getReferencedRelations(const ram::Operation& op);
+
+    /** Compile a regular expression and return a unique name for it */
+    std::optional<std::size_t> compileRegex(const std::string& pattern);
 
     /** Generate code */
     void emitCode(std::ostream& out, const ram::Statement& stmt);
