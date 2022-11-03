@@ -412,9 +412,10 @@ int main(int argc, char** argv) {
 
         std::stringstream footer;
         footer << "----------------------------------------------------------------------------" << std::endl;
-        footer << "Version: " << PACKAGE_VERSION << "" << std::endl;
+        footer << "Version: " << PACKAGE_VERSION << std::endl;
+        footer << "Word size: " << RAM_DOMAIN_SIZE << " bits" << std::endl;        
         footer << "----------------------------------------------------------------------------" << std::endl;
-        footer << "Copyright (c) 2016-22 The Souffle Developers." << std::endl;
+        footer << "Copyright (c) 2016-22 The Souffle Developers." << std::endl;        
         footer << "Copyright (c) 2013-16 Oracle and/or its affiliates." << std::endl;
         footer << "All rights reserved." << std::endl;
         footer << "============================================================================" << std::endl;
