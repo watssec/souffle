@@ -19,6 +19,7 @@
 #include "FunctorOps.h"
 #include "GenDb.h"
 #include "Global.h"
+#include "config.h"
 #include "RelationTag.h"
 #include "ram/AbstractParallel.h"
 #include "ram/Aggregate.h"
@@ -2485,6 +2486,10 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
     std::string classname = "Sf_" + id;
 
     // generate C++ program
+    std::string package_gen_version = "SOUFFLE_GENERATOR_VERSION \"";
+    package_gen_version += PACKAGE_VERSION;
+    package_gen_version += "\"";
+    db.addGlobalDefine(package_gen_version);
 
     if (Global::config().has("verbose")) {
         db.addGlobalDefine("_SOUFFLE_STATS");
