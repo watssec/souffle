@@ -430,7 +430,7 @@ int main(int argc, char** argv) {
 #ifdef USE_LIBZ
         footer << " zlib";
 #endif
-        footer << std::endl;        
+        footer << std::endl;
         footer << "----------------------------------------------------------------------------" << std::endl;
         footer << "Copyright (c) 2016-22 The Souffle Developers." << std::endl;
         footer << "Copyright (c) 2013-16 Oracle and/or its affiliates." << std::endl;
