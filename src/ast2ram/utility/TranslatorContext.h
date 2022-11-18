@@ -30,6 +30,10 @@
 #include <set>
 #include <vector>
 
+namespace souffle {
+class Global;
+}
+
 namespace souffle::ast {
 class Aggregator;
 class Atom;
@@ -76,6 +80,10 @@ class TranslatorContext {
 public:
     TranslatorContext(const ast::TranslationUnit& tu);
     ~TranslatorContext();
+
+    const Global* getGlobal() const {
+        return global;
+    }
 
     const ast::Program* getProgram() const {
         return program;
@@ -146,6 +154,7 @@ public:
 
 private:
     const ast::Program* program;
+    const Global* global;
     const ast::analysis::RecursiveClausesAnalysis* recursiveClauses;
     const ast::analysis::RelationScheduleAnalysis* relationSchedule;
     const ast::analysis::SCCGraphAnalysis* sccGraph;

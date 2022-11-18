@@ -68,7 +68,7 @@ private:
     PolymorphicObjectsAnalysis* polyAnalysis = nullptr;
 
     // for each stratum compute the EstimateJoinSize nodes to emit
-    std::vector<StratumJoinSizeEstimates> computeJoinSizeStatements();
+    std::vector<StratumJoinSizeEstimates> computeJoinSizeStatements(bool emitStatistics);
     StratumJoinSizeEstimates computeRuleVersionStatements(const RelationSet& sccRelations,
             const ast::Clause& clause, std::size_t version,
             ast2ram::TranslationMode mode = ast2ram::TranslationMode::DEFAULT);
