@@ -254,16 +254,16 @@ std::string GenDb::emitMultipleFilesInDir(fs::path dir, std::vector<fs::path>& t
     auto genHeader = [&](std::ofstream& hpp, std::ofstream& cpp, GenFile& gen) {
         hpp << "#pragma once\n";
         globalHeader(hpp);
-        for (const std::string& inc : gen.getDeclIncludes()) {
+        for (const std::string& inc : gen.getSortedDeclIncludes()) {
             hpp << "#include " << inc << "\n";
         }
-        for (GenFile* dep : gen.getDeclDependencies()) {
+        for (GenFile* dep : gen.getSortedDeclDependencies()) {
             hpp << "#include " << dep->getHeader() << "\n";
         }
-        for (const std::string& inc : gen.getIncludes()) {
+        for (const std::string& inc : gen.getSortedIncludes()) {
             cpp << "#include " << inc << "\n";
         }
-        for (GenFile* dep : gen.getDependencies()) {
+        for (GenFile* dep : gen.getSortedDependencies()) {
             cpp << "#include " << dep->getHeader() << "\n";
         }
         cpp << "#include " << gen.getHeader() << "\n";

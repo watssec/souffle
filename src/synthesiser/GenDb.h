@@ -18,6 +18,7 @@
 #pragma once
 
 #include "souffle/utility/Types.h"
+#include <algorithm>
 #include <cassert>
 #include <filesystem>
 #include <iostream>
@@ -47,7 +48,7 @@ public:
         return basename;
     };
 
-    fs::path getHeader() {
+    fs::path getHeader() const {
         fs::path header = basename;
         return header.concat(".hpp");
     }
@@ -70,14 +71,39 @@ public:
     std::set<std::string>& getDeclIncludes() {
         return decl_includes;
     }
+    std::vector<std::string> getSortedDeclIncludes() {
+        std::vector<std::string> v{decl_includes.begin(), decl_includes.end()};
+        std::sort(v.begin(), v.end());
+        return v;
+    }
+
     std::set<std::string>& getIncludes() {
         return includes;
     }
+    std::vector<std::string> getSortedIncludes() {
+        std::vector<std::string> v{includes.begin(), includes.end()};
+        std::sort(v.begin(), v.end());
+        return v;
+    }
+
     std::set<GenFile*>& getDeclDependencies() {
         return decl_dependencies;
     }
+    std::vector<GenFile*> getSortedDeclDependencies() {
+        std::vector<GenFile*> v{decl_dependencies.begin(), decl_dependencies.end()};
+        std::sort(v.begin(), v.end(),
+                [](const GenFile* a, const GenFile* b) { return a->getHeader() < b->getHeader(); });
+        return v;
+    }
+
     std::set<GenFile*>& getDependencies() {
         return dependencies;
+    }
+    std::vector<GenFile*> getSortedDependencies() {
+        std::vector<GenFile*> v{dependencies.begin(), dependencies.end()};
+        std::sort(v.begin(), v.end(),
+                [](const GenFile* a, const GenFile* b) { return a->getHeader() < b->getHeader(); });
+        return v;
     }
 
 private:
