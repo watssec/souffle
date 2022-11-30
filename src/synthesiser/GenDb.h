@@ -36,6 +36,8 @@ namespace fs = std::filesystem;
 
 namespace souffle::synthesiser {
 
+class GenDb;
+
 class GenFile {
 public:
     GenFile(fs::path basename) : basename(std::move(basename)) {}
@@ -126,12 +128,12 @@ public:
     /* Emit the declaration of this construct in C++,
      * typically what we would expect from a .hpp file
      */
-    virtual void declaration(std::ostream& o) const = 0;
+    virtual void declaration(const GenDb* db, std::ostream& o) const = 0;
 
     /* Emit the Implementation of this construct in C++,
      * typically what we would expect from a .cpp file
      */
-    virtual void definition(std::ostream& o) const = 0;
+    virtual void definition(const GenDb* db, std::ostream& o) const = 0;
 
     std::string& getName() {
         return name;
@@ -171,9 +173,9 @@ public:
         override = true;
     };
 
-    void declaration(std::ostream& o) const override;
+    void declaration(const GenDb* db, std::ostream& o) const override;
 
-    void definition(std::ostream& o) const override;
+    void definition(const GenDb* db, std::ostream& o) const override;
 
     Visibility getVisibility() {
         return visibility;
@@ -209,9 +211,9 @@ public:
     void addField(
             std::string type, std::string name, Visibility, std::optional<std::string> init = std::nullopt);
 
-    void declaration(std::ostream& o) const override;
+    void declaration(const GenDb* db, std::ostream& o) const override;
 
-    void definition(std::ostream& o) const override;
+    void definition(const GenDb* db, std::ostream& o) const override;
 
     void inherits(std::string parent) {
         inheritance.push_back(parent);
@@ -252,8 +254,8 @@ public:
         return definitionStream;
     }
 
-    void declaration(std::ostream& o) const override;
-    void definition(std::ostream& o) const override;
+    void declaration(const GenDb* db, std::ostream& o) const override;
+    void definition(const GenDb* db, std::ostream& o) const override;
 
 private:
     std::optional<std::string> namespace_name;
@@ -268,6 +270,10 @@ private:
  */
 class GenDb {
 public:
+    void setNS(std::string ns);
+
+    std::string getNS(const bool spaced = true) const;
+
     GenClass& getClass(std::string name, fs::path basename);
     GenDatastructure& getDatastructure(
             std::string name, fs::path basename, std::optional<std::string> namespace_opt);
@@ -299,6 +305,8 @@ public:
     }
 
 private:
+    // namespace of the generated code
+    std::string ns = "";
     std::vector<Own<GenDatastructure>> datastructures;
     std::vector<Own<GenClass>> classes;
 

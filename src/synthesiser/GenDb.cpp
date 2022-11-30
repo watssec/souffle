@@ -57,7 +57,7 @@ void GenFunction::setNextInitializer(std::string field, std::string value) {
     initializer.push_back(std::make_pair(field, value));
 }
 
-void GenFunction::declaration(std::ostream& o) const {
+void GenFunction::declaration(const GenDb*, std::ostream& o) const {
     o << retType << " " << name << "(" << join(args, ",", [&](auto& out, const auto arg) {
         out << std::get<0>(arg) << " " << std::get<1>(arg);
         std::optional<std::string> defaultValue = std::get<2>(arg);
@@ -67,7 +67,7 @@ void GenFunction::declaration(std::ostream& o) const {
     }) << ");";
 }
 
-void GenFunction::definition(std::ostream& o) const {
+void GenFunction::definition(const GenDb*, std::ostream& o) const {
     o << retType << " ";
     if (cl) {
         o << cl->getName() << "::";
@@ -101,8 +101,10 @@ GenFunction& GenClass::addConstructor(Visibility v) {
     return m;
 }
 
-void GenClass::declaration(std::ostream& o) const {
-    o << "namespace souffle {\n";
+void GenClass::declaration(const GenDb* db, std::ostream& o) const {
+    o << "namespace " << db->getNS() << " {\n";
+
+    o << "using namespace souffle;\n";
 
     o << "class " << name;
     if (inheritance.size() > 0) {
@@ -116,7 +118,7 @@ void GenClass::declaration(std::ostream& o) const {
 
     for (auto& fn : methods) {
         auto& o = (fn->getVisibility() == Public) ? public_o : private_o;
-        fn->declaration(o);
+        fn->declaration(db, o);
         o << "\n";
     }
     for (auto& [field, ty, v, init] : fields) {
@@ -130,21 +132,22 @@ void GenClass::declaration(std::ostream& o) const {
     o << public_o.str();
     o << private_o.str();
     o << "};\n";
-    o << "} // namespace souffle\n";
+    o << "} // namespace " << db->getNS() << "\n";
 }
 
-void GenClass::definition(std::ostream& o) const {
+void GenClass::definition(const GenDb* db, std::ostream& o) const {
     if (ignoreUnusedArgumentWarning) {
         o << "#ifdef _MSC_VER\n";
         o << "#pragma warning(disable: 4100)\n";
         o << "#endif // _MSC_VER\n";
     }
-    o << "namespace souffle {\n";
+    o << "namespace " << db->getNS() << " {\n";
+    o << "using namespace souffle;\n";
     for (auto& fn : methods) {
-        fn->definition(o);
+        fn->definition(db, o);
         o << "\n";
     }
-    o << "} // namespace souffle\n";
+    o << "} // namespace " << db->getNS() << "\n";
 
     if (ignoreUnusedArgumentWarning) {
         // restore unused argument warning
@@ -153,6 +156,18 @@ void GenClass::definition(std::ostream& o) const {
         o << "#endif // _MSC_VER\n";
     }
     o << hiddenHooksStream.str() << "\n";
+}
+
+void GenDb::setNS(std::string ns) {
+    this->ns = ns;
+}
+
+std::string GenDb::getNS(const bool spaced) const {
+    if (spaced) {
+        return std::string{" "} + ns;
+    } else {
+        return ns;
+    }
 }
 
 GenClass& GenDb::getClass(std::string name, fs::path basename) {
@@ -174,22 +189,24 @@ GenDatastructure& GenDb::getDatastructure(
     return res;
 }
 
-void GenDatastructure::declaration(std::ostream& o) const {
-    std::string ns = "souffle";
+void GenDatastructure::declaration(const GenDb* db, std::ostream& o) const {
+    std::string ns = db->getNS(false);
     if (namespace_name) {
-        ns += "::" + *namespace_name;
+        ns += (ns.empty() ? "" : "::") + *namespace_name;
     }
     o << "namespace " << ns << " {\n";
+    o << "using namespace souffle;\n";
     o << declarationStream.str();
     o << "} // namespace " << ns << " \n";
 }
 
-void GenDatastructure::definition(std::ostream& o) const {
-    std::string ns = "souffle";
+void GenDatastructure::definition(const GenDb* db, std::ostream& o) const {
+    std::string ns = db->getNS(false);
     if (namespace_name) {
-        ns += "::" + *namespace_name;
+        ns += (ns.empty() ? "" : "::") + *namespace_name;
     }
     o << "namespace " << ns << " {\n";
+    o << "using namespace souffle;\n";
     o << definitionStream.str();
     o << "} // namespace " << ns << " \n";
 }
@@ -223,19 +240,19 @@ void GenDb::emitSingleFile(std::ostream& o) {
     o << "}\n";
     o << "} //namespace functors\n";
     for (auto& ds : datastructures) {
-        ds->declaration(o);
-        ds->definition(o);
+        ds->declaration(this, o);
+        ds->definition(this, o);
     }
     std::size_t size = classes.size();
     for (std::size_t i = 1; i < size - 1; i++) {
         Own<GenClass>& cl = classes[i];
-        cl->declaration(o);
-        cl->definition(o);
+        cl->declaration(this, o);
+        cl->definition(this, o);
     }
-    classes.front()->declaration(o);
-    classes.front()->definition(o);
-    classes.back()->declaration(o);
-    classes.back()->definition(o);
+    classes.front()->declaration(this, o);
+    classes.front()->definition(this, o);
+    classes.back()->declaration(this, o);
+    classes.back()->definition(this, o);
 }
 
 std::string GenDb::emitMultipleFilesInDir(fs::path dir, std::vector<fs::path>& toCompile) {
@@ -274,8 +291,8 @@ std::string GenDb::emitMultipleFilesInDir(fs::path dir, std::vector<fs::path>& t
         std::ofstream hpp{rootDir / ds->fileBaseName().concat(".hpp")};
         std::ofstream cpp{rootDir / ds->fileBaseName().concat(".cpp")};
         genHeader(hpp, cpp, *ds);
-        ds->declaration(hpp);
-        ds->definition(cpp);
+        ds->declaration(this, hpp);
+        ds->definition(this, cpp);
     }
     std::string mainClass;
     for (auto& cl : classes) {
@@ -283,7 +300,7 @@ std::string GenDb::emitMultipleFilesInDir(fs::path dir, std::vector<fs::path>& t
         std::ofstream hpp{rootDir / cl->fileBaseName().concat(".hpp")};
         std::ofstream cpp{rootDir / cl->fileBaseName().concat(".cpp")};
         genHeader(hpp, cpp, *cl);
-        cl->declaration(hpp);
+        cl->declaration(this, hpp);
         if (cl->isMain) {
             mainClass = cl->getName();
             cpp << "namespace functors {\n";
@@ -292,7 +309,7 @@ std::string GenDb::emitMultipleFilesInDir(fs::path dir, std::vector<fs::path>& t
             cpp << "}\n";
             cpp << "} //namespace functors\n";
         }
-        cl->definition(cpp);
+        cl->definition(this, cpp);
     }
     return mainClass;
 }
