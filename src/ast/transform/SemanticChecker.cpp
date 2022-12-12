@@ -110,11 +110,11 @@ private:
     const Program& program = tu.getProgram();
     ErrorReport& report = tu.getErrorReport();
 
-    void checkAtom(const Atom& atom);
-    void checkLiteral(const Literal& literal);
-    void checkAggregator(const Aggregator& aggregator);
+    void checkAtom(const Clause& parent, const Atom& atom);
+    void checkLiteral(const Clause& parent, const Literal& literal);
+    void checkAggregator(const Clause& parent, const Aggregator& aggregator);
     bool isDependent(const Clause& agg1, const Clause& agg2);
-    void checkArgument(const Argument& arg);
+    void checkArgument(const Clause& parent, const Argument& arg);
     void checkConstant(const Argument& argument);
     void checkFact(const Clause& fact);
     void checkClause(const Clause& clause);
@@ -236,7 +236,7 @@ SemanticCheckerImpl::SemanticCheckerImpl(TranslationUnit& tu) : tu(tu) {
     }
 }
 
-void SemanticCheckerImpl::checkAtom(const Atom& atom) {
+void SemanticCheckerImpl::checkAtom(const Clause& parent, const Atom& atom) {
     // check existence of relation
     auto* r = program.getRelation(atom);
     if (r == nullptr) {
@@ -251,7 +251,7 @@ void SemanticCheckerImpl::checkAtom(const Atom& atom) {
     }
 
     for (const Argument* arg : atom.getArguments()) {
-        checkArgument(*arg);
+        checkArgument(parent, *arg);
     }
 }
 
@@ -278,19 +278,19 @@ std::set<const UnnamedVariable*> getUnnamedVariables(const Node& node) {
 
 }  // namespace
 
-void SemanticCheckerImpl::checkLiteral(const Literal& literal) {
+void SemanticCheckerImpl::checkLiteral(const Clause& parent, const Literal& literal) {
     // check potential nested atom
     if (const auto* atom = as<Atom>(literal)) {
-        checkAtom(*atom);
+        checkAtom(parent, *atom);
     }
 
     if (const auto* neg = as<Negation>(literal)) {
-        checkAtom(*neg->getAtom());
+        checkAtom(parent, *neg->getAtom());
     }
 
     if (const auto* constraint = as<BinaryConstraint>(literal)) {
-        checkArgument(*constraint->getLHS());
-        checkArgument(*constraint->getRHS());
+        checkArgument(parent, *constraint->getLHS());
+        checkArgument(parent, *constraint->getRHS());
 
         std::set<const UnnamedVariable*> unnamedInRecord;
         visit(*constraint, [&](const RecordInit& record) {
@@ -347,12 +347,11 @@ bool SemanticCheckerImpl::isDependent(const Clause& agg1, const Clause& agg2) {
     return dependent;
 }
 
-void SemanticCheckerImpl::checkAggregator(const Aggregator& aggregator) {
+void SemanticCheckerImpl::checkAggregator(const Clause& parent, const Aggregator& aggregator) {
     auto& report = tu.getErrorReport();
-    const Program& program = tu.getProgram();
     Clause dummyClauseAggregator("dummy");
 
-    visit(program, [&](const Literal& parentLiteral) {
+    visit(parent, [&](const Literal& parentLiteral) {
         visit(parentLiteral, [&](const Aggregator& candidateAggregate) {
             if (candidateAggregate != aggregator) {
                 return;
@@ -363,7 +362,7 @@ void SemanticCheckerImpl::checkAggregator(const Aggregator& aggregator) {
         });
     });
 
-    visit(program, [&](const Literal& parentLiteral) {
+    visit(parent, [&](const Literal& parentLiteral) {
         visit(parentLiteral, [&](const Aggregator& /* otherAggregate */) {
             // Create the other aggregate's dummy clause
             Clause dummyClauseOther("dummy");
@@ -377,16 +376,16 @@ void SemanticCheckerImpl::checkAggregator(const Aggregator& aggregator) {
     });
 
     for (Literal* literal : aggregator.getBodyLiterals()) {
-        checkLiteral(*literal);
+        checkLiteral(parent, *literal);
     }
 }
 
-void SemanticCheckerImpl::checkArgument(const Argument& arg) {
+void SemanticCheckerImpl::checkArgument(const Clause& parent, const Argument& arg) {
     if (const auto* agg = as<Aggregator>(arg)) {
-        checkAggregator(*agg);
+        checkAggregator(parent, *agg);
     } else if (const auto* func = as<Functor>(arg)) {
         for (auto arg : func->getArguments()) {
-            checkArgument(*arg);
+            checkArgument(parent, *arg);
         }
 
         if (auto const* udFunc = as<UserDefinedFunctor const>(func)) {
@@ -455,7 +454,7 @@ void SemanticCheckerImpl::checkFact(const Clause& fact) {
 
 void SemanticCheckerImpl::checkClause(const Clause& clause) {
     // check head atom
-    checkAtom(*clause.getHead());
+    checkAtom(clause, *clause.getHead());
 
     // Check for absence of underscores in head
     for (auto* unnamed : getUnnamedVariables(*clause.getHead())) {
@@ -464,7 +463,7 @@ void SemanticCheckerImpl::checkClause(const Clause& clause) {
 
     // check body literals
     for (Literal* lit : clause.getBodyLiterals()) {
-        checkLiteral(*lit);
+        checkLiteral(clause, *lit);
     }
 
     // check facts
