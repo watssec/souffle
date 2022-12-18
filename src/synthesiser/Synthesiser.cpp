@@ -334,6 +334,8 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         void visit_(type_identity<IO>, const IO& io, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
 
+            synthesiser.currentClass->addInclude("\"souffle/io/IOSystem.h\"", true);
+
             // print directives as C++ initializers
             auto printDirectives = [&](const std::map<std::string, std::string>& registry) {
                 auto cur = registry.begin();
@@ -2648,7 +2650,6 @@ void Synthesiser::generateCode(GenDb& db, const std::string& id, bool& withShare
 
         gen.addInclude("\"souffle/SouffleInterface.h\"");
         gen.addInclude("\"souffle/SignalHandler.h\"");
-        gen.addInclude("\"souffle/io/IOSystem.h\"", true);
 
         GenFunction& constructor = gen.addConstructor(Visibility::Public);
 
