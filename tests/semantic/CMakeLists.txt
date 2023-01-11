@@ -11,6 +11,7 @@ if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 endif()
 
 add_subdirectory(functor_fact)
+add_subdirectory(issue2373)
 
 
 function(positive_test NAME)
@@ -258,3 +259,4 @@ positive_test(underscore5)
 negative_test(mutually_dependent_aggregate)
 positive_test(independent_aggregate)
 positive_test(independent_aggregate2)
+souffle_positive_functor_test(issue2373 CATEGORY semantic)
