@@ -56,6 +56,7 @@
 #include "ast/transform/ResolveAnonymousRecordAliases.h"
 #include "ast/transform/SemanticChecker.h"
 #include "ast/transform/SimplifyAggregateTargetExpression.h"
+#include "ast/transform/SimplifyConstantBinaryConstraints.h"
 #include "ast/transform/SubsumptionQualifier.h"
 #include "ast/transform/UniqueAggregationVariables.h"
 #include "ast2ram/TranslationStrategy.h"
@@ -472,6 +473,8 @@ Own<ast::transform::PipelineTransformer> astTransformationPipeline(Global& glb) 
             mk<ast::transform::InlineUnmarkExcludedTransform>(),
             mk<ast::transform::InlineRelationsTransformer>(), mk<ast::transform::GroundedTermsChecker>(),
             mk<ast::transform::ResolveAliasesTransformer>(),
+            mk<ast::transform::SimplifyConstantBinaryConstraintsTransformer>(),
+            mk<ast::transform::RemoveBooleanConstraintsTransformer>(),
             mk<ast::transform::RemoveRedundantRelationsTransformer>(),
             mk<ast::transform::RemoveRelationCopiesTransformer>(),
             mk<ast::transform::RemoveEmptyRelationsTransformer>(),
@@ -1145,4 +1148,3 @@ int main(Global& glb, const char* souffle_executable) {
 }
 
 }  // end of namespace souffle
-
