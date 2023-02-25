@@ -20,10 +20,12 @@
 #include <memory>
 #include <ostream>
 #include <set>
+#include <sstream>
 #include <vector>
 
 #include "ConstraintSystem.h"
 #include "ast/Argument.h"
+#include "reports/ErrorReport.h"
 
 namespace souffle::ast::analysis {
 
@@ -33,14 +35,6 @@ public:
     using constraint_type = Constraint<Var>;
     using constraint_ptr_type = std::shared_ptr<constraint_type>;
     using unsat_core_type = typename std::set<constraint_ptr_type>;
-
-    ErrorAnalyzer() {
-        std::cout << "Constructing ErrorAnalyzer" << std::endl;
-    }
-
-    ~ErrorAnalyzer() {
-        std::cout << "Desstructing ErrorAnalyzer" << std::endl;
-    }
 
     void addUnsatCore(const Argument* arg, const unsat_core_type& unsat_core) {
         unsatCores[arg] = unsat_core;
@@ -56,14 +50,18 @@ public:
         }
     }
 
-    void explain(const Argument* var) {
-        std::cout << "Explaining " << var << " -- " << *var << std::endl;
+    void explain(ErrorReport& report, const Argument* var, std::string message) {
+        std::stringstream ms;
         if (auto it = unsatCores.find(var); it != unsatCores.end()) {
+            ms << "Following constraints cannot hold:";
             for (const auto& constraint : it->second) {
-                std::cout << *constraint << ", ";
+                ms << "\n   " << *constraint;
             }
-            std::cout << std::endl;
         }
+        // report.addError(ms.str(), var->getSrcLoc());
+        Diagnostic diag{Diagnostic::Type::ERROR, DiagnosticMessage{message, var->getSrcLoc()},
+                {DiagnosticMessage{ms.str()}}};
+        report.addDiagnostic(diag);
     }
 
 private:

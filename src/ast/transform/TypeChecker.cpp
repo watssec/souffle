@@ -408,9 +408,11 @@ void TypeCheckerImpl::visit_(type_identity<Atom>, const Atom& atom) {
 
 void TypeCheckerImpl::visit_(type_identity<souffle::ast::Variable>, const ast::Variable& var) {
     if (typeAnalysis.getTypes(&var).empty()) {
-        report.addError("Unable to deduce type for variable " + var.getName(), var.getSrcLoc());
         if (typeAnalysis.errorAnalyzer) {
-            typeAnalysis.errorAnalyzer->explain(&var);
+            typeAnalysis.errorAnalyzer->explain(
+                    report, &var, "Unable to deduce type for variable " + var.getName());
+        } else {
+            report.addError("Unable to deduce type for variable " + var.getName(), var.getSrcLoc());
         }
     }
 }
