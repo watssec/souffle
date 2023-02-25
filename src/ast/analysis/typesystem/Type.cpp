@@ -530,9 +530,7 @@ void TypeAnalysis::run(const TranslationUnit& translationUnit) {
 
         // Analyse general argument types, clause by clause.
         for (const Clause* clause : program.getClauses()) {
-            // @here
-            // errorAnalyzer = new TypeErrorAnalyzer();
-            if (!errorAnalyzer) {
+            if (!errorAnalyzer && translationUnit.global().config().has("explain-error", "types")) {
                 errorAnalyzer = std::make_shared<TypeErrorAnalyzer>();
             }
             auto clauseArgumentTypes =
