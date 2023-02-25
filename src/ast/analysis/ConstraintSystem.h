@@ -214,6 +214,10 @@ public:
         c.print(out);
         return out;
     }
+
+    virtual std::optional<std::string> customMessage() const {
+        return std::nullopt;
+    }
 };
 
 //----------------------------------------------------------------------

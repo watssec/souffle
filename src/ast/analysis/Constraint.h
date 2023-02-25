@@ -46,6 +46,12 @@ struct ConstraintAnalysisVar : public Variable<const Argument*, PropertySpace> {
     void print(std::ostream& out) const override {
         out << "var(" << *(this->id) << ")";
     }
+
+    const std::string name() const {
+        std::stringstream ss;
+        ss << *(this->id);
+        return ss.str();
+    }
 };
 
 /**

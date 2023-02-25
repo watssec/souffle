@@ -55,10 +55,13 @@ public:
         if (auto it = unsatCores.find(var); it != unsatCores.end()) {
             ms << "Following constraints cannot hold:";
             for (const auto& constraint : it->second) {
-                ms << "\n   " << *constraint;
+                if (auto customMessage = constraint->customMessage(); customMessage) {
+                    ms << "\n   " << *customMessage;
+                } else {
+                    ms << "\n   " << *constraint;
+                }
             }
         }
-        // report.addError(ms.str(), var->getSrcLoc());
         Diagnostic diag{Diagnostic::Type::ERROR, DiagnosticMessage{message, var->getSrcLoc()},
                 {DiagnosticMessage{ms.str()}}};
         report.addDiagnostic(diag);
