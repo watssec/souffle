@@ -80,7 +80,7 @@ public:
         if (argumentIsExplained(var)) return;
         std::vector<DiagnosticMessage> additionalMessages;
         if (auto it = unsatCores.find(var); it != unsatCores.end()) {
-            additionalMessages.emplace_back("Following constraints cannot hold:");
+            additionalMessages.emplace_back("Following constraints are incompatible:");
             for (const auto& constraint : it->second) {
                 std::stringstream ss;
                 if (auto customMessage = constraint->customMessage(); customMessage) {
