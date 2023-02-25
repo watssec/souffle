@@ -83,6 +83,7 @@ public:
      */
     solution_type analyse(const Clause& clause, error_analyzer_type* errorAnalyzer = nullptr,
             std::ostream* debugOutput = nullptr) {
+        this->errorAnalyzer = errorAnalyzer;
         collectConstraints(clause);
 
         assignment = constraints.solve();
@@ -102,14 +103,21 @@ public:
                     unsat_cores[arg] = unsat_core;
                 }
             }
+            std::map<AnalysisVar, std::set<const Argument*>> equivalentArguments;
             visit(clause, [&](const Argument& arg) {
                 errorAnalyzer->addUnsatCore(&arg, unsat_cores[getVar(arg)]);
+                equivalentArguments[getVar(arg)].emplace(&arg);
             });
+            for (const auto& [_, argSet] : equivalentArguments) {
+                errorAnalyzer->addEquivalentArgumentSet(argSet);
+            }
         }
 
         // convert assignment to result
         solution_type solution;
         visit(clause, [&](const Argument& arg) { solution[&arg] = assignment[getVar(arg)]; });
+
+        this->errorAnalyzer = nullptr;
         return solution;
     }
 
@@ -154,6 +162,8 @@ protected:
 
     /** A map mapping variables to unique instances to facilitate the unification of variables */
     std::map<std::string, AnalysisVar> variables;
+
+    error_analyzer_type* errorAnalyzer = nullptr;
 };
 
 }  // namespace souffle::ast::analysis

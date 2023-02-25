@@ -25,6 +25,7 @@
 
 #include "ConstraintSystem.h"
 #include "ast/Argument.h"
+#include "parser/SrcLocation.h"
 #include "reports/ErrorReport.h"
 
 namespace souffle::ast::analysis {
@@ -50,25 +51,61 @@ public:
         }
     }
 
+    void localizeConstraint(constraint_ptr_type constraint, const SrcLocation& loc) {
+        constraintLocations[constraint] = loc;
+    }
+
+    void addEquivalentArgumentSet(std::set<const Argument*> equivalentSet) {
+        for (const auto argument1 : equivalentSet) {
+            for (const auto argument2 : equivalentSet) {
+                if (argument1 == argument2) continue;
+                equivalentArguments.emplace(argument1, argument2);
+            }
+        }
+    }
+
+    void markArgumentAsExplained(const Argument* argument) {
+        explainedArguments.emplace(argument);
+        auto range = equivalentArguments.equal_range(argument);
+        for (auto it = range.first; it != range.second; ++it) {
+            explainedArguments.emplace(it->second);
+        }
+    }
+
+    bool argumentIsExplained(const Argument* argument) {
+        return explainedArguments.find(argument) != explainedArguments.end();
+    }
+
     void explain(ErrorReport& report, const Argument* var, std::string message) {
-        std::stringstream ms;
+        if (argumentIsExplained(var)) return;
+        std::vector<DiagnosticMessage> additionalMessages;
         if (auto it = unsatCores.find(var); it != unsatCores.end()) {
-            ms << "Following constraints cannot hold:";
+            additionalMessages.emplace_back("Following constraints cannot hold:");
             for (const auto& constraint : it->second) {
+                std::stringstream ss;
                 if (auto customMessage = constraint->customMessage(); customMessage) {
-                    ms << "\n   " << *customMessage;
+                    ss << "   " << *customMessage;
                 } else {
-                    ms << "\n   " << *constraint;
+                    ss << "   " << *constraint;
+                }
+                if (auto it = constraintLocations.find(constraint); it != constraintLocations.end()) {
+                    additionalMessages.emplace_back(ss.str(), it->second);
+                } else {
+                    additionalMessages.emplace_back(ss.str());
                 }
             }
         }
         Diagnostic diag{Diagnostic::Type::ERROR, DiagnosticMessage{message, var->getSrcLoc()},
-                {DiagnosticMessage{ms.str()}}};
+                std::move(additionalMessages)};
         report.addDiagnostic(diag);
+        markArgumentAsExplained(var);
     }
 
 private:
     std::map<const Argument*, unsat_core_type> unsatCores;
+    std::map<constraint_ptr_type, SrcLocation> constraintLocations;  // @todo maybe use pointer here
+    std::multimap<const Argument*, const Argument*> equivalentArguments;
+    std::set<const Argument*> explainedArguments;
 };
 
 }  // namespace souffle::ast::analysis
