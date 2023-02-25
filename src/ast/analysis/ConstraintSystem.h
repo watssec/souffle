@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "ValueChecker.h"
 #include "souffle/utility/StreamUtil.h"
 #include <iostream>
 #include <map>
@@ -64,6 +65,13 @@ struct default_meet_op {
         return res;
     }
 };
+
+template <typename T>
+struct default_is_valid_op {
+    bool operator()(const T&) {
+        return true;
+    }
+};
 }  // namespace detail
 
 /**
@@ -85,11 +93,13 @@ struct default_meet_op {
  */
 template <typename T, typename meet_assign_op,
         typename bottom_factory = typename detail::default_bottom_factory<T>,
-        typename meet_op = typename detail::default_meet_op<T, meet_assign_op>>
+        typename meet_op = typename detail::default_meet_op<T, meet_assign_op>,
+        typename is_valid_op = typename detail::default_is_valid_op<T>>
 struct property_space {
     using value_type = T;
     using meet_assign_op_type = meet_assign_op;
     using meet_op_type = meet_op;
+    using is_valid_op_type = is_valid_op;
     using bottom_factory_type = bottom_factory;
 };
 
@@ -363,11 +373,18 @@ public:
  * @tparam Var the domain of variables handled by this problem
  */
 template <typename Var>
-class Problem {
+class Problem : public ValueChecker<Var> {
     // a few type definitions
     using constraint = Constraint<Var>;
     using constraint_ptr = std::shared_ptr<constraint>;
 
+    using value_type = typename Var::property_space::value_type;
+    using problem_type = Problem<Var>;
+
+public:
+    using unsat_core_type = typename std::set<constraint_ptr>;
+
+private:
     /** The list of covered constraints */
     std::vector<constraint_ptr> constraints;
 
@@ -407,6 +424,30 @@ public:
         }
         // already done
         return assignment;
+    }
+
+    unsat_core_type extractUnsatCore(  // const problem_type& constraints,
+            const Var& var) {
+        unsat_core_type unsat_core;
+        const auto& constraints = (static_cast<Problem*>(this))->constraints;
+
+        while (true) {
+            Assignment<Var> assignment;
+            for (const auto& constraint : unsat_core) {
+                constraint->update(assignment);
+            }
+            if (!this->valueIsValid(assignment[var])) {
+                break;
+            }
+            for (const auto& constraint : constraints) {
+                constraint->update(assignment);
+                if (!this->valueIsValid(assignment[var])) {
+                    unsat_core.insert(constraint);
+                    break;
+                }
+            }
+        }
+        return unsat_core;
     }
 
     /** Enables a problem to be printed (debugging) */

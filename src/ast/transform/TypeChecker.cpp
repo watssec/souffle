@@ -34,6 +34,7 @@
 #include "ast/analysis/typesystem/PolymorphicObjects.h"
 #include "ast/analysis/typesystem/SumTypeBranches.h"
 #include "ast/analysis/typesystem/Type.h"
+#include "ast/analysis/typesystem/TypeConstraints.h"
 #include "ast/analysis/typesystem/TypeEnvironment.h"
 #include "ast/analysis/typesystem/TypeSystem.h"
 #include "ast/utility/Utils.h"
@@ -124,7 +125,7 @@ private:
     /* Type checks */
     /** Check if declared types of the relation match deduced types. */
     void visit_(type_identity<Atom>, const Atom& atom) override;
-    void visit_(type_identity<Variable>, const Variable& var) override;
+    void visit_(type_identity<souffle::ast::Variable>, const souffle::ast::Variable& var) override;
     void visit_(type_identity<StringConstant>, const StringConstant& constant) override;
     void visit_(type_identity<NumericConstant>, const NumericConstant& constant) override;
     void visit_(type_identity<NilConstant>, const NilConstant& constant) override;
@@ -405,9 +406,12 @@ void TypeCheckerImpl::visit_(type_identity<Atom>, const Atom& atom) {
     }
 }
 
-void TypeCheckerImpl::visit_(type_identity<Variable>, const ast::Variable& var) {
+void TypeCheckerImpl::visit_(type_identity<souffle::ast::Variable>, const ast::Variable& var) {
     if (typeAnalysis.getTypes(&var).empty()) {
         report.addError("Unable to deduce type for variable " + var.getName(), var.getSrcLoc());
+        if (typeAnalysis.errorAnalyzer) {
+            typeAnalysis.errorAnalyzer->explain(&var);
+        }
     }
 }
 

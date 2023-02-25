@@ -17,6 +17,8 @@
 #pragma once
 
 #include "ConstraintSystem.h"
+#include "ErrorAnalyzer.h"
+#include "ValueChecker.h"
 #include "ast/Argument.h"
 #include "ast/Clause.h"
 #include "ast/Node.h"
@@ -55,11 +57,12 @@ struct ConstraintAnalysisVar : public Variable<const Argument*, PropertySpace> {
  *      to be utilized by this analysis.
  */
 template <typename AnalysisVar>
-class ConstraintAnalysis : public Visitor<void> {
+class ConstraintAnalysis : public Visitor<void>, ValueChecker<AnalysisVar> {
 public:
     using value_type = typename AnalysisVar::property_space::value_type;
     using constraint_type = std::shared_ptr<Constraint<AnalysisVar>>;
     using solution_type = std::map<const Argument*, value_type>;
+    using error_analyzer_type = ErrorAnalyzer<AnalysisVar>;
 
     virtual void collectConstraints(const Clause& clause) {
         visit(clause, *this);
@@ -72,7 +75,8 @@ public:
      * @param debug a flag enabling the printing of debug information
      * @return an assignment mapping a property to each argument in the given clause
      */
-    solution_type analyse(const Clause& clause, std::ostream* debugOutput = nullptr) {
+    solution_type analyse(const Clause& clause, error_analyzer_type* errorAnalyzer = nullptr,
+            std::ostream* debugOutput = nullptr) {
         collectConstraints(clause);
 
         assignment = constraints.solve();
@@ -82,6 +86,19 @@ public:
             *debugOutput << "Clause: " << clause << "\n";
             *debugOutput << "Problem:\n" << constraints << "\n";
             *debugOutput << "Solution:\n" << assignment << "\n";
+        }
+
+        if (errorAnalyzer) {
+            std::map<AnalysisVar, typename Problem<AnalysisVar>::unsat_core_type> unsat_cores;
+            for (const auto& [arg, value] : assignment) {
+                if (!this->valueIsValid(value)) {
+                    auto unsat_core = constraints.extractUnsatCore(arg);
+                    unsat_cores[arg] = unsat_core;
+                }
+            }
+            visit(clause, [&](const Argument& arg) {
+                errorAnalyzer->addUnsatCore(&arg, unsat_cores[getVar(arg)]);
+            });
         }
 
         // convert assignment to result

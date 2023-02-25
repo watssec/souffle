@@ -36,6 +36,7 @@
 #include "ast/Variable.h"
 #include "ast/analysis/Constraint.h"
 #include "ast/analysis/ConstraintSystem.h"
+#include "ast/analysis/ErrorAnalyzer.h"
 #include "ast/analysis/typesystem/SumTypeBranches.h"
 #include "ast/analysis/typesystem/TypeConstrainsAnalysis.h"
 #include "ast/analysis/typesystem/TypeConstraints.h"
@@ -124,9 +125,9 @@ Own<Clause> TypeAnalysis::createAnnotatedClause(
     return annotatedClause;
 }
 
-std::map<const Argument*, TypeSet> TypeAnalysis::analyseTypes(
-        const TranslationUnit& tu, const Clause& clause, std::ostream* logs) {
-    return TypeConstraintsAnalysis(tu).analyse(clause, logs);
+std::map<const Argument*, TypeSet> TypeAnalysis::analyseTypes(const TranslationUnit& tu, const Clause& clause,
+        TypeErrorAnalyzer* errorAnalyzer, std::ostream* logs) {
+    return TypeConstraintsAnalysis(tu).analyse(clause, errorAnalyzer, logs);
 }
 
 void TypeAnalysis::print(std::ostream& os) const {
@@ -529,7 +530,13 @@ void TypeAnalysis::run(const TranslationUnit& translationUnit) {
 
         // Analyse general argument types, clause by clause.
         for (const Clause* clause : program.getClauses()) {
-            auto clauseArgumentTypes = analyseTypes(translationUnit, *clause, debugStream);
+            // @here
+            // errorAnalyzer = new TypeErrorAnalyzer();
+            if (!errorAnalyzer) {
+                errorAnalyzer = std::make_shared<TypeErrorAnalyzer>();
+            }
+            auto clauseArgumentTypes =
+                    analyseTypes(translationUnit, *clause, errorAnalyzer.get(), debugStream);
             argumentTypes.insert(clauseArgumentTypes.begin(), clauseArgumentTypes.end());
 
             if (debugStream != nullptr) {
@@ -815,5 +822,8 @@ void TypeAnnotationPrinter::printAnnotatedClause(const Clause& clause) {
     }
     os << "." << std::endl;
 }
+
+TypeAnalysis::TypeAnalysis() : Analysis(name) {}
+TypeAnalysis::~TypeAnalysis() = default;
 
 }  // namespace souffle::ast::analysis
