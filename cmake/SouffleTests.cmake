@@ -144,7 +144,7 @@ function(SOUFFLE_RUN_TEST_HELPER)
 #Usually just "facts" but can be different when running multi - tests
     cmake_parse_arguments(
         PARAM
-        "COMPILED;COMPILED_SPLITTED;FUNCTORS;NEGATIVE;MULTI_TEST;NO_PREPROCESSOR" # Options
+        "COMPILED;COMPILED_SPLITTED;FUNCTORS;NEGATIVE;MULTI_TEST;NO_PREPROCESSOR;EXPLAIN_ERROR" # Options
         "TEST_NAME;CATEGORY;FACTS_DIR_NAME;EXTRA_DATA" #Single valued options
         "INCLUDE_DIRS" # Multi-valued options
         ${ARGV}
@@ -171,6 +171,10 @@ function(SOUFFLE_RUN_TEST_HELPER)
       if (MSVC)
           list(APPEND EXTRA_FLAGS "--preprocessor" "cl -nologo -TC -E")
       endif()
+    endif()
+
+    if (PARAM_EXPLAIN_ERROR)
+      list(APPEND EXTRA_FLAGS "--explain-error=all")
     endif()
 
     if (PARAM_FUNCTORS)
