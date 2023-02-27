@@ -65,7 +65,8 @@ TypeConstraint isSubtypeOf(const TypeVar& variable, const Type& type) {
 
         std::optional<std::string> customMessage() const override {
             std::stringstream ss;
-            ss << "Variable " << variable.name() << " type should be a subtype of " << type.getName();
+            ss << "Type of variable '" << variable.name() << "' should be a subtype of '"
+               << type.getPrettyName() << "'";
             return ss.str();
         }
     };
