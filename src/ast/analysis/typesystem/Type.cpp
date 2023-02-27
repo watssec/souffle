@@ -530,10 +530,6 @@ void TypeAnalysis::run(const TranslationUnit& translationUnit) {
 
         // Analyse general argument types, clause by clause.
         for (const Clause* clause : program.getClauses()) {
-            if (!errorAnalyzer && (translationUnit.global().config().has("explain-error", "types") ||
-                                          translationUnit.global().config().has("explain-error", "all"))) {
-                errorAnalyzer = std::make_shared<TypeErrorAnalyzer>();
-            }
             auto clauseArgumentTypes =
                     analyseTypes(translationUnit, *clause, errorAnalyzer.get(), debugStream);
             argumentTypes.insert(clauseArgumentTypes.begin(), clauseArgumentTypes.end());
@@ -822,7 +818,9 @@ void TypeAnnotationPrinter::printAnnotatedClause(const Clause& clause) {
     os << "." << std::endl;
 }
 
-TypeAnalysis::TypeAnalysis() : Analysis(name) {}
+TypeAnalysis::TypeAnalysis() : Analysis(name) {
+    errorAnalyzer = std::make_shared<TypeErrorAnalyzer>();
+}
 TypeAnalysis::~TypeAnalysis() = default;
 
 }  // namespace souffle::ast::analysis

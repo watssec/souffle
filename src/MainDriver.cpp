@@ -720,11 +720,6 @@ std::vector<MainOption> getMainOptions() {
               "\ttransformed-ast\n"
               "\ttransformed-ram\n"
               "\ttype-analysis"},
-      {"explain-error", nextOptChar++, "[ <see-list> ]", "", true,
-          "[Experimental] Shows a more user friendly error log.\n"
-          "Supported errors explanations:\n"
-              "\ttypes\n"
-              "\tall"},
       {"swig", 's', "LANG", "", false,
           "Generate SWIG interface for given language. The values <LANG> accepts is java and "
           "python. "},
