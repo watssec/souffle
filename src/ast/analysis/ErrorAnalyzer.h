@@ -22,6 +22,7 @@
 #include <set>
 #include <sstream>
 #include <vector>
+#include <functional>
 
 #include "ConstraintSystem.h"
 #include "ast/Argument.h"
@@ -32,13 +33,28 @@ namespace souffle::ast::analysis {
 
 template <typename Var>
 class ErrorAnalyzer {
+  private:
+    // A custom less functor to have the same result depending on the run and the platform
+    template <typename T>
+    struct less {
+        bool operator()(const std::shared_ptr<T>& lhs, const std::shared_ptr<T>& rhs) const {
+            return std::less<std::string>{}(str(lhs), str(rhs));
+        }
+        std::string str(const std::shared_ptr<T>& v) const {
+            std::stringstream ss;
+            ss << *v;
+            return ss.str();
+        }
+    };
 public:
+
     using constraint_type = Constraint<Var>;
     using constraint_ptr_type = std::shared_ptr<constraint_type>;
     using unsat_core_type = typename std::set<constraint_ptr_type>;
+    using internal_unsat_core_type = typename std::set<constraint_ptr_type, less<constraint_type>>;
 
     void addUnsatCore(const Argument* arg, const unsat_core_type& unsat_core) {
-        unsatCores[arg] = unsat_core;
+        unsatCores[arg].insert(unsat_core.begin(), unsat_core.end());
     }
 
     void print(std::ostream& os) const {
@@ -102,7 +118,7 @@ public:
     }
 
 private:
-    std::map<const Argument*, unsat_core_type> unsatCores;
+    std::map<const Argument*, internal_unsat_core_type> unsatCores;
     std::map<constraint_ptr_type, SrcLocation> constraintLocations;  // @todo maybe use pointer here
     std::multimap<const Argument*, const Argument*> equivalentArguments;
     std::set<const Argument*> explainedArguments;
