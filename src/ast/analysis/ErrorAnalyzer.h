@@ -16,13 +16,13 @@
 
 #pragma once
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <ostream>
 #include <set>
 #include <sstream>
 #include <vector>
-#include <functional>
 
 #include "ConstraintSystem.h"
 #include "ast/Argument.h"
@@ -33,7 +33,7 @@ namespace souffle::ast::analysis {
 
 template <typename Var>
 class ErrorAnalyzer {
-  private:
+private:
     // A custom less functor to have the same result depending on the run and the platform
     template <typename T>
     struct less {
@@ -46,8 +46,8 @@ class ErrorAnalyzer {
             return ss.str();
         }
     };
-public:
 
+public:
     using constraint_type = Constraint<Var>;
     using constraint_ptr_type = std::shared_ptr<constraint_type>;
     using unsat_core_type = typename std::set<constraint_ptr_type>;
