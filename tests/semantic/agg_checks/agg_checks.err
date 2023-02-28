@@ -10,7 +10,9 @@ r("X",Y) :- Y = min X : { X != Y }.
 Error: Unable to deduce type for variable Y in file agg_checks.dl at line 11
 r("X",Y) :- Y = min X : { X != Y, !a(X,Y) }.
 ------^--------------------------------------
-Following constraints are incompatible:
+Error: Unable to deduce type for variable Y in file agg_checks.dl at line 11
+r("X",Y) :- Y = min X : { X != Y, !a(X,Y) }.
+------------^--------------------------------
 Error: Couldn't assign types to the aggregator in file agg_checks.dl at line 11
 r("X",Y) :- Y = min X : { X != Y, !a(X,Y) }.
 ----------------^----------------------------
@@ -26,10 +28,12 @@ r("X",Y) :- Y = min X : { X != Y, !a(X,Y) }.
 Error: Unable to deduce type for variable Y0 in file agg_checks.dl at line 11
 r("X",Y) :- Y = min X : { X != Y, !a(X,Y) }.
 -------------------------------^-------------
-Following constraints are incompatible:
 Error: Ungrounded variable Y0 in file agg_checks.dl at line 11
 r("X",Y) :- Y = min X : { X != Y, !a(X,Y) }.
 -------------------------------^-------------
+Error: Unable to deduce type for variable Y0 in file agg_checks.dl at line 11
+r("X",Y) :- Y = min X : { X != Y, !a(X,Y) }.
+---------------------------------------^-----
 Error: Ungrounded variable X in file agg_checks.dl at line 14
 r("X",Y) :- Y = min X : { a("A",2) }.
 --------------------^-----------------
@@ -42,7 +46,9 @@ r("X",Y) :- Y = min X : { a("A",Y), Y>X }.
 Error: Unable to deduce type for variable Y in file agg_checks.dl at line 20
 r("X",Y) :- Y = min X : a(X,_).
 ------^-------------------------
-Following constraints are incompatible:
+Error: Unable to deduce type for variable Y in file agg_checks.dl at line 20
+r("X",Y) :- Y = min X : a(X,_).
+------------^-------------------
 Error: Couldn't assign types to the aggregator in file agg_checks.dl at line 20
 r("X",Y) :- Y = min X : a(X,_).
 ----------------^---------------
@@ -67,4 +73,4 @@ Relation r in file agg_checks.dl at line 6
 has cyclic aggregation in file agg_checks.dl at line 28
 r("X",Y) :- Y = min Y : r("X",Y).
 ------------------------^---------
-16 errors generated, evaluation aborted
+19 errors generated, evaluation aborted

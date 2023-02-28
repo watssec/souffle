@@ -95,26 +95,33 @@ public:
     void explain(ErrorReport& report, const Argument* var, std::string message) {
         if (argumentIsExplained(var)) return;
         std::vector<DiagnosticMessage> additionalMessages;
+        bool doMarkAsExplained = true;
         if (auto it = unsatCores.find(var); it != unsatCores.end()) {
-            additionalMessages.emplace_back("Following constraints are incompatible:");
-            for (const auto& constraint : it->second) {
-                std::stringstream ss;
-                if (auto customMessage = constraint->customMessage(); customMessage) {
-                    ss << "   " << *customMessage;
-                } else {
-                    ss << "   " << *constraint;
+            if (!it->second.empty()) {
+                additionalMessages.emplace_back("Following constraints are incompatible:");
+                for (const auto& constraint : it->second) {
+                    std::stringstream ss;
+                    if (auto customMessage = constraint->customMessage(); customMessage) {
+                        ss << "   " << *customMessage;
+                    } else {
+                        ss << "   " << *constraint;
+                    }
+                    if (auto it = constraintLocations.find(constraint); it != constraintLocations.end()) {
+                        additionalMessages.emplace_back(ss.str(), it->second);
+                    } else {
+                        additionalMessages.emplace_back(ss.str());
+                    }
                 }
-                if (auto it = constraintLocations.find(constraint); it != constraintLocations.end()) {
-                    additionalMessages.emplace_back(ss.str(), it->second);
-                } else {
-                    additionalMessages.emplace_back(ss.str());
-                }
+            } else {
+                doMarkAsExplained = false;
             }
         }
         Diagnostic diag{Diagnostic::Type::ERROR, DiagnosticMessage{message, var->getSrcLoc()},
                 std::move(additionalMessages)};
         report.addDiagnostic(diag);
-        markArgumentAsExplained(var);
+        if (doMarkAsExplained) {
+            markArgumentAsExplained(var);
+        }
     }
 
 private:
