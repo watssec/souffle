@@ -8,9 +8,9 @@
 
 /************************************************************************
  *
- * @file ErrorAnalyzer.h
+ * @file ValueChecker.h
  *
- * Extract reasons why something went wrong.
+ * Declares methods to check if value is valid.
  *
  ***********************************************************************/
 

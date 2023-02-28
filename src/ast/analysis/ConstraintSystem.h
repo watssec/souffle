@@ -430,8 +430,7 @@ public:
         return assignment;
     }
 
-    unsat_core_type extractUnsatCore(  // const problem_type& constraints,
-            const Var& var) {
+    unsat_core_type extractUnsatCore(const Var& var) {
         unsat_core_type unsat_core;
         const auto& constraints = (static_cast<Problem*>(this))->constraints;
 
@@ -443,6 +442,7 @@ public:
             if (!this->valueIsValid(assignment[var])) {
                 break;
             }
+            auto size_unsat_core = unsat_core.size();
             for (const auto& constraint : constraints) {
                 constraint->update(assignment);
                 if (!this->valueIsValid(assignment[var])) {
@@ -450,6 +450,7 @@ public:
                     break;
                 }
             }
+            if (size_unsat_core == unsat_core.size()) break;
         }
         return unsat_core;
     }
