@@ -39,7 +39,11 @@ void TypeConstraintsAnalysis::visit_(type_identity<Atom>, const Atom& atom) {
     }
 
     iterateOverAtom(atom, [&](const Argument& argument, const Type& attributeType) {
-        addConstraint(isSubtypeOf(getVar(argument), attributeType));
+        auto constraint = isSubtypeOf(getVar(argument), attributeType);
+        addConstraint(constraint);
+        if (errorAnalyzer) {
+            errorAnalyzer->localizeConstraint(constraint, atom.getSrcLoc());
+        }
     });
 }
 
